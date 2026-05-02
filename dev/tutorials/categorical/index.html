@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Categorical Framework · ContACT.jl</title><meta name="title" content="Categorical Framework · ContACT.jl"/><meta property="og:title" content="Categorical Framework · ContACT.jl"/><meta property="twitter:title" content="Categorical Framework · ContACT.jl"/><meta name="description" content="Documentation for ContACT.jl."/><meta property="og:description" content="Documentation for ContACT.jl."/><meta property="twitter:description" content="Documentation for ContACT.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">ContACT.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../getting_started/">Getting Started</a></li><li><a class="tocitem" href="../composition/">Composition &amp; Stratification</a></li><li class="is-active"><a class="tocitem" href>Categorical Framework</a><ul class="internal"><li><a class="tocitem" href="#ACSet-Schemas"><span>ACSet Schemas</span></a></li><li><a class="tocitem" href="#Functorial-Data-Migration"><span>Functorial Data Migration</span></a></li><li><a class="tocitem" href="#Undirected-Wiring-Diagrams"><span>Undirected Wiring Diagrams</span></a></li><li><a class="tocitem" href="#Full-Pipeline"><span>Full Pipeline</span></a></li></ul></li></ul></li><li><span class="tocitem">Vignettes</span><ul><li><a class="tocitem" href="../../vignettes/01-introduction/">Introduction</a></li><li><a class="tocitem" href="../../vignettes/02-composition/">Composition</a></li><li><a class="tocitem" href="../../vignettes/03-categorical-framework/">Categorical Framework</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../api/types/">Types</a></li><li><a class="tocitem" href="../../api/survey/">Survey Operations</a></li><li><a class="tocitem" href="../../api/operations/">Matrix Operations</a></li><li><a class="tocitem" href="../../api/schemas/">ACSet Schemas</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Categorical Framework</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Categorical Framework</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/epirecipes/ContACT.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/epirecipes/ContACT.jl/blob/main/docs/src/tutorials/categorical.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Categorical-Framework"><a class="docs-heading-anchor" href="#Categorical-Framework">Categorical Framework</a><a id="Categorical-Framework-1"></a><a class="docs-heading-anchor-permalink" href="#Categorical-Framework" title="Permalink"></a></h1><p>This tutorial demonstrates the deeper categorical machinery powered by <a href="https://github.com/AlgebraicJulia/Catlab.jl">Catlab.jl</a>: ACSet schemas, functorial data migration, and undirected wiring diagrams.</p><h2 id="ACSet-Schemas"><a class="docs-heading-anchor" href="#ACSet-Schemas">ACSet Schemas</a><a id="ACSet-Schemas-1"></a><a class="docs-heading-anchor-permalink" href="#ACSet-Schemas" title="Permalink"></a></h2><p>An <strong>Attributed C-Set</strong> (ACSet) is a functor from a schema category to <strong>Set</strong>. ContACT.jl defines schemas that enforce structural invariants at construction time.</p><h3 id="Survey-Schema"><a class="docs-heading-anchor" href="#Survey-Schema">Survey Schema</a><a id="Survey-Schema-1"></a><a class="docs-heading-anchor-permalink" href="#Survey-Schema" title="Permalink"></a></h3><p>The survey schema captures participants, contacts, and age groups with explicit morphisms:</p><pre><code class="language-julia hljs">using ContACT
+using DataFrames
+using CSV
+using Catlab
+using Catlab.CategoricalAlgebra
+import ContACT: ⊕, ⊗, ↓
+
+# Load POLYMOD data
+data_dir = joinpath(dirname(dirname(pathof(ContACT))), &quot;data&quot;)
+participants = CSV.read(joinpath(data_dir, &quot;polymod_uk_participants.csv&quot;), DataFrame)
+contacts = CSV.read(joinpath(data_dir, &quot;polymod_uk_contacts.csv&quot;), DataFrame)
+
+parse_age(x::AbstractString) = x == &quot;NA&quot; ? missing : parse(Float64, x)
+parse_age(x::Real) = Float64(x)
+parse_age(::Missing) = missing
+
+rename!(participants, :part_age_exact =&gt; :part_age)
+participants.part_age = Float64.(participants.part_age)
+cnt_exact = parse_age.(contacts.cnt_age_exact)
+cnt_min = parse_age.(contacts.cnt_age_est_min)
+cnt_max = parse_age.(contacts.cnt_age_est_max)
+contacts.cnt_age = coalesce.(cnt_exact, (cnt_min .+ cnt_max) ./ 2)
+select!(contacts, [:part_id, :cnt_age])
+dropmissing!(contacts, :cnt_age)
+
+survey = ContactSurvey(participants, contacts)
+
+# Convert to ACSet
+partition = AgePartition([0, 5, 18, 45, 65])
+acs = ContactSurveyACSet(survey, partition)
+
+println(&quot;Survey ACSet:&quot;)
+println(&quot;  Age groups (G): $(nparts(acs, :G))&quot;)
+println(&quot;  Participants (P): $(nparts(acs, :P))&quot;)
+println(&quot;  Contacts (C): $(nparts(acs, :C))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Survey ACSet:
+  Age groups (G): 5
+  Participants (P): 1012
+  Contacts (C): 11873</code></pre><p>The ACSet enforces referential integrity:</p><pre><code class="language-julia hljs">all_reporters_valid = all(1 .&lt;= subpart(acs, :reporter) .&lt;= nparts(acs, :P))
+all_groups_valid = all(1 .&lt;= subpart(acs, :part_group) .&lt;= nparts(acs, :G)) &amp;&amp;
+                   all(1 .&lt;= subpart(acs, :cnt_group) .&lt;= nparts(acs, :G))
+println(&quot;All reporters valid: $all_reporters_valid&quot;)
+println(&quot;All group assignments valid: $all_groups_valid&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">All reporters valid: true
+All group assignments valid: true</code></pre><h3 id="Contact-Matrix-Schema"><a class="docs-heading-anchor" href="#Contact-Matrix-Schema">Contact Matrix Schema</a><a id="Contact-Matrix-Schema-1"></a><a class="docs-heading-anchor-permalink" href="#Contact-Matrix-Schema" title="Permalink"></a></h3><pre><code class="language-julia hljs">pop = [6987.0, 11537.0, 35854.0, 16000.0, 9492.0]
+cm = compute_matrix(survey, partition; population=pop)
+cm_sym = symmetrise(cm)
+
+acs_cm = LabelledContactMatrix(cm_sym)
+println(&quot;Contact Matrix ACSet:&quot;)
+println(&quot;  Groups (G): $(nparts(acs_cm, :G))&quot;)
+println(&quot;  Entries (E): $(nparts(acs_cm, :E))&quot;)
+println(&quot;  Labels: $(subpart(acs_cm, :gname))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Contact Matrix ACSet:
+  Groups (G): 5
+  Entries (E): 25
+  Labels: [&quot;[0,5)&quot;, &quot;[5,18)&quot;, &quot;[18,45)&quot;, &quot;[45,65)&quot;, &quot;65+&quot;]</code></pre><h2 id="Functorial-Data-Migration"><a class="docs-heading-anchor" href="#Functorial-Data-Migration">Functorial Data Migration</a><a id="Functorial-Data-Migration-1"></a><a class="docs-heading-anchor-permalink" href="#Functorial-Data-Migration" title="Permalink"></a></h2><p>A surjective map <span>$f: G_{\text{fine}} \to G_{\text{coarse}}$</span> between age-group objects induces a <strong>left Kan extension</strong> <span>$\Sigma_f$</span> that pushes survey data forward:</p><pre><code class="language-julia hljs">fine = AgePartition([0, 5, 18, 45, 65])
+acs_fine = ContactSurveyACSet(survey, fine)
+
+coarse = AgePartition([0, 18, 65])
+f = AgeMap(fine, coarse)
+acs_coarse = migrate_coarsen(acs_fine, f)
+
+println(&quot;Migration Σ_f:&quot;)
+println(&quot;  Groups: $(nparts(acs_fine, :G)) → $(nparts(acs_coarse, :G))&quot;)
+println(&quot;  Participants preserved: $(nparts(acs_coarse, :P))&quot;)
+println(&quot;  Contacts preserved: $(nparts(acs_coarse, :C))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Migration Σ_f:
+  Groups: 5 → 3
+  Participants preserved: 1012
+  Contacts preserved: 11873</code></pre><h3 id="Functoriality"><a class="docs-heading-anchor" href="#Functoriality">Functoriality</a><a id="Functoriality-1"></a><a class="docs-heading-anchor-permalink" href="#Functoriality" title="Permalink"></a></h3><p>Composing two migrations equals a single migration along the composite map:</p><pre><code class="language-julia hljs">very_fine = AgePartition([0, 5, 10, 18, 30, 45, 65])
+medium = AgePartition([0, 18, 45, 65])
+very_coarse = AgePartition([0, 65])
+
+acs_vf = ContactSurveyACSet(survey, very_fine)
+
+# Two-step migration
+f1 = AgeMap(very_fine, medium)
+f2 = AgeMap(medium, very_coarse)
+acs_twostep = migrate_coarsen(migrate_coarsen(acs_vf, f1), f2)
+
+# One-step migration
+f_composed = AgeMap(very_fine, very_coarse)
+acs_direct = migrate_coarsen(acs_vf, f_composed)
+
+println(&quot;Functoriality: Σ_{f₂} ∘ Σ_{f₁} = Σ_{f₂∘f₁}&quot;)
+println(&quot;  Part groups match: $(subpart(acs_twostep, :part_group) == subpart(acs_direct, :part_group))&quot;)
+println(&quot;  Contact groups match: $(subpart(acs_twostep, :cnt_group) == subpart(acs_direct, :cnt_group))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Functoriality: Σ_{f₂} ∘ Σ_{f₁} = Σ_{f₂∘f₁}
+  Part groups match: true
+  Contact groups match: true</code></pre><h2 id="Undirected-Wiring-Diagrams"><a class="docs-heading-anchor" href="#Undirected-Wiring-Diagrams">Undirected Wiring Diagrams</a><a id="Undirected-Wiring-Diagrams-1"></a><a class="docs-heading-anchor-permalink" href="#Undirected-Wiring-Diagrams" title="Permalink"></a></h2><p>UWDs provide a <strong>declarative</strong> specification of how setting-specific matrices compose. Each box is a setting; shared junctions represent compatible boundaries.</p><pre><code class="language-julia hljs">using Catlab.Programs: @relation
+
+diagram = @relation (pop,) begin
+    home(pop)
+    work(pop)
+    school(pop)
+    other(pop)
+end
+
+println(&quot;UWD: $(nparts(diagram, :Box)) boxes, $(nparts(diagram, :Junction)) junctions&quot;)
+println(&quot;Box names: $(subpart(diagram, :name))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">UWD: 4 boxes, 1 junctions
+Box names: [:home, :work, :school, :other]</code></pre><pre><code class="language-julia hljs">M_home = [1.8 0.3 0.4 0.1; 0.3 0.6 0.2 0.1; 0.4 0.2 1.0 0.3; 0.1 0.1 0.3 0.8]
+M_work = [0.0 0.0 0.0 0.0; 0.0 0.1 1.5 0.2; 0.0 1.5 2.5 0.4; 0.0 0.2 0.4 0.3]
+M_school = [3.5 2.0 0.1 0.0; 2.0 5.0 0.3 0.0; 0.1 0.3 0.2 0.0; 0.0 0.0 0.0 0.0]
+M_other = [0.5 0.3 0.4 0.2; 0.3 0.5 0.8 0.3; 0.4 0.8 1.2 0.5; 0.2 0.3 0.5 0.4]
+
+sharers = Dict(
+    :home   =&gt; ContactSharer(M_home),
+    :work   =&gt; ContactSharer(M_work),
+    :school =&gt; ContactSharer(M_school),
+    :other  =&gt; ContactSharer(M_other)
+)
+
+total = compose_uwd(diagram, sharers)
+round.(total; digits=2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 Matrix{Float64}:
+ 5.8  2.6  0.9  0.3
+ 2.6  6.2  2.8  0.6
+ 0.9  2.8  4.9  1.2
+ 0.3  0.6  1.2  1.5</code></pre><h3 id="Intervention-via-Diagram-Modification"><a class="docs-heading-anchor" href="#Intervention-via-Diagram-Modification">Intervention via Diagram Modification</a><a id="Intervention-via-Diagram-Modification-1"></a><a class="docs-heading-anchor-permalink" href="#Intervention-via-Diagram-Modification" title="Permalink"></a></h3><pre><code class="language-julia hljs"># School closure: simply omit the box
+diagram_closure = @relation (pop,) begin
+    home(pop)
+    work(pop)
+    other(pop)
+end
+
+total_closure = compose_uwd(diagram_closure, sharers)
+println(&quot;School closure matrix:&quot;)
+round.(total_closure; digits=2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 Matrix{Float64}:
+ 2.3  0.6  0.8  0.3
+ 0.6  1.2  2.5  0.6
+ 0.8  2.5  4.7  1.2
+ 0.3  0.6  1.2  1.5</code></pre><h2 id="Full-Pipeline"><a class="docs-heading-anchor" href="#Full-Pipeline">Full Pipeline</a><a id="Full-Pipeline-1"></a><a class="docs-heading-anchor-permalink" href="#Full-Pipeline" title="Permalink"></a></h2><pre><code class="language-julia hljs">partition_4 = AgePartition([0, 5, 18, 65])
+pop_4 = [6987.0, 11537.0, 35854.0, 9492.0]
+
+acs_survey = ContactSurveyACSet(survey, partition_4)
+cm_full = compute_matrix(survey, partition_4; population=pop_4)
+cm_sym2 = symmetrise(cm_full)
+cm_2grp = cm_sym2 ↓ AgePartition([0, 18])
+cm_regional = cm_2grp ⊗ [0.9 0.1; 0.1 0.9]
+
+println(&quot;Pipeline: Survey → ACSet → Matrix → Symmetrise → Coarsen → Stratify&quot;)
+println(&quot;  Input: $(nparts(acs_survey, :P)) participants&quot;)
+println(&quot;  Final: $(n_groups(cm_regional)) groups&quot;)
+println(&quot;  Spectral radius: $(round(spectral_radius(cm_regional); digits=2))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Pipeline: Survey → ACSet → Matrix → Symmetrise → Coarsen → Stratify
+  Input: 1012 participants
+  Final: 4 groups
+  Spectral radius: 11.18</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../composition/">« Composition &amp; Stratification</a><a class="docs-footer-nextpage" href="../../vignettes/01-introduction/">Introduction »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 2 May 2026 23:48">Saturday 2 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
