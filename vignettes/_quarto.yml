@@ -1,0 +1,23 @@
+project:
+  type: default
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    code-fold: false
+    code-tools: true
+  gfm:
+    toc: true
+  pdf:
+    documentclass: article
+    toc: true
+    mainfont: "STIX Two Text"
+    mathfont: "STIX Two Math"
+    monofont: "Fira Code"
+    pdf-engine: xelatex
+
+engine: julia
+
+julia:
+  project: "."

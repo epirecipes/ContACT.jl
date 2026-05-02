@@ -1,0 +1,35 @@
+# Julia package — do not track Manifest files for libraries
+/Manifest.toml
+docs/Manifest.toml
+vignettes/Manifest.toml
+
+# Documenter build output
+docs/build/
+
+# macOS
+.DS_Store
+
+# Editor
+*.swp
+*.swo
+*~
+
+# Lean build artifacts
+proofs/.lake/build/
+proofs/.lake/packages/
+proofs/.lake/config/
+
+# Quarto render output
+vignettes/**/*.html
+vignettes/**/*.pdf
+vignettes/**/_files/
+vignettes/.quarto/
+
+# Coverage
+*.cov
+lcov.info
+
+# AI assistant instructions
+CLAUDE.md
+.copilot/
+copilot-instructions.md
