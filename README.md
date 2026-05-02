@@ -95,7 +95,7 @@ Pkg.add("ContACT")
 
 For the development version:
 ```julia
-Pkg.add(url="https://github.com/epiforecasts/ContACT.jl")
+Pkg.add(url="https://github.com/epirecipes/ContACT.jl")
 ```
 
 ## Dependencies

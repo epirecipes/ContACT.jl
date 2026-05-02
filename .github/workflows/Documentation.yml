@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/**'
       - 'docs/**'
+      - 'vignettes/**'
       - 'Project.toml'
       - '.github/workflows/Documentation.yml'
     tags: ['*']
@@ -13,6 +14,7 @@ on:
     paths:
       - 'src/**'
       - 'docs/**'
+      - 'vignettes/**'
       - '.github/workflows/Documentation.yml'
 
 concurrency:
