@@ -64,9 +64,10 @@ uk_pop = [3433.0, 3554.0, 3824.0, 3956.0, 3757.0, 3520.0, 4009.0,
            4405.0, 4548.0, 4187.0, 3883.0, 3589.0, 3117.0, 2765.0,
            2425.0, 3752.0]
 
-cm = compute_matrix(survey, partition; population=uk_pop)
+# Apply the survey→matrix functor using ▷ (type \triangleright<TAB>)
+cm = survey ▷ partition
 println("Contact matrix: $(n_groups(cm)) age groups")
-println("Spectral radius (R₀ proxy): $(round(spectral_radius(cm); digits=2))")
+println("ρ(M) ∝ R₀: $(round(ρ(cm); digits=2))")
 nothing # hide
 ```
 
@@ -120,15 +121,21 @@ round.(matrix(cm_coarse); digits=2)
 
 ### Functoriality
 
-Coarsening in two steps gives the same result as one step:
+Coarsening in two steps gives the same result as one step — the defining
+property verified in our Lean proofs. Express with `∘` (map composition):
 
 ```@example tutorial
 mid = AgePartition([0, 15, 45, 65])
 final_part = AgePartition([0, 45])
 
-via_mid = (cm ↓ mid) ↓ final_part
-direct = cm ↓ final_part
+# Compose maps with ∘ (type \circ<TAB>)
+f = AgeMap(partition, mid)
+g = AgeMap(mid, final_part)
+h = g ∘ f
 
-println("Functoriality holds: $(matrix(via_mid) ≈ matrix(direct))")
+via_mid = (cm ↓ f) ↓ g
+direct = cm ↓ h
+
+println("cm ↓ (g ∘ f) ≈ (cm ↓ f) ↓ g: $(matrix(via_mid) ≈ matrix(direct))")
 round.(matrix(direct); digits=2)
 ```

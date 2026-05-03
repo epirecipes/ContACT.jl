@@ -3,51 +3,197 @@ Unicode operators for ContACT.jl.
 
 These provide a concise algebraic syntax for contact matrix operations.
 Type the LaTeX name followed by TAB in the Julia REPL to enter these:
-  \\oplus<TAB>  → ⊕
-  \\otimes<TAB> → ⊗
-  \\downarrow<TAB> → ↓
+
+| Operator | LaTeX | Operation | Example |
+|----------|-------|-----------|---------|
+| `⊕` | `\\oplus` | Additive composition | `cm_home ⊕ cm_work` |
+| `⊗` | `\\otimes` | Stratification (Kronecker) | `cm ⊗ coupling` |
+| `↓` | `\\downarrow` | Coarsening | `cm ↓ coarse` |
+| `↑` | `\\uparrow` | Refinement | `cm ↑ prior` |
+| `▷` | `\\triangleright` | Functor (compute matrix) | `survey ▷ partition` |
+| `∘` | `\\circ` | Map composition | `g ∘ f` |
+| `ρ` | `\\rho` | Spectral radius | `ρ(cm)` |
 """
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Additive composition: ⊕
+# ═══════════════════════════════════════════════════════════════════════════════
 
 """
     a ⊕ b
 
-Additive composition of contact matrices. Type `\\oplus<TAB>`.
+Additive composition of contact matrices (commutative monoid). Type `\\oplus<TAB>`.
 
-Equivalent to `compose_matrices(a, b)`.
+Categorically, this is the monoidal product in the category of contact matrices
+over a fixed age partition: (ContactMat, ⊕, 𝟎) where 𝟎 is the zero matrix.
+
+# Properties (proven in Lean)
+- Associativity: `(A ⊕ B) ⊕ C == A ⊕ (B ⊕ C)`
+- Commutativity: `A ⊕ B == B ⊕ A`
+- Identity: `A ⊕ 𝟎 == A`
 
 # Example
 ```julia
-total = cm_home ⊕ cm_work ⊕ cm_school ⊕ cm_other
+cm_total = cm_home ⊕ cm_work ⊕ cm_school ⊕ cm_other
 ```
 """
 ⊕(a::ContactMatrix, b::ContactMatrix) = compose_matrices(a, b)
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Stratification (Kronecker product): ⊗
+# ═══════════════════════════════════════════════════════════════════════════════
+
 """
     cm ⊗ coupling
 
-Stratify a contact matrix by a coupling matrix. Type `\\otimes<TAB>`.
+Stratify a contact matrix by a coupling matrix (Kronecker product). Type `\\otimes<TAB>`.
 
-Equivalent to `stratify(cm, coupling)`.
+Creates a block-structured matrix where local age contacts are modulated by
+inter-stratum coupling: `M_spatial = coupling ⊗ M_local`.
 
 # Example
 ```julia
-# 3 regions with uniform mixing
-spatial = cm ⊗ ones(3, 3) / 3
+coupling = [0.8 0.2; 0.2 0.8]
+cm_spatial = cm ⊗ coupling   # 2 regions × n ages
 ```
 """
 ⊗(cm::ContactMatrix, coupling::AbstractMatrix) = stratify(cm, coupling)
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Coarsening (left Kan extension): ↓
+# ═══════════════════════════════════════════════════════════════════════════════
+
 """
     cm ↓ coarse_partition
+    cm ↓ f::AgeMap
 
-Coarsen a contact matrix to a coarser age partition. Type `\\downarrow<TAB>`.
+Coarsen a contact matrix along a surjective age-group map. Type `\\downarrow<TAB>`.
 
-Equivalent to `coarsen(cm, coarse_partition)`.
+This is the left Kan extension: it pushes forward contact data while preserving
+total contacts. Satisfies functoriality (proven in Lean):
+
+    `cm ↓ (g ∘ f) == (cm ↓ f) ↓ g`
 
 # Example
 ```julia
-coarse = AgePartition([0, 18, 65])
-cm_coarse = cm ↓ coarse
+cm_coarse = cm ↓ AgePartition([0, 18, 65])
+cm_coarse = cm ↓ AgeMap(fine, coarse)
 ```
 """
 ↓(cm::ContactMatrix, coarse::AgePartition) = coarsen(cm, coarse)
+↓(cm::ContactMatrix, f::AgeMap) = coarsen(cm, f)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Refinement (parameterised disaggregation): ↑
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+    RefinementPrior(partition, population)
+
+Packages a target fine partition with the distributional prior (population per group)
+needed for proportional refinement. Use with the `↑` operator.
+
+# Example
+```julia
+prior = RefinementPrior(AgePartition([0, 5, 18, 65]), [800, 1200, 3000, 500])
+cm_fine = cm ↑ prior
+```
+"""
+struct RefinementPrior
+    partition::AgePartition
+    population::Vector{Float64}
+
+    function RefinementPrior(partition::AgePartition, population::AbstractVector{<:Real})
+        n_groups(partition) == length(population) || throw(DimensionMismatch(
+            "partition has $(n_groups(partition)) groups but population has $(length(population)) entries"))
+        new(partition, Float64.(population))
+    end
+end
+
+"""
+    cm ↑ prior::RefinementPrior
+
+Refine a coarse contact matrix to a finer partition. Type `\\uparrow<TAB>`.
+
+Unlike coarsening (which is canonical), refinement requires auxiliary assumptions
+encoded in a `RefinementPrior`. This is NOT an inverse of `↓`.
+
+# Example
+```julia
+prior = RefinementPrior(AgePartition([0, 5, 18, 65]), fine_pop)
+cm_fine = cm ↑ prior
+```
+"""
+↑(cm::ContactMatrix, prior::RefinementPrior) = refine(cm, prior.partition, prior.population)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Functor application: ▷
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+    survey ▷ partition
+
+Apply the survey-to-matrix functor. Type `\\triangleright<TAB>`.
+
+Categorically, this is the image of `survey` under the functor
+F: ContactSurvey → ContactMatrix. For the full API with population and
+weights, use `compute_matrix(survey, partition; kwargs...)`.
+
+# Example
+```julia
+cm = survey ▷ partition
+```
+"""
+▷(survey::ContactSurvey, partition::AgePartition) = compute_matrix(survey, partition)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AgeMap composition: ∘
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+    g ∘ f
+
+Compose age-group maps (right-to-left, standard mathematical convention).
+Type `\\circ<TAB>`.
+
+Given `f: A → B` and `g: B → C`, yields `g ∘ f: A → C`.
+Satisfies functoriality (proven in Lean):
+
+    `coarsen(cm, g ∘ f) == coarsen(coarsen(cm, f), g)`
+
+# Example
+```julia
+f = AgeMap(fine, medium)      # fine → medium
+g = AgeMap(medium, coarse)    # medium → coarse
+h = g ∘ f                     # fine → coarse (composed)
+```
+"""
+function Base.:∘(g::AgeMap, f::AgeMap)
+    f.codomain.limits == g.domain.limits || throw(ArgumentError(
+        "Cannot compose: f codomain $(f.codomain.limits) ≠ g domain $(g.domain.limits)"))
+    # Compose the underlying FinFunctions
+    f_assignments = collect(f.mapping)
+    g_assignments = collect(g.mapping)
+    composed = [g_assignments[f_assignments[i]] for i in eachindex(f_assignments)]
+    AgeMap(f.domain, g.codomain, composed)
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Spectral radius: ρ
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+    ρ(cm)
+
+Spectral radius (dominant eigenvalue) of a contact matrix. Type `\\rho<TAB>`.
+
+In epidemiology, `ρ(M)` is proportional to R₀ for frequency-dependent
+transmission: R₀ = β/γ · ρ(M).
+
+# Example
+```julia
+ρ(cm_total)           # basic reproductive ratio proxy
+ρ(cm_lockdown) / ρ(cm_total)  # relative reduction
+```
+"""
+ρ(cm::ContactMatrix) = spectral_radius(cm)

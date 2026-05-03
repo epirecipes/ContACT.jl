@@ -72,11 +72,11 @@ cm_closure = cm_home ⊕ cm_work ⊕ cm_other
 cm_wfh = ContactMatrix(0.3 .* M_work, partition, uk_pop)
 cm_lockdown = cm_home ⊕ cm_wfh ⊕ cm_other
 
-println("Spectral radius (R₀ proxy):")
-println("  Normal:         $(round(spectral_radius(cm_total); digits=2))")
-println("  School closure: $(round(spectral_radius(cm_closure); digits=2))")
-println("  Lockdown:       $(round(spectral_radius(cm_lockdown); digits=2))")
-println("  Home only:      $(round(spectral_radius(cm_home); digits=2))")
+println("Spectral radius ρ(M) ∝ R₀:")
+println("  Normal:         $(round(ρ(cm_total); digits=2))")
+println("  School closure: $(round(ρ(cm_closure); digits=2))")
+println("  Lockdown:       $(round(ρ(cm_lockdown); digits=2))")
+println("  Home only:      $(round(ρ(cm_home); digits=2))")
 nothing # hide
 ```
 
@@ -93,7 +93,7 @@ coupling = [0.8 0.15 0.05;
 
 cm_spatial = cm_total ⊗ coupling
 println("Stratified: $(n_groups(cm_spatial)) groups (3 regions × 4 ages)")
-println("Spectral radius: $(round(spectral_radius(cm_spatial); digits=2))")
+println("ρ(M_spatial): $(round(ρ(cm_spatial); digits=2))")
 nothing # hide
 ```
 

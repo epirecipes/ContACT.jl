@@ -1,24 +1,28 @@
 # ContACT.jl
 
-*Applied category theory for contact matrices in infectious disease modelling.*
+*Applied category theory for structured contact matrices.*
 
 ## Overview
 
 ContACT.jl provides a category-theoretic framework for constructing,
-manipulating, and composing age-structured contact matrices from social mixing
+manipulating, and composing structured contact matrices from social mixing
 survey data. Built on [Catlab.jl](https://github.com/AlgebraicJulia/Catlab.jl),
 it provides formal guarantees (functoriality, idempotence, associativity) verified
 both in tests and companion Lean 4 proofs.
 
-## Key Features
+## Algebraic Operators
 
-| Operation | Operator | Category-theoretic interpretation |
-|-----------|----------|----------------------------------|
-| Composition | `⊕` | Commutative monoid on Hom(G,G) |
-| Stratification | `⊗` | Kronecker product with coupling |
-| Coarsening | `↓` | Left Kan extension along surjection |
-| Symmetrisation | `symmetrise` | Idempotent endomorphism |
-| Survey → Matrix | `compute_matrix` | Restricted functor |
+All core operations have Unicode operators (type LaTeX name + TAB in the REPL):
+
+| Operator | Input | Category-theoretic role |
+|----------|-------|------------------------|
+| `⊕` | `\oplus` | Commutative monoid (additive composition) |
+| `⊗` | `\otimes` | Kronecker stratification functor |
+| `↓` | `\downarrow` | Left Kan extension (coarsening) |
+| `↑` | `\uparrow` | Parameterised refinement (with prior) |
+| `▷` | `\triangleright` | Functor application (survey → matrix) |
+| `∘` | `\circ` | Morphism composition (AgeMap) |
+| `ρ` | `\rho` | Spectral radius (R₀ proxy) |
 
 ## Quick Example
 
@@ -36,23 +40,36 @@ cm = ContactMatrix(M, partition, pop)
 ```
 
 ```@example quickstart
-# Symmetrise (idempotent endomorphism)
-cm_sym = symmetrise(cm)
-matrix(cm_sym)
+# Coarsen via ↓ (left Kan extension)
+cm_coarse = cm ↓ AgePartition([0, 18])
+matrix(cm_coarse)
 ```
 
 ```@example quickstart
-# Coarsen to 2 groups (left Kan extension)
-coarse = AgePartition([0, 18])
-cm_coarse = cm ↓ coarse
-matrix(cm_coarse)
+# Compose maps with ∘, verify functoriality
+fine = AgePartition([0, 18, 45, 65])
+M4 = [2.0 1.0 0.5 0.2; 1.0 3.0 1.0 0.3; 0.5 1.0 2.5 0.8; 0.2 0.3 0.8 1.5]
+pop4 = [1000.0, 2000.0, 1500.0, 500.0]
+cm4 = ContactMatrix(M4, fine, pop4)
+
+f = AgeMap(fine, partition)       # fine → 3 groups
+g = AgeMap(partition, AgePartition([0, 18]))  # 3 → 2 groups
+h = g ∘ f                        # composed: fine → 2 groups
+
+# Functoriality: cm ↓ (g ∘ f) == (cm ↓ f) ↓ g
+println("Functorial: $(matrix(cm4 ↓ h) ≈ matrix((cm4 ↓ f) ↓ g))")
+```
+
+```@example quickstart
+# Spectral radius ρ — proportional to R₀
+println("ρ(M) = $(round(ρ(cm); digits=2))")
 ```
 
 ## Installation
 
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/your-org/ContACT.jl")
+Pkg.add(url="https://github.com/epirecipes/ContACT.jl")
 ```
 
 ## Contents

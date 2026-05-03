@@ -7,7 +7,7 @@ using Catlab.CategoricalAlgebra
 using Catlab.Programs: @relation
 
 # Resolve ambiguity: use ContACT's operators explicitly
-import ContACT: ⊕, ⊗, ↓
+import ContACT: ⊕, ⊗, ↓, ↑, ▷, ρ
 
 # ---------------------------------------------------------------------------
 # Test data: synthetic survey
@@ -272,6 +272,88 @@ end
 
         result = compose_uwd(diagram, sharers)
         @test result ≈ M_home + M_work
+    end
+end
+
+@testset "Extended operators" begin
+    @testset "ρ (spectral radius)" begin
+        p = AgePartition([0, 18, 65])
+        M = [2.0 1.0 0.5; 1.0 3.0 1.0; 0.5 1.0 1.5]
+        pop = [1000.0, 3000.0, 500.0]
+        cm = ContactMatrix(M, p, pop)
+        @test ρ(cm) == spectral_radius(cm)
+        @test ρ(cm) > 0
+    end
+
+    @testset "↓ with AgeMap" begin
+        fine = AgePartition([0, 5, 18, 65])
+        M = [4.0 1.0 0.5 0.2; 1.0 3.0 1.0 0.3; 0.5 1.0 2.5 0.8; 0.2 0.3 0.8 1.5]
+        pop = [500.0, 1000.0, 3000.0, 800.0]
+        cm = ContactMatrix(M, fine, pop)
+        coarse = AgePartition([0, 18])
+        f = AgeMap(fine, coarse)
+        # Operator with AgeMap should equal function call
+        @test matrix(cm ↓ f) ≈ matrix(coarsen(cm, f))
+        @test matrix(cm ↓ f) ≈ matrix(cm ↓ coarse)
+    end
+
+    @testset "↑ with RefinementPrior" begin
+        coarse = AgePartition([0, 18, 65])
+        M = [2.0 1.0 0.5; 1.0 3.0 1.0; 0.5 1.0 1.5]
+        pop_coarse = [2000.0, 4000.0, 1000.0]
+        cm = ContactMatrix(M, coarse, pop_coarse)
+
+        fine = AgePartition([0, 5, 18, 45, 65])
+        fine_pop = [800.0, 1200.0, 2000.0, 2000.0, 1000.0]
+        prior = RefinementPrior(fine, fine_pop)
+
+        cm_fine = cm ↑ prior
+        @test n_groups(cm_fine) == 5
+        @test population(cm_fine) == fine_pop
+        @test matrix(cm_fine) ≈ matrix(refine(cm, fine, fine_pop))
+
+        # Dimension mismatch in RefinementPrior
+        @test_throws DimensionMismatch RefinementPrior(fine, [1.0, 2.0])
+    end
+
+    @testset "▷ (functor application)" begin
+        survey = make_test_survey()
+        partition = AgePartition([0, 18, 65])
+        # Operator should equal function call
+        cm_op = survey ▷ partition
+        cm_fn = compute_matrix(survey, partition)
+        @test matrix(cm_op) ≈ matrix(cm_fn)
+        @test n_groups(cm_op) == 3
+    end
+
+    @testset "∘ (AgeMap composition)" begin
+        fine = AgePartition([0, 5, 18, 45, 65])
+        medium = AgePartition([0, 18, 65])
+        coarse = AgePartition([0, 65])
+
+        f = AgeMap(fine, medium)   # fine → medium
+        g = AgeMap(medium, coarse) # medium → coarse
+        h = g ∘ f                  # fine → coarse
+
+        @test h.domain.limits == fine.limits
+        @test h.codomain.limits == coarse.limits
+
+        # Functoriality: coarsen(cm, g ∘ f) == coarsen(coarsen(cm, f), g)
+        M = [4.0 1.0 0.5 0.2 0.1;
+             1.0 3.0 1.0 0.3 0.1;
+             0.5 1.0 2.5 0.8 0.2;
+             0.2 0.3 0.8 1.5 0.4;
+             0.1 0.1 0.2 0.4 1.0]
+        pop = [500.0, 1000.0, 2000.0, 1500.0, 800.0]
+        cm = ContactMatrix(M, fine, pop)
+
+        lhs = cm ↓ h
+        rhs = (cm ↓ f) ↓ g
+        @test matrix(lhs) ≈ matrix(rhs)
+
+        # Incompatible composition should throw
+        wrong = AgeMap(AgePartition([0, 30, 65]), coarse)
+        @test_throws ArgumentError wrong ∘ f
     end
 end
 
