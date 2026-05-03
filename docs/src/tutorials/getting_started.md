@@ -7,7 +7,8 @@ disease models.
 ## Loading Survey Data
 
 ContACT.jl works with `ContactSurvey` objects containing participant and contact
-DataFrames.
+DataFrames. The survey itself only requires a participant identifier; the
+partition you choose specifies which participant/contact columns define groups.
 
 ```@example tutorial
 using ContACT
@@ -51,7 +52,8 @@ survey = ContactSurvey(participants, contacts)
 ## Computing a Contact Matrix
 
 The central operation is the **restricted functor** from surveys to contact
-matrices. We fix an age partition to make the operation deterministic:
+matrices. We fix a partition to make the operation deterministic; age is the
+default interval-valued partition:
 
 ```@example tutorial
 # Standard 5-year age bands
@@ -77,6 +79,46 @@ The result bundles the matrix with its partition, population, and semantics:
 println("Semantics: $(cm.semantics)")
 println("Age groups: $(age_labels(cm))")
 nothing # hide
+```
+
+## Non-age partitions
+
+The same functor works for categorical survey variables such as sex, region,
+occupation, or products of those variables. The partition carries the semantic
+dimension (`:sex`) and the column names used in the participant and contact
+tables:
+
+```@example tutorial
+participants_sex = DataFrame(part_id=[1, 2, 3], part_sex=["F", "M", "F"])
+contacts_sex = DataFrame(
+    part_id=[1, 1, 2, 3],
+    cnt_sex=["M", "F", "F", "F"],
+)
+survey_sex = ContactSurvey(participants_sex, contacts_sex)
+
+sex = CategoricalPartition(:sex;
+    participant_col=:part_sex,
+    contact_col=:cnt_sex,
+    levels=["F", "M"],
+    labels=["female", "male"],
+)
+
+cm_sex = survey_sex ▷ sex
+println(group_labels(cm_sex))
+matrix(cm_sex)
+```
+
+Product partitions combine grouping variables without inventing artificial
+numeric labels:
+
+```@example tutorial
+region = CategoricalPartition(:region;
+    participant_col=:part_region,
+    contact_col=:cnt_region,
+    levels=["north", "south"],
+)
+sex_region = sex × region
+group_labels(sex_region)
 ```
 
 ## Symmetrisation
@@ -108,8 +150,9 @@ nothing # hide
 
 ## Coarsening
 
-Coarsening is the left Kan extension along a surjective age-group map.
-The coarse partition's limits must be a subset of the fine partition's limits:
+Coarsening is the left Kan extension along a surjective partition map. For
+interval partitions such as age, the coarse limits must be a subset of the fine
+limits:
 
 ```@example tutorial
 coarse = AgePartition([0, 15, 45, 65])

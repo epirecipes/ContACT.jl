@@ -7,6 +7,7 @@ Simon Frost
 - [Loading POLYMOD Data](#loading-polymod-data)
 - [Preparing the Survey](#preparing-the-survey)
 - [Computing a Contact Matrix](#computing-a-contact-matrix)
+- [Other Finite Partitions](#other-finite-partitions)
 - [Symmetrisation (Idempotent
   Endomorphism)](#symmetrisation-idempotent-endomorphism)
 - [Coarsening (Left Kan Extension)](#coarsening-left-kan-extension)
@@ -16,10 +17,12 @@ Simon Frost
 ## Overview
 
 ContACT.jl applies **category theory** to the construction and
-manipulation of age-structured contact matrices from social mixing
-surveys. This vignette introduces the core workflow using the POLYMOD
-study (Mossong et al., 2008) — the gold standard for parameterising
-infectious disease models.
+manipulation of contact matrices from social mixing surveys. Age bands
+are the motivating example, but matrices can be indexed by any finite
+survey partition: sex, region, occupation, risk group, or product
+partitions such as age × sex. This vignette introduces the core workflow
+using the POLYMOD study (Mossong et al., 2008) — the gold standard for
+parameterising infectious disease models.
 
 The key categorical insight: a contact matrix is not merely a numerical
 array but an **object** in a category where morphisms are
@@ -33,6 +36,7 @@ using ContACT
 using CSV
 using DataFrames
 using LinearAlgebra
+import ContACT: ×
 ```
 
 ## Loading POLYMOD Data
@@ -68,10 +72,12 @@ first(participants, 5)
 
 ## Preparing the Survey
 
-ContACT.jl expects a `ContactSurvey` with columns `:part_id`,
-`:part_age` (participants) and `:part_id`, `:cnt_age` (contacts).
-POLYMOD stores ages as `:part_age_exact` and either `:cnt_age_exact` or
-estimated ranges (as strings with “NA” for missing).
+ContACT.jl expects a `ContactSurvey` with participant identifiers. The
+chosen partition supplies the participant/contact columns used for
+grouping. For an `AgePartition`, those default to `:part_age`
+(participants) and `:cnt_age` (contacts). POLYMOD stores ages as
+`:part_age_exact` and either `:cnt_age_exact` or estimated ranges (as
+strings with “NA” for missing).
 
 ``` julia
 # Helper to parse string ages (CSV stores them as strings with "NA")
@@ -100,8 +106,8 @@ println("Survey: $(nrow(survey.participants)) participants, $(nrow(survey.contac
 ## Computing a Contact Matrix
 
 The central operation is the **restricted functor** from surveys to
-contact matrices. We fix an age partition — this makes the operation
-deterministic and functorial:
+contact matrices. We fix a partition — here, an interval-valued age
+partition — which makes the operation deterministic and functorial:
 
 ``` julia
 # Standard 5-year age bands up to 75+
@@ -124,8 +130,8 @@ println("Spectral radius ρ(M) ∝ R₀: $(round(ρ(cm); digits=2))")
     Spectral radius ρ(M) ∝ R₀: 12.24
 
 The result is a `ContactMatrix` — not just a bare array, but a
-categorical object bundling the matrix with its age partition,
-population, and semantics:
+categorical object bundling the matrix with its partition, population,
+and semantics:
 
 ``` julia
 println("Type: $(typeof(cm))")
@@ -133,9 +139,60 @@ println("Semantics: $(cm.semantics)")
 println("Age groups: $(age_labels(cm))")
 ```
 
-    Type: ContACT.ContactMatrix{Float64, ContACT.MeanContacts}
+    Type: ContACT.ContactMatrix{Float64, ContACT.MeanContacts, ContACT.AgePartition}
     Semantics: ContACT.MeanContacts()
     Age groups: ["[0,5)", "[5,10)", "[10,15)", "[15,20)", "[20,25)", "[25,30)", "[30,35)", "[35,40)", "[40,45)", "[45,50)", "[50,55)", "[55,60)", "[60,65)", "[65,70)", "[70,75)", "75+"]
+
+## Other Finite Partitions
+
+The same machinery works when the survey variable is categorical. The
+partition records both the mathematical dimension (`:sex`) and the
+concrete survey columns used for participants and contacts:
+
+``` julia
+participants_sex = DataFrame(part_id=[1, 2, 3], part_sex=["F", "M", "F"])
+contacts_sex = DataFrame(
+    part_id=[1, 1, 2, 3],
+    cnt_sex=["M", "F", "F", "F"],
+)
+survey_sex = ContactSurvey(participants_sex, contacts_sex)
+
+sex = CategoricalPartition(:sex;
+    participant_col=:part_sex,
+    contact_col=:cnt_sex,
+    levels=["F", "M"],
+    labels=["female", "male"],
+)
+
+cm_sex = survey_sex ▷ sex
+println("Groups: $(group_labels(cm_sex))")
+display(matrix(cm_sex))
+```
+
+    Groups: ["female", "male"]
+
+    2×2 Matrix{Float64}:
+     1.0  1.0
+     0.5  0.0
+
+Product partitions combine grouping dimensions without pretending that
+the result is still an age axis:
+
+``` julia
+region = CategoricalPartition(:region;
+    participant_col=:part_region,
+    contact_col=:cnt_region,
+    levels=["north", "south"],
+)
+sex_region = sex × region
+group_labels(sex_region)
+```
+
+    4-element Vector{String}:
+     "female:north"
+     "female:south"
+     "male:north"
+     "male:south"
 
 ## Symmetrisation (Idempotent Endomorphism)
 
@@ -169,12 +226,13 @@ println("Idempotent: $(matrix(cm_sym2) ≈ matrix(cm_sym))")
 
 ## Coarsening (Left Kan Extension)
 
-A key morphism is **coarsening**: reducing the number of age groups.
-Categorically, this is a left Kan extension along a surjective age-group
-map $f: G_{\mathrm{fine}} \to G_{\mathrm{coarse}}$.
+A key morphism is **coarsening**: reducing the number of partition
+groups. Categorically, this is a left Kan extension along a surjective
+partition map $f: G_{\mathrm{fine}} \to G_{\mathrm{coarse}}$.
 
-The coarse partition must have limits that are a **subset** of the fine
-partition’s limits (ensuring a well-defined surjection between groups).
+For interval partitions such as age, the coarse partition must have
+limits that are a **subset** of the fine partition’s limits (ensuring a
+well-defined surjection between groups).
 
 ``` julia
 # Coarsen to broader groups (limits must be a subset of the fine partition)

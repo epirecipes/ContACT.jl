@@ -2,28 +2,28 @@
 The functor: ContactSurvey → ContactMatrix.
 
 This implements the restricted functor from the subcategory of surveys
-(with fixed age partition) to the category of contact matrices.
+(with fixed partition) to the category of contact matrices.
 
 Categorically: compute_matrix is a functor F: Survey(P) → Contact
 where Survey(P) is the subcategory of surveys equipped with a fixed
-age partition P.
+finite partition P.
 """
 
 """
-    compute_matrix(survey::ContactSurvey, partition::AgePartition;
+    compute_matrix(survey::ContactSurvey, partition::AbstractPartition;
                    population=nothing, weights=nothing)
 
-Compute a contact matrix from survey data with a fixed age partition.
+Compute a contact matrix from survey data with a fixed finite partition.
 
 This is the central functor of ContACT.jl: it maps individual-level
-contact data to an age-structured contact matrix.
+contact data to a structured contact matrix.
 
 # Arguments
 - `survey`: a `ContactSurvey` with participant and contact data
-- `partition`: the age discretisation to use
+- `partition`: the finite partition to use
 
 # Keyword Arguments
-- `population`: population vector per age group (for weighting/symmetrisation).
+- `population`: population vector per group (for weighting/symmetrisation).
   If `nothing`, uses the empirical participant distribution.
 - `weights`: column name in participants to use as sampling weights, or `nothing`
 
@@ -37,16 +37,13 @@ partition = AgePartition([0, 5, 18, 65])
 cm = compute_matrix(survey, partition)
 ```
 """
-function compute_matrix(survey::ContactSurvey, partition::AgePartition;
+function compute_matrix(survey::ContactSurvey, partition::AbstractPartition;
                         population::Union{Nothing, AbstractVector{<:Real}}=nothing,
                         weights::Union{Nothing, Symbol}=nothing)
-    limits = age_limits(partition)
     n = n_groups(partition)
 
-    # Assign age groups to participants
-    part_groups = _assign_age_group.(survey.participants.part_age, Ref(limits))
-    # Assign age groups to contacts
-    cnt_groups = _assign_age_group.(survey.contacts.cnt_age, Ref(limits))
+    part_groups = [assign_participant_group(partition, row) for row in eachrow(survey.participants)]
+    cnt_groups = [assign_contact_group(partition, row) for row in eachrow(survey.contacts)]
 
     # Build weight vector
     if weights === nothing
@@ -62,7 +59,7 @@ function compute_matrix(survey::ContactSurvey, partition::AgePartition;
             throw(ArgumentError("weight column :$weights must be finite and non-negative"))
     end
 
-    # Count weighted contacts per (participant_group, contact_group) pair
+    # Count weighted contacts per (participant group, contact group) pair
     contact_counts = zeros(Float64, n, n)
     participant_weights = zeros(Float64, n)
 
@@ -101,15 +98,4 @@ function compute_matrix(survey::ContactSurvey, partition::AgePartition;
     end
 
     ContactMatrix(M, partition, pop, MeanContacts())
-end
-
-# Assign a single age to an age group index (1-based), or nothing if missing.
-function _assign_age_group(age, limits::Vector{Float64})
-    age === missing && return nothing
-    a = Float64(age)
-    isfinite(a) || return nothing
-    # Find the last limit ≤ age
-    grp = searchsortedlast(limits, a)
-    grp == 0 && return nothing  # age below minimum limit
-    return grp
 end

@@ -7,7 +7,7 @@ using Catlab.CategoricalAlgebra
 using Catlab.Programs: @relation
 
 # Resolve ambiguity: use ContACT's operators explicitly
-import ContACT: ⊕, ⊗, ↓, ↑, ▷, ↔, ρ
+import ContACT: ⊕, ⊗, ↓, ↑, ▷, ↔, ρ, ×
 
 # ---------------------------------------------------------------------------
 # Test data: synthetic survey
@@ -70,6 +70,69 @@ end
     # Subset
     sub = subset_survey(survey, [1, 3, 5])
     @test nrow(sub.participants) == 3
+end
+
+@testset "General partitions" begin
+    participants = DataFrame(
+        part_id = 1:4,
+        part_age = [8.0, 30.0, 12.0, 50.0],
+        part_sex = ["F", "M", "F", "M"],
+        part_region = ["North", "North", "South", "South"],
+    )
+    contacts = DataFrame(
+        part_id = [1, 1, 2, 3, 4],
+        cnt_age = [35.0, 7.0, 31.0, 10.0, 9.0],
+        cnt_sex = ["M", "F", "M", "F", "F"],
+        cnt_region = ["North", "South", "North", "South", "North"],
+    )
+    survey = ContactSurvey(participants, contacts)
+
+    sex = CategoricalPartition(:sex;
+        participant_col=:part_sex,
+        contact_col=:cnt_sex,
+        levels=["F", "M"],
+        labels=["female", "male"],
+    )
+    @test dimension(sex) == :sex
+    @test group_labels(sex) == ["female", "male"]
+
+    cm_sex = survey ▷ sex
+    @test matrix(cm_sex) ≈ [1.0 0.5; 0.5 0.5]
+    @test population(cm_sex) == [2.0, 2.0]
+    @test group_labels(cm_sex) == ["female", "male"]
+    @test_throws ArgumentError age_limits(cm_sex)
+
+    all_sex = CategoricalPartition(:sex;
+        participant_col=:part_sex,
+        contact_col=:cnt_sex,
+        levels=["all"],
+    )
+    f_all = PartitionMap(sex, all_sex, Dict("F" => "all", "M" => "all"))
+    cm_all = cm_sex ↓ f_all
+    @test n_groups(cm_all) == 1
+    @test population(cm_all) == [4.0]
+    @test matrix(cm_all) ≈ [1.25;;]
+
+    region = CategoricalPartition(:region;
+        participant_col=:part_region,
+        contact_col=:cnt_region,
+        levels=["North", "South"],
+    )
+    sex_region = sex × region
+    @test dimension(sex_region) == (:sex, :region)
+    @test group_labels(sex_region) == ["female:North", "female:South", "male:North", "male:South"]
+
+    cm_product = survey ▷ sex_region
+    @test n_groups(cm_product) == 4
+    @test size(matrix(cm_product)) == (4, 4)
+    @test population(cm_product) == [1.0, 1.0, 1.0, 1.0]
+    @test_throws ArgumentError age_limits(cm_product)
+
+    @test_throws ArgumentError survey ▷ CategoricalPartition(:occupation;
+        participant_col=:part_occupation,
+        contact_col=:cnt_occupation,
+        levels=["worker"],
+    )
 end
 
 @testset "ContactMatrix construction" begin
@@ -179,6 +242,8 @@ end
     coupling = [0.7 0.3; 0.3 0.7]
     cm_strat = cm ⊗ coupling
     @test n_groups(cm_strat) == 6  # 2 strata × 3 ages
+    @test cm_strat.partition isa ProductPartition
+    @test group_labels(cm_strat)[1:3] == ["S1:[0,18)", "S1:[18,65)", "S1:65+"]
 
     # Block structure check: diagonal blocks should have coupling[i,i] * M
     M_strat = matrix(cm_strat)
@@ -188,8 +253,12 @@ end
     stratum_pop = [600.0 400.0;
                    2000.0 1000.0;
                    300.0 200.0]
-    cm_strat_pop = stratify(cm, coupling; stratum_populations=stratum_pop)
+    cm_strat_pop = stratify(cm, coupling;
+        stratum_populations=stratum_pop,
+        stratum_labels=["North", "South"],
+    )
     @test population(cm_strat_pop) == vec(stratum_pop)
+    @test group_labels(cm_strat_pop)[1:3] == ["North:[0,18)", "North:[18,65)", "North:65+"]
 
     @test_throws ArgumentError cm ⊗ [1.0 -0.1; 0.0 1.0]
     @test_throws ArgumentError stratify([cm, ContactMatrix(M, AgePartition([0, 10, 65]), pop)], coupling)

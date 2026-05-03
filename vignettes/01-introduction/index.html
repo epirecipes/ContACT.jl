@@ -123,6 +123,7 @@ window.Quarto = {
   <li><a href="#loading-polymod-data" id="toc-loading-polymod-data" class="nav-link" data-scroll-target="#loading-polymod-data">Loading POLYMOD Data</a></li>
   <li><a href="#preparing-the-survey" id="toc-preparing-the-survey" class="nav-link" data-scroll-target="#preparing-the-survey">Preparing the Survey</a></li>
   <li><a href="#computing-a-contact-matrix" id="toc-computing-a-contact-matrix" class="nav-link" data-scroll-target="#computing-a-contact-matrix">Computing a Contact Matrix</a></li>
+  <li><a href="#other-finite-partitions" id="toc-other-finite-partitions" class="nav-link" data-scroll-target="#other-finite-partitions">Other Finite Partitions</a></li>
   <li><a href="#symmetrisation-idempotent-endomorphism" id="toc-symmetrisation-idempotent-endomorphism" class="nav-link" data-scroll-target="#symmetrisation-idempotent-endomorphism">Symmetrisation (Idempotent Endomorphism)</a></li>
   <li><a href="#coarsening-left-kan-extension" id="toc-coarsening-left-kan-extension" class="nav-link" data-scroll-target="#coarsening-left-kan-extension">Coarsening (Left Kan Extension)</a>
   <ul class="collapse">
@@ -168,7 +169,7 @@ window.Quarto = {
 
 <section id="overview" class="level2">
 <h2 class="anchored" data-anchor-id="overview">Overview</h2>
-<p>ContACT.jl applies <strong>category theory</strong> to the construction and manipulation of age-structured contact matrices from social mixing surveys. This vignette introduces the core workflow using the POLYMOD study (Mossong et al., 2008) — the gold standard for parameterising infectious disease models.</p>
+<p>ContACT.jl applies <strong>category theory</strong> to the construction and manipulation of contact matrices from social mixing surveys. Age bands are the motivating example, but matrices can be indexed by any finite survey partition: sex, region, occupation, risk group, or product partitions such as age × sex. This vignette introduces the core workflow using the POLYMOD study (Mossong et al., 2008) — the gold standard for parameterising infectious disease models.</p>
 <p>The key categorical insight: a contact matrix is not merely a numerical array but an <strong>object</strong> in a category where morphisms are structure-preserving transformations (coarsening, symmetrisation, composition).</p>
 </section>
 <section id="setup" class="level2">
@@ -177,7 +178,8 @@ window.Quarto = {
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">ContACT</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">CSV</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">DataFrames</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">LinearAlgebra</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">LinearAlgebra</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> <span class="bu">ContACT</span>: ×</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="loading-polymod-data" class="level2">
@@ -258,7 +260,7 @@ Contacts: 11876</code></pre>
 </section>
 <section id="preparing-the-survey" class="level2">
 <h2 class="anchored" data-anchor-id="preparing-the-survey">Preparing the Survey</h2>
-<p>ContACT.jl expects a <code>ContactSurvey</code> with columns <code>:part_id</code>, <code>:part_age</code> (participants) and <code>:part_id</code>, <code>:cnt_age</code> (contacts). POLYMOD stores ages as <code>:part_age_exact</code> and either <code>:cnt_age_exact</code> or estimated ranges (as strings with “NA” for missing).</p>
+<p>ContACT.jl expects a <code>ContactSurvey</code> with participant identifiers. The chosen partition supplies the participant/contact columns used for grouping. For an <code>AgePartition</code>, those default to <code>:part_age</code> (participants) and <code>:cnt_age</code> (contacts). POLYMOD stores ages as <code>:part_age_exact</code> and either <code>:cnt_age_exact</code> or estimated ranges (as strings with “NA” for missing).</p>
 <div id="6" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Helper to parse string ages (CSV stores them as strings with "NA")</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">parse_age</span>(x<span class="op">::</span><span class="dt">AbstractString</span>) <span class="op">=</span> x <span class="op">==</span> <span class="st">"NA"</span> ? <span class="cn">missing</span> <span class="op">:</span> <span class="fu">parse</span>(<span class="dt">Float64</span>, x)</span>
@@ -286,7 +288,7 @@ Contacts: 11876</code></pre>
 </section>
 <section id="computing-a-contact-matrix" class="level2">
 <h2 class="anchored" data-anchor-id="computing-a-contact-matrix">Computing a Contact Matrix</h2>
-<p>The central operation is the <strong>restricted functor</strong> from surveys to contact matrices. We fix an age partition — this makes the operation deterministic and functorial:</p>
+<p>The central operation is the <strong>restricted functor</strong> from surveys to contact matrices. We fix a partition — here, an interval-valued age partition — which makes the operation deterministic and functorial:</p>
 <div id="8" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Standard 5-year age bands up to 75+</span></span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>partition <span class="op">=</span> <span class="fu">AgePartition</span>(</span>
@@ -307,15 +309,63 @@ Contacts: 11876</code></pre>
 Spectral radius ρ(M) ∝ R₀: 12.24</code></pre>
 </div>
 </div>
-<p>The result is a <code>ContactMatrix</code> — not just a bare array, but a categorical object bundling the matrix with its age partition, population, and semantics:</p>
+<p>The result is a <code>ContactMatrix</code> — not just a bare array, but a categorical object bundling the matrix with its partition, population, and semantics:</p>
 <div id="10" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Type: </span><span class="sc">$</span>(<span class="fu">typeof</span>(cm))<span class="st">"</span>)</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Semantics: </span><span class="sc">$</span>(cm.semantics)<span class="st">"</span>)</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Age groups: </span><span class="sc">$</span>(<span class="fu">age_labels</span>(cm))<span class="st">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>Type: ContACT.ContactMatrix{Float64, ContACT.MeanContacts}
+<pre><code>Type: ContACT.ContactMatrix{Float64, ContACT.MeanContacts, ContACT.AgePartition}
 Semantics: ContACT.MeanContacts()
 Age groups: ["[0,5)", "[5,10)", "[10,15)", "[15,20)", "[20,25)", "[25,30)", "[30,35)", "[35,40)", "[40,45)", "[45,50)", "[50,55)", "[55,60)", "[60,65)", "[65,70)", "[70,75)", "75+"]</code></pre>
+</div>
+</div>
+</section>
+<section id="other-finite-partitions" class="level2">
+<h2 class="anchored" data-anchor-id="other-finite-partitions">Other Finite Partitions</h2>
+<p>The same machinery works when the survey variable is categorical. The partition records both the mathematical dimension (<code>:sex</code>) and the concrete survey columns used for participants and contacts:</p>
+<div id="12" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>participants_sex <span class="op">=</span> <span class="fu">DataFrame</span>(part_id<span class="op">=</span>[<span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span>], part_sex<span class="op">=</span>[<span class="st">"F"</span>, <span class="st">"M"</span>, <span class="st">"F"</span>])</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>contacts_sex <span class="op">=</span> <span class="fu">DataFrame</span>(</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    part_id<span class="op">=</span>[<span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span>],</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    cnt_sex<span class="op">=</span>[<span class="st">"M"</span>, <span class="st">"F"</span>, <span class="st">"F"</span>, <span class="st">"F"</span>],</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>survey_sex <span class="op">=</span> <span class="fu">ContactSurvey</span>(participants_sex, contacts_sex)</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>sex <span class="op">=</span> <span class="fu">CategoricalPartition</span>(<span class="op">:</span>sex;</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    participant_col<span class="op">=:</span>part_sex,</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    contact_col<span class="op">=:</span>cnt_sex,</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>    levels<span class="op">=</span>[<span class="st">"F"</span>, <span class="st">"M"</span>],</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>    labels<span class="op">=</span>[<span class="st">"female"</span>, <span class="st">"male"</span>],</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>cm_sex <span class="op">=</span> survey_sex <span class="op">▷</span> sex</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Groups: </span><span class="sc">$</span>(<span class="fu">group_labels</span>(cm_sex))<span class="st">"</span>)</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a><span class="fu">display</span>(<span class="fu">matrix</span>(cm_sex))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Groups: ["female", "male"]</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<pre><code>2×2 Matrix{Float64}:
+ 1.0  1.0
+ 0.5  0.0</code></pre>
+</div>
+</div>
+<p>Product partitions combine grouping dimensions without pretending that the result is still an age axis:</p>
+<div id="14" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>region <span class="op">=</span> <span class="fu">CategoricalPartition</span>(<span class="op">:</span>region;</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    participant_col<span class="op">=:</span>part_region,</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    contact_col<span class="op">=:</span>cnt_region,</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    levels<span class="op">=</span>[<span class="st">"north"</span>, <span class="st">"south"</span>],</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>sex_region <span class="op">=</span> sex <span class="op">×</span> region</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="fu">group_labels</span>(sex_region)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display" data-execution_count="1">
+<pre><code>4-element Vector{String}:
+ "female:north"
+ "female:south"
+ "male:north"
+ "male:south"</code></pre>
 </div>
 </div>
 </section>
@@ -324,19 +374,19 @@ Age groups: ["[0,5)", "[5,10)", "[10,15)", "[15,20)", "[20,25)", "[25,30)", "[30
 <p>Raw survey matrices are asymmetric because group sizes differ. The reciprocity constraint ensures total contacts from group <span class="math inline">\(i\)</span> to <span class="math inline">\(j\)</span> equal total contacts from <span class="math inline">\(j\)</span> to <span class="math inline">\(i\)</span>:</p>
 <p><span class="math display">\[M_{ij} \cdot N_j = M_{ji} \cdot N_i\]</span></p>
 <p>Symmetrisation is an <strong>idempotent endomorphism</strong> in the contact matrix category. Use <code>↔︎</code> (<code>\leftrightarrow&lt;TAB&gt;</code>) for the reciprocity projection:</p>
-<div id="12" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>cm_sym <span class="op">=</span> <span class="fu">↔</span>(cm)</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Verify reciprocity</span></span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>M <span class="op">=</span> <span class="fu">matrix</span>(cm_sym)</span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>N <span class="op">=</span> <span class="fu">population</span>(cm_sym)</span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>max_violation <span class="op">=</span> <span class="fu">maximum</span>(<span class="fu">abs</span>(M[i,j] <span class="op">*</span> N[j] <span class="op">-</span> M[j,i] <span class="op">*</span> N[i])</span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fu">n_groups</span>(cm_sym), j <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fu">n_groups</span>(cm_sym))</span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Max reciprocity violation: </span><span class="sc">$</span>(max_violation)<span class="st">"</span>)</span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Idempotence: applying twice gives the same result</span></span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>cm_sym2 <span class="op">=</span> <span class="fu">↔</span>(cm_sym)</span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Idempotent: </span><span class="sc">$</span>(<span class="fu">matrix</span>(cm_sym2) <span class="op">≈</span> <span class="fu">matrix</span>(cm_sym))<span class="st">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="16" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>cm_sym <span class="op">=</span> <span class="fu">↔</span>(cm)</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Verify reciprocity</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>M <span class="op">=</span> <span class="fu">matrix</span>(cm_sym)</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>N <span class="op">=</span> <span class="fu">population</span>(cm_sym)</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>max_violation <span class="op">=</span> <span class="fu">maximum</span>(<span class="fu">abs</span>(M[i,j] <span class="op">*</span> N[j] <span class="op">-</span> M[j,i] <span class="op">*</span> N[i])</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fu">n_groups</span>(cm_sym), j <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fu">n_groups</span>(cm_sym))</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Max reciprocity violation: </span><span class="sc">$</span>(max_violation)<span class="st">"</span>)</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Idempotence: applying twice gives the same result</span></span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>cm_sym2 <span class="op">=</span> <span class="fu">↔</span>(cm_sym)</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Idempotent: </span><span class="sc">$</span>(<span class="fu">matrix</span>(cm_sym2) <span class="op">≈</span> <span class="fu">matrix</span>(cm_sym))<span class="st">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Max reciprocity violation: 1.4210854715202004e-14
 Idempotent: true</code></pre>
@@ -345,17 +395,17 @@ Idempotent: true</code></pre>
 </section>
 <section id="coarsening-left-kan-extension" class="level2">
 <h2 class="anchored" data-anchor-id="coarsening-left-kan-extension">Coarsening (Left Kan Extension)</h2>
-<p>A key morphism is <strong>coarsening</strong>: reducing the number of age groups. Categorically, this is a left Kan extension along a surjective age-group map <span class="math inline">\(f: G_{\mathrm{fine}} \to G_{\mathrm{coarse}}\)</span>.</p>
-<p>The coarse partition must have limits that are a <strong>subset</strong> of the fine partition’s limits (ensuring a well-defined surjection between groups).</p>
-<div id="14" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Coarsen to broader groups (limits must be a subset of the fine partition)</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>coarse <span class="op">=</span> <span class="fu">AgePartition</span>([<span class="fl">0</span>, <span class="fl">15</span>, <span class="fl">45</span>, <span class="fl">65</span>])</span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>cm_coarse <span class="op">=</span> cm <span class="op">↓</span> coarse</span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Coarsened: </span><span class="sc">$</span>(<span class="fu">n_groups</span>(cm_coarse))<span class="st"> groups"</span>)</span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Age groups: </span><span class="sc">$</span>(<span class="fu">age_labels</span>(cm_coarse))<span class="st">"</span>)</span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Matrix:"</span>)</span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="fu">display</span>(<span class="fu">round</span>.(<span class="fu">matrix</span>(cm_coarse); digits<span class="op">=</span><span class="fl">2</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>A key morphism is <strong>coarsening</strong>: reducing the number of partition groups. Categorically, this is a left Kan extension along a surjective partition map <span class="math inline">\(f: G_{\mathrm{fine}} \to G_{\mathrm{coarse}}\)</span>.</p>
+<p>For interval partitions such as age, the coarse partition must have limits that are a <strong>subset</strong> of the fine partition’s limits (ensuring a well-defined surjection between groups).</p>
+<div id="18" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Coarsen to broader groups (limits must be a subset of the fine partition)</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>coarse <span class="op">=</span> <span class="fu">AgePartition</span>([<span class="fl">0</span>, <span class="fl">15</span>, <span class="fl">45</span>, <span class="fl">65</span>])</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>cm_coarse <span class="op">=</span> cm <span class="op">↓</span> coarse</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Coarsened: </span><span class="sc">$</span>(<span class="fu">n_groups</span>(cm_coarse))<span class="st"> groups"</span>)</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Age groups: </span><span class="sc">$</span>(<span class="fu">age_labels</span>(cm_coarse))<span class="st">"</span>)</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Matrix:"</span>)</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a><span class="fu">display</span>(<span class="fu">round</span>.(<span class="fu">matrix</span>(cm_coarse); digits<span class="op">=</span><span class="fl">2</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Coarsened: 4 groups
 Age groups: ["[0,15)", "[15,45)", "[45,65)", "65+"]
@@ -372,26 +422,26 @@ Matrix:</code></pre>
 <section id="functoriality" class="level3">
 <h3 class="anchored" data-anchor-id="functoriality">Functoriality</h3>
 <p>The defining property of a functor: coarsening in two steps gives the same result as coarsening in one step. Using <code>∘</code> for map composition:</p>
-<div id="16" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Two-step: 16 → 4 → 2</span></span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>mid <span class="op">=</span> <span class="fu">AgePartition</span>([<span class="fl">0</span>, <span class="fl">15</span>, <span class="fl">45</span>, <span class="fl">65</span>])</span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>final_part <span class="op">=</span> <span class="fu">AgePartition</span>([<span class="fl">0</span>, <span class="fl">45</span>])</span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Compose the maps: fine → mid → coarse</span></span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>f <span class="op">=</span> <span class="fu">AgeMap</span>(partition, mid)</span>
-<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> <span class="fu">AgeMap</span>(mid, final_part)</span>
-<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>h <span class="op">=</span> g <span class="op">∘</span> f   <span class="co"># composed map (type \circ&lt;TAB&gt;)</span></span>
-<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Functoriality: (cm ↓ g) ∘ (cm ↓ f) == cm ↓ (g ∘ f)</span></span>
-<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>via_mid <span class="op">=</span> (cm <span class="op">↓</span> f) <span class="op">↓</span> g</span>
-<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>direct <span class="op">=</span> cm <span class="op">↓</span> h</span>
-<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Functoriality: cm ↓ (g ∘ f) == (cm ↓ f) ↓ g"</span>)</span>
-<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"  Holds: </span><span class="sc">$</span>(<span class="fu">matrix</span>(via_mid) <span class="op">≈</span> <span class="fu">matrix</span>(direct))<span class="st">"</span>)</span>
-<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Via mid:"</span>)</span>
-<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a><span class="fu">display</span>(<span class="fu">round</span>.(<span class="fu">matrix</span>(via_mid); digits<span class="op">=</span><span class="fl">3</span>))</span>
-<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Direct:"</span>)</span>
-<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a><span class="fu">display</span>(<span class="fu">round</span>.(<span class="fu">matrix</span>(direct); digits<span class="op">=</span><span class="fl">3</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="20" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Two-step: 16 → 4 → 2</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>mid <span class="op">=</span> <span class="fu">AgePartition</span>([<span class="fl">0</span>, <span class="fl">15</span>, <span class="fl">45</span>, <span class="fl">65</span>])</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>final_part <span class="op">=</span> <span class="fu">AgePartition</span>([<span class="fl">0</span>, <span class="fl">45</span>])</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Compose the maps: fine → mid → coarse</span></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>f <span class="op">=</span> <span class="fu">AgeMap</span>(partition, mid)</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> <span class="fu">AgeMap</span>(mid, final_part)</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>h <span class="op">=</span> g <span class="op">∘</span> f   <span class="co"># composed map (type \circ&lt;TAB&gt;)</span></span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Functoriality: (cm ↓ g) ∘ (cm ↓ f) == cm ↓ (g ∘ f)</span></span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>via_mid <span class="op">=</span> (cm <span class="op">↓</span> f) <span class="op">↓</span> g</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>direct <span class="op">=</span> cm <span class="op">↓</span> h</span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Functoriality: cm ↓ (g ∘ f) == (cm ↓ f) ↓ g"</span>)</span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"  Holds: </span><span class="sc">$</span>(<span class="fu">matrix</span>(via_mid) <span class="op">≈</span> <span class="fu">matrix</span>(direct))<span class="st">"</span>)</span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Via mid:"</span>)</span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a><span class="fu">display</span>(<span class="fu">round</span>.(<span class="fu">matrix</span>(via_mid); digits<span class="op">=</span><span class="fl">3</span>))</span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Direct:"</span>)</span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a><span class="fu">display</span>(<span class="fu">round</span>.(<span class="fu">matrix</span>(direct); digits<span class="op">=</span><span class="fl">3</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Functoriality: cm ↓ (g ∘ f) == (cm ↓ f) ↓ g
   Holds: true
@@ -876,197 +926,243 @@ Direct:</code></pre>
     }
   });
   </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Introduction to ContACT.jl"</span></span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "From Survey Data to Contact Matrices via Category Theory"</span></span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Simon Frost"</span></span>
-<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> today</span></span>
-<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
-<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
-<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: false</span></span>
-<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
-<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a><span class="co">  gfm:</span></span>
-<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
-<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a><span class="co">  pdf:</span></span>
-<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a><span class="co">    documentclass: article</span></span>
-<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
-<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a><span class="co">    mainfont: "STIX Two Text"</span></span>
-<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a><span class="co">    mathfont: "STIX Two Math"</span></span>
-<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a><span class="co">    monofont: "Fira Code"</span></span>
-<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a><span class="co">    pdf-engine: xelatex</span></span>
-<span id="cb19-19"><a href="#cb19-19" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb19-20"><a href="#cb19-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-21"><a href="#cb19-21" aria-hidden="true" tabindex="-1"></a><span class="fu">## Overview</span></span>
-<span id="cb19-22"><a href="#cb19-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-23"><a href="#cb19-23" aria-hidden="true" tabindex="-1"></a>ContACT.jl applies **category theory** to the construction and manipulation of</span>
-<span id="cb19-24"><a href="#cb19-24" aria-hidden="true" tabindex="-1"></a>age-structured contact matrices from social mixing surveys. This vignette</span>
-<span id="cb19-25"><a href="#cb19-25" aria-hidden="true" tabindex="-1"></a>introduces the core workflow using the POLYMOD study (Mossong et al., 2008) — the</span>
-<span id="cb19-26"><a href="#cb19-26" aria-hidden="true" tabindex="-1"></a>gold standard for parameterising infectious disease models.</span>
-<span id="cb19-27"><a href="#cb19-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-28"><a href="#cb19-28" aria-hidden="true" tabindex="-1"></a>The key categorical insight: a contact matrix is not merely a numerical array but</span>
-<span id="cb19-29"><a href="#cb19-29" aria-hidden="true" tabindex="-1"></a>an **object** in a category where morphisms are structure-preserving transformations</span>
-<span id="cb19-30"><a href="#cb19-30" aria-hidden="true" tabindex="-1"></a>(coarsening, symmetrisation, composition).</span>
-<span id="cb19-31"><a href="#cb19-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-32"><a href="#cb19-32" aria-hidden="true" tabindex="-1"></a><span class="fu">## Setup</span></span>
-<span id="cb19-33"><a href="#cb19-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-36"><a href="#cb19-36" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
-<span id="cb19-37"><a href="#cb19-37" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">ContACT</span></span>
-<span id="cb19-38"><a href="#cb19-38" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">CSV</span></span>
-<span id="cb19-39"><a href="#cb19-39" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">DataFrames</span></span>
-<span id="cb19-40"><a href="#cb19-40" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">LinearAlgebra</span></span>
-<span id="cb19-41"><a href="#cb19-41" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-42"><a href="#cb19-42" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-43"><a href="#cb19-43" aria-hidden="true" tabindex="-1"></a><span class="fu">## Loading POLYMOD Data</span></span>
-<span id="cb19-44"><a href="#cb19-44" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-45"><a href="#cb19-45" aria-hidden="true" tabindex="-1"></a>We use a subset of the POLYMOD UK study: 1012 participants and their 11876 reported</span>
-<span id="cb19-46"><a href="#cb19-46" aria-hidden="true" tabindex="-1"></a>contacts.</span>
-<span id="cb19-47"><a href="#cb19-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-50"><a href="#cb19-50" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
-<span id="cb19-51"><a href="#cb19-51" aria-hidden="true" tabindex="-1"></a>data_dir <span class="op">=</span> <span class="fu">joinpath</span>(<span class="pp">@__DIR__</span>, <span class="st">".."</span>, <span class="st">".."</span>, <span class="st">"data"</span>)</span>
-<span id="cb19-52"><a href="#cb19-52" aria-hidden="true" tabindex="-1"></a>participants <span class="op">=</span> CSV.<span class="fu">read</span>(<span class="fu">joinpath</span>(data_dir, <span class="st">"polymod_uk_participants.csv"</span>), DataFrame)</span>
-<span id="cb19-53"><a href="#cb19-53" aria-hidden="true" tabindex="-1"></a>contacts <span class="op">=</span> CSV.<span class="fu">read</span>(<span class="fu">joinpath</span>(data_dir, <span class="st">"polymod_uk_contacts.csv"</span>), DataFrame)</span>
-<span id="cb19-54"><a href="#cb19-54" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-55"><a href="#cb19-55" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Participants: </span><span class="sc">$</span>(<span class="fu">nrow</span>(participants))<span class="st">"</span>)</span>
-<span id="cb19-56"><a href="#cb19-56" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Contacts: </span><span class="sc">$</span>(<span class="fu">nrow</span>(contacts))<span class="st">"</span>)</span>
-<span id="cb19-57"><a href="#cb19-57" aria-hidden="true" tabindex="-1"></a><span class="fu">first</span>(participants, <span class="fl">5</span>)</span>
-<span id="cb19-58"><a href="#cb19-58" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-59"><a href="#cb19-59" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-60"><a href="#cb19-60" aria-hidden="true" tabindex="-1"></a><span class="fu">## Preparing the Survey</span></span>
-<span id="cb19-61"><a href="#cb19-61" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-62"><a href="#cb19-62" aria-hidden="true" tabindex="-1"></a>ContACT.jl expects a <span class="in">`ContactSurvey`</span> with columns <span class="in">`:part_id`</span>, <span class="in">`:part_age`</span></span>
-<span id="cb19-63"><a href="#cb19-63" aria-hidden="true" tabindex="-1"></a>(participants) and <span class="in">`:part_id`</span>, <span class="in">`:cnt_age`</span> (contacts). POLYMOD stores ages as</span>
-<span id="cb19-64"><a href="#cb19-64" aria-hidden="true" tabindex="-1"></a><span class="in">`:part_age_exact`</span> and either <span class="in">`:cnt_age_exact`</span> or estimated ranges (as strings</span>
-<span id="cb19-65"><a href="#cb19-65" aria-hidden="true" tabindex="-1"></a>with "NA" for missing).</span>
-<span id="cb19-66"><a href="#cb19-66" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-69"><a href="#cb19-69" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
-<span id="cb19-70"><a href="#cb19-70" aria-hidden="true" tabindex="-1"></a><span class="co"># Helper to parse string ages (CSV stores them as strings with "NA")</span></span>
-<span id="cb19-71"><a href="#cb19-71" aria-hidden="true" tabindex="-1"></a><span class="fu">parse_age</span>(x<span class="op">::</span><span class="dt">AbstractString</span>) <span class="op">=</span> x <span class="op">==</span> <span class="st">"NA"</span> ? <span class="cn">missing</span> <span class="op">:</span> <span class="fu">parse</span>(<span class="dt">Float64</span>, x)</span>
-<span id="cb19-72"><a href="#cb19-72" aria-hidden="true" tabindex="-1"></a><span class="fu">parse_age</span>(x<span class="op">::</span><span class="dt">Real</span>) <span class="op">=</span> <span class="fu">Float64</span>(x)</span>
-<span id="cb19-73"><a href="#cb19-73" aria-hidden="true" tabindex="-1"></a><span class="fu">parse_age</span>(<span class="op">::</span><span class="dt">Missing</span>) <span class="op">=</span> <span class="cn">missing</span></span>
-<span id="cb19-74"><a href="#cb19-74" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-75"><a href="#cb19-75" aria-hidden="true" tabindex="-1"></a><span class="co"># Rename participant age</span></span>
-<span id="cb19-76"><a href="#cb19-76" aria-hidden="true" tabindex="-1"></a><span class="fu">rename!</span>(participants, <span class="op">:</span>part_age_exact <span class="op">=&gt;</span> <span class="op">:</span>part_age)</span>
-<span id="cb19-77"><a href="#cb19-77" aria-hidden="true" tabindex="-1"></a>participants.part_age <span class="op">=</span> <span class="fu">Float64</span>.(participants.part_age)</span>
-<span id="cb19-78"><a href="#cb19-78" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-79"><a href="#cb19-79" aria-hidden="true" tabindex="-1"></a><span class="co"># Resolve contact ages: use exact if available, otherwise midpoint of range</span></span>
-<span id="cb19-80"><a href="#cb19-80" aria-hidden="true" tabindex="-1"></a>cnt_exact <span class="op">=</span> <span class="fu">parse_age</span>.(contacts.cnt_age_exact)</span>
-<span id="cb19-81"><a href="#cb19-81" aria-hidden="true" tabindex="-1"></a>cnt_min <span class="op">=</span> <span class="fu">parse_age</span>.(contacts.cnt_age_est_min)</span>
-<span id="cb19-82"><a href="#cb19-82" aria-hidden="true" tabindex="-1"></a>cnt_max <span class="op">=</span> <span class="fu">parse_age</span>.(contacts.cnt_age_est_max)</span>
-<span id="cb19-83"><a href="#cb19-83" aria-hidden="true" tabindex="-1"></a>contacts.cnt_age <span class="op">=</span> <span class="fu">coalesce</span>.(cnt_exact, (cnt_min <span class="op">.+</span> cnt_max) <span class="op">./</span> <span class="fl">2</span>)</span>
-<span id="cb19-84"><a href="#cb19-84" aria-hidden="true" tabindex="-1"></a><span class="fu">select!</span>(contacts, [<span class="op">:</span>part_id, <span class="op">:</span>cnt_age])</span>
-<span id="cb19-85"><a href="#cb19-85" aria-hidden="true" tabindex="-1"></a><span class="fu">dropmissing!</span>(contacts, <span class="op">:</span>cnt_age)</span>
-<span id="cb19-86"><a href="#cb19-86" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-87"><a href="#cb19-87" aria-hidden="true" tabindex="-1"></a>survey <span class="op">=</span> <span class="fu">ContactSurvey</span>(participants, contacts)</span>
-<span id="cb19-88"><a href="#cb19-88" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Survey: </span><span class="sc">$</span>(<span class="fu">nrow</span>(survey.participants))<span class="st"> participants, </span><span class="sc">$</span>(<span class="fu">nrow</span>(survey.contacts))<span class="st"> contacts"</span>)</span>
-<span id="cb19-89"><a href="#cb19-89" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-90"><a href="#cb19-90" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-91"><a href="#cb19-91" aria-hidden="true" tabindex="-1"></a><span class="fu">## Computing a Contact Matrix</span></span>
-<span id="cb19-92"><a href="#cb19-92" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-93"><a href="#cb19-93" aria-hidden="true" tabindex="-1"></a>The central operation is the **restricted functor** from surveys to contact matrices.</span>
-<span id="cb19-94"><a href="#cb19-94" aria-hidden="true" tabindex="-1"></a>We fix an age partition — this makes the operation deterministic and functorial:</span>
-<span id="cb19-95"><a href="#cb19-95" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-98"><a href="#cb19-98" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
-<span id="cb19-99"><a href="#cb19-99" aria-hidden="true" tabindex="-1"></a><span class="co"># Standard 5-year age bands up to 75+</span></span>
-<span id="cb19-100"><a href="#cb19-100" aria-hidden="true" tabindex="-1"></a>partition <span class="op">=</span> <span class="fu">AgePartition</span>(</span>
-<span id="cb19-101"><a href="#cb19-101" aria-hidden="true" tabindex="-1"></a>    [<span class="fl">0</span>, <span class="fl">5</span>, <span class="fl">10</span>, <span class="fl">15</span>, <span class="fl">20</span>, <span class="fl">25</span>, <span class="fl">30</span>, <span class="fl">35</span>, <span class="fl">40</span>, <span class="fl">45</span>, <span class="fl">50</span>, <span class="fl">55</span>, <span class="fl">60</span>, <span class="fl">65</span>, <span class="fl">70</span>, <span class="fl">75</span>]</span>
-<span id="cb19-102"><a href="#cb19-102" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb19-103"><a href="#cb19-103" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-104"><a href="#cb19-104" aria-hidden="true" tabindex="-1"></a><span class="co"># UK 2005 population (thousands) — approximation from ONS</span></span>
-<span id="cb19-105"><a href="#cb19-105" aria-hidden="true" tabindex="-1"></a>uk_pop <span class="op">=</span> [<span class="fl">3433.0</span>, <span class="fl">3554.0</span>, <span class="fl">3824.0</span>, <span class="fl">3956.0</span>, <span class="fl">3757.0</span>, <span class="fl">3520.0</span>, <span class="fl">4009.0</span>,</span>
-<span id="cb19-106"><a href="#cb19-106" aria-hidden="true" tabindex="-1"></a>           <span class="fl">4405.0</span>, <span class="fl">4548.0</span>, <span class="fl">4187.0</span>, <span class="fl">3883.0</span>, <span class="fl">3589.0</span>, <span class="fl">3117.0</span>, <span class="fl">2765.0</span>,</span>
-<span id="cb19-107"><a href="#cb19-107" aria-hidden="true" tabindex="-1"></a>           <span class="fl">2425.0</span>, <span class="fl">3752.0</span>]</span>
-<span id="cb19-108"><a href="#cb19-108" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-109"><a href="#cb19-109" aria-hidden="true" tabindex="-1"></a><span class="co"># The ▷ operator applies the survey→matrix functor (type \triangleright&lt;TAB&gt;)</span></span>
-<span id="cb19-110"><a href="#cb19-110" aria-hidden="true" tabindex="-1"></a>cm <span class="op">=</span> survey <span class="op">▷</span> partition</span>
-<span id="cb19-111"><a href="#cb19-111" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Contact matrix: </span><span class="sc">$</span>(<span class="fu">n_groups</span>(cm))<span class="st"> age groups"</span>)</span>
-<span id="cb19-112"><a href="#cb19-112" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Spectral radius ρ(M) ∝ R₀: </span><span class="sc">$</span>(<span class="fu">round</span>(<span class="fu">ρ</span>(cm); digits<span class="op">=</span><span class="fl">2</span>))<span class="st">"</span>)</span>
-<span id="cb19-113"><a href="#cb19-113" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-114"><a href="#cb19-114" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-115"><a href="#cb19-115" aria-hidden="true" tabindex="-1"></a>The result is a <span class="in">`ContactMatrix`</span> — not just a bare array, but a categorical object</span>
-<span id="cb19-116"><a href="#cb19-116" aria-hidden="true" tabindex="-1"></a>bundling the matrix with its age partition, population, and semantics:</span>
-<span id="cb19-117"><a href="#cb19-117" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-120"><a href="#cb19-120" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
-<span id="cb19-121"><a href="#cb19-121" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Type: </span><span class="sc">$</span>(<span class="fu">typeof</span>(cm))<span class="st">"</span>)</span>
-<span id="cb19-122"><a href="#cb19-122" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Semantics: </span><span class="sc">$</span>(cm.semantics)<span class="st">"</span>)</span>
-<span id="cb19-123"><a href="#cb19-123" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Age groups: </span><span class="sc">$</span>(<span class="fu">age_labels</span>(cm))<span class="st">"</span>)</span>
-<span id="cb19-124"><a href="#cb19-124" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-125"><a href="#cb19-125" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-126"><a href="#cb19-126" aria-hidden="true" tabindex="-1"></a><span class="fu">## Symmetrisation (Idempotent Endomorphism)</span></span>
-<span id="cb19-127"><a href="#cb19-127" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-128"><a href="#cb19-128" aria-hidden="true" tabindex="-1"></a>Raw survey matrices are asymmetric because group sizes differ. The reciprocity</span>
-<span id="cb19-129"><a href="#cb19-129" aria-hidden="true" tabindex="-1"></a>constraint ensures total contacts from group $i$ to $j$ equal total contacts from</span>
-<span id="cb19-130"><a href="#cb19-130" aria-hidden="true" tabindex="-1"></a>$j$ to $i$:</span>
-<span id="cb19-131"><a href="#cb19-131" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-132"><a href="#cb19-132" aria-hidden="true" tabindex="-1"></a>$$M_{ij} \cdot N_j = M_{ji} \cdot N_i$$</span>
-<span id="cb19-133"><a href="#cb19-133" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-134"><a href="#cb19-134" aria-hidden="true" tabindex="-1"></a>Symmetrisation is an **idempotent endomorphism** in the contact matrix category.</span>
-<span id="cb19-135"><a href="#cb19-135" aria-hidden="true" tabindex="-1"></a>Use <span class="in">`↔`</span> (<span class="in">`\leftrightarrow&lt;TAB&gt;`</span>) for the reciprocity projection:</span>
-<span id="cb19-136"><a href="#cb19-136" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-139"><a href="#cb19-139" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
-<span id="cb19-140"><a href="#cb19-140" aria-hidden="true" tabindex="-1"></a>cm_sym <span class="op">=</span> <span class="fu">↔</span>(cm)</span>
-<span id="cb19-141"><a href="#cb19-141" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-142"><a href="#cb19-142" aria-hidden="true" tabindex="-1"></a><span class="co"># Verify reciprocity</span></span>
-<span id="cb19-143"><a href="#cb19-143" aria-hidden="true" tabindex="-1"></a>M <span class="op">=</span> <span class="fu">matrix</span>(cm_sym)</span>
-<span id="cb19-144"><a href="#cb19-144" aria-hidden="true" tabindex="-1"></a>N <span class="op">=</span> <span class="fu">population</span>(cm_sym)</span>
-<span id="cb19-145"><a href="#cb19-145" aria-hidden="true" tabindex="-1"></a>max_violation <span class="op">=</span> <span class="fu">maximum</span>(<span class="fu">abs</span>(M[i,j] <span class="op">*</span> N[j] <span class="op">-</span> M[j,i] <span class="op">*</span> N[i])</span>
-<span id="cb19-146"><a href="#cb19-146" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fu">n_groups</span>(cm_sym), j <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fu">n_groups</span>(cm_sym))</span>
-<span id="cb19-147"><a href="#cb19-147" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Max reciprocity violation: </span><span class="sc">$</span>(max_violation)<span class="st">"</span>)</span>
-<span id="cb19-148"><a href="#cb19-148" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-149"><a href="#cb19-149" aria-hidden="true" tabindex="-1"></a><span class="co"># Idempotence: applying twice gives the same result</span></span>
-<span id="cb19-150"><a href="#cb19-150" aria-hidden="true" tabindex="-1"></a>cm_sym2 <span class="op">=</span> <span class="fu">↔</span>(cm_sym)</span>
-<span id="cb19-151"><a href="#cb19-151" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Idempotent: </span><span class="sc">$</span>(<span class="fu">matrix</span>(cm_sym2) <span class="op">≈</span> <span class="fu">matrix</span>(cm_sym))<span class="st">"</span>)</span>
-<span id="cb19-152"><a href="#cb19-152" aria-hidden="true" tabindex="-1"></a><span class="ss">```</span></span>
-<span id="cb19-153"><a href="#cb19-153" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-154"><a href="#cb19-154" aria-hidden="true" tabindex="-1"></a><span class="ss">## Coarsening (Left Kan Extension)</span></span>
-<span id="cb19-155"><a href="#cb19-155" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-156"><a href="#cb19-156" aria-hidden="true" tabindex="-1"></a><span class="ss">A key morphism is **coarsening**: reducing the number of age groups. Categorically,</span></span>
-<span id="cb19-157"><a href="#cb19-157" aria-hidden="true" tabindex="-1"></a><span class="ss">this is a left Kan extension along a surjective age-group map $f: G_{\mathrm{fine}} </span><span class="sc">\t</span><span class="ss">o G_{\mathrm{coarse}}$.</span></span>
-<span id="cb19-158"><a href="#cb19-158" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-159"><a href="#cb19-159" aria-hidden="true" tabindex="-1"></a><span class="ss">The coarse partition must have limits that are a **subset** of the fine partition's</span></span>
-<span id="cb19-160"><a href="#cb19-160" aria-hidden="true" tabindex="-1"></a><span class="ss">limits (ensuring a well-defined surjection between groups).</span></span>
-<span id="cb19-161"><a href="#cb19-161" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-164"><a href="#cb19-164" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
-<span id="cb19-165"><a href="#cb19-165" aria-hidden="true" tabindex="-1"></a><span class="co"># Coarsen to broader groups (limits must be a subset of the fine partition)</span></span>
-<span id="cb19-166"><a href="#cb19-166" aria-hidden="true" tabindex="-1"></a>coarse <span class="op">=</span> <span class="fu">AgePartition</span>([<span class="fl">0</span>, <span class="fl">15</span>, <span class="fl">45</span>, <span class="fl">65</span>])</span>
-<span id="cb19-167"><a href="#cb19-167" aria-hidden="true" tabindex="-1"></a>cm_coarse <span class="op">=</span> cm <span class="op">↓</span> coarse</span>
-<span id="cb19-168"><a href="#cb19-168" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-169"><a href="#cb19-169" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Coarsened: </span><span class="sc">$</span>(<span class="fu">n_groups</span>(cm_coarse))<span class="st"> groups"</span>)</span>
-<span id="cb19-170"><a href="#cb19-170" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Age groups: </span><span class="sc">$</span>(<span class="fu">age_labels</span>(cm_coarse))<span class="st">"</span>)</span>
-<span id="cb19-171"><a href="#cb19-171" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Matrix:"</span>)</span>
-<span id="cb19-172"><a href="#cb19-172" aria-hidden="true" tabindex="-1"></a><span class="fu">display</span>(<span class="fu">round</span>.(<span class="fu">matrix</span>(cm_coarse); digits<span class="op">=</span><span class="fl">2</span>))</span>
-<span id="cb19-173"><a href="#cb19-173" aria-hidden="true" tabindex="-1"></a><span class="ss">```</span></span>
-<span id="cb19-174"><a href="#cb19-174" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-175"><a href="#cb19-175" aria-hidden="true" tabindex="-1"></a><span class="ss">### Functoriality</span></span>
-<span id="cb19-176"><a href="#cb19-176" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-177"><a href="#cb19-177" aria-hidden="true" tabindex="-1"></a><span class="ss">The defining property of a functor: coarsening in two steps gives the same result</span></span>
-<span id="cb19-178"><a href="#cb19-178" aria-hidden="true" tabindex="-1"></a><span class="ss">as coarsening in one step. Using `∘` for map composition:</span></span>
-<span id="cb19-179"><a href="#cb19-179" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-182"><a href="#cb19-182" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
-<span id="cb19-183"><a href="#cb19-183" aria-hidden="true" tabindex="-1"></a><span class="co"># Two-step: 16 → 4 → 2</span></span>
-<span id="cb19-184"><a href="#cb19-184" aria-hidden="true" tabindex="-1"></a>mid <span class="op">=</span> <span class="fu">AgePartition</span>([<span class="fl">0</span>, <span class="fl">15</span>, <span class="fl">45</span>, <span class="fl">65</span>])</span>
-<span id="cb19-185"><a href="#cb19-185" aria-hidden="true" tabindex="-1"></a>final_part <span class="op">=</span> <span class="fu">AgePartition</span>([<span class="fl">0</span>, <span class="fl">45</span>])</span>
-<span id="cb19-186"><a href="#cb19-186" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-187"><a href="#cb19-187" aria-hidden="true" tabindex="-1"></a><span class="co"># Compose the maps: fine → mid → coarse</span></span>
-<span id="cb19-188"><a href="#cb19-188" aria-hidden="true" tabindex="-1"></a>f <span class="op">=</span> <span class="fu">AgeMap</span>(partition, mid)</span>
-<span id="cb19-189"><a href="#cb19-189" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> <span class="fu">AgeMap</span>(mid, final_part)</span>
-<span id="cb19-190"><a href="#cb19-190" aria-hidden="true" tabindex="-1"></a>h <span class="op">=</span> g <span class="op">∘</span> f   <span class="co"># composed map (type \circ&lt;TAB&gt;)</span></span>
-<span id="cb19-191"><a href="#cb19-191" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-192"><a href="#cb19-192" aria-hidden="true" tabindex="-1"></a><span class="co"># Functoriality: (cm ↓ g) ∘ (cm ↓ f) == cm ↓ (g ∘ f)</span></span>
-<span id="cb19-193"><a href="#cb19-193" aria-hidden="true" tabindex="-1"></a>via_mid <span class="op">=</span> (cm <span class="op">↓</span> f) <span class="op">↓</span> g</span>
-<span id="cb19-194"><a href="#cb19-194" aria-hidden="true" tabindex="-1"></a>direct <span class="op">=</span> cm <span class="op">↓</span> h</span>
-<span id="cb19-195"><a href="#cb19-195" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-196"><a href="#cb19-196" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Functoriality: cm ↓ (g ∘ f) == (cm ↓ f) ↓ g"</span>)</span>
-<span id="cb19-197"><a href="#cb19-197" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"  Holds: </span><span class="sc">$</span>(<span class="fu">matrix</span>(via_mid) <span class="op">≈</span> <span class="fu">matrix</span>(direct))<span class="st">"</span>)</span>
-<span id="cb19-198"><a href="#cb19-198" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Via mid:"</span>)</span>
-<span id="cb19-199"><a href="#cb19-199" aria-hidden="true" tabindex="-1"></a><span class="fu">display</span>(<span class="fu">round</span>.(<span class="fu">matrix</span>(via_mid); digits<span class="op">=</span><span class="fl">3</span>))</span>
-<span id="cb19-200"><a href="#cb19-200" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Direct:"</span>)</span>
-<span id="cb19-201"><a href="#cb19-201" aria-hidden="true" tabindex="-1"></a><span class="fu">display</span>(<span class="fu">round</span>.(<span class="fu">matrix</span>(direct); digits<span class="op">=</span><span class="fl">3</span>))</span>
-<span id="cb19-202"><a href="#cb19-202" aria-hidden="true" tabindex="-1"></a><span class="ss">```</span></span>
-<span id="cb19-203"><a href="#cb19-203" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-204"><a href="#cb19-204" aria-hidden="true" tabindex="-1"></a><span class="ss">## What's Next?</span></span>
-<span id="cb19-205"><a href="#cb19-205" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-206"><a href="#cb19-206" aria-hidden="true" tabindex="-1"></a><span class="ss">- **Vignette 2**: Composition and stratification — combining settings and spatial structure</span></span>
-<span id="cb19-207"><a href="#cb19-207" aria-hidden="true" tabindex="-1"></a><span class="ss">- **Vignette 3**: The categorical framework — ACSets, schemas, and functorial data migration</span></span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb24" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Introduction to ContACT.jl"</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "From Survey Data to Contact Matrices via Category Theory"</span></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Simon Frost"</span></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> today</span></span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: false</span></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a><span class="co">  gfm:</span></span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a><span class="co">  pdf:</span></span>
+<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a><span class="co">    documentclass: article</span></span>
+<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a><span class="co">    mainfont: "STIX Two Text"</span></span>
+<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a><span class="co">    mathfont: "STIX Two Math"</span></span>
+<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a><span class="co">    monofont: "Fira Code"</span></span>
+<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a><span class="co">    pdf-engine: xelatex</span></span>
+<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a><span class="fu">## Overview</span></span>
+<span id="cb24-22"><a href="#cb24-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-23"><a href="#cb24-23" aria-hidden="true" tabindex="-1"></a>ContACT.jl applies **category theory** to the construction and manipulation of</span>
+<span id="cb24-24"><a href="#cb24-24" aria-hidden="true" tabindex="-1"></a>contact matrices from social mixing surveys. Age bands are the motivating</span>
+<span id="cb24-25"><a href="#cb24-25" aria-hidden="true" tabindex="-1"></a>example, but matrices can be indexed by any finite survey partition: sex, region,</span>
+<span id="cb24-26"><a href="#cb24-26" aria-hidden="true" tabindex="-1"></a>occupation, risk group, or product partitions such as age × sex. This vignette</span>
+<span id="cb24-27"><a href="#cb24-27" aria-hidden="true" tabindex="-1"></a>introduces the core workflow using the POLYMOD study (Mossong et al., 2008) —</span>
+<span id="cb24-28"><a href="#cb24-28" aria-hidden="true" tabindex="-1"></a>the gold standard for parameterising infectious disease models.</span>
+<span id="cb24-29"><a href="#cb24-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-30"><a href="#cb24-30" aria-hidden="true" tabindex="-1"></a>The key categorical insight: a contact matrix is not merely a numerical array but</span>
+<span id="cb24-31"><a href="#cb24-31" aria-hidden="true" tabindex="-1"></a>an **object** in a category where morphisms are structure-preserving transformations</span>
+<span id="cb24-32"><a href="#cb24-32" aria-hidden="true" tabindex="-1"></a>(coarsening, symmetrisation, composition).</span>
+<span id="cb24-33"><a href="#cb24-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-34"><a href="#cb24-34" aria-hidden="true" tabindex="-1"></a><span class="fu">## Setup</span></span>
+<span id="cb24-35"><a href="#cb24-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-38"><a href="#cb24-38" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
+<span id="cb24-39"><a href="#cb24-39" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">ContACT</span></span>
+<span id="cb24-40"><a href="#cb24-40" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">CSV</span></span>
+<span id="cb24-41"><a href="#cb24-41" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">DataFrames</span></span>
+<span id="cb24-42"><a href="#cb24-42" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">LinearAlgebra</span></span>
+<span id="cb24-43"><a href="#cb24-43" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> <span class="bu">ContACT</span>: ×</span>
+<span id="cb24-44"><a href="#cb24-44" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb24-45"><a href="#cb24-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-46"><a href="#cb24-46" aria-hidden="true" tabindex="-1"></a><span class="fu">## Loading POLYMOD Data</span></span>
+<span id="cb24-47"><a href="#cb24-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-48"><a href="#cb24-48" aria-hidden="true" tabindex="-1"></a>We use a subset of the POLYMOD UK study: 1012 participants and their 11876 reported</span>
+<span id="cb24-49"><a href="#cb24-49" aria-hidden="true" tabindex="-1"></a>contacts.</span>
+<span id="cb24-50"><a href="#cb24-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-53"><a href="#cb24-53" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
+<span id="cb24-54"><a href="#cb24-54" aria-hidden="true" tabindex="-1"></a>data_dir <span class="op">=</span> <span class="fu">joinpath</span>(<span class="pp">@__DIR__</span>, <span class="st">".."</span>, <span class="st">".."</span>, <span class="st">"data"</span>)</span>
+<span id="cb24-55"><a href="#cb24-55" aria-hidden="true" tabindex="-1"></a>participants <span class="op">=</span> CSV.<span class="fu">read</span>(<span class="fu">joinpath</span>(data_dir, <span class="st">"polymod_uk_participants.csv"</span>), DataFrame)</span>
+<span id="cb24-56"><a href="#cb24-56" aria-hidden="true" tabindex="-1"></a>contacts <span class="op">=</span> CSV.<span class="fu">read</span>(<span class="fu">joinpath</span>(data_dir, <span class="st">"polymod_uk_contacts.csv"</span>), DataFrame)</span>
+<span id="cb24-57"><a href="#cb24-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-58"><a href="#cb24-58" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Participants: </span><span class="sc">$</span>(<span class="fu">nrow</span>(participants))<span class="st">"</span>)</span>
+<span id="cb24-59"><a href="#cb24-59" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Contacts: </span><span class="sc">$</span>(<span class="fu">nrow</span>(contacts))<span class="st">"</span>)</span>
+<span id="cb24-60"><a href="#cb24-60" aria-hidden="true" tabindex="-1"></a><span class="fu">first</span>(participants, <span class="fl">5</span>)</span>
+<span id="cb24-61"><a href="#cb24-61" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb24-62"><a href="#cb24-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-63"><a href="#cb24-63" aria-hidden="true" tabindex="-1"></a><span class="fu">## Preparing the Survey</span></span>
+<span id="cb24-64"><a href="#cb24-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-65"><a href="#cb24-65" aria-hidden="true" tabindex="-1"></a>ContACT.jl expects a <span class="in">`ContactSurvey`</span> with participant identifiers. The chosen</span>
+<span id="cb24-66"><a href="#cb24-66" aria-hidden="true" tabindex="-1"></a>partition supplies the participant/contact columns used for grouping. For an</span>
+<span id="cb24-67"><a href="#cb24-67" aria-hidden="true" tabindex="-1"></a><span class="in">`AgePartition`</span>, those default to <span class="in">`:part_age`</span> (participants) and <span class="in">`:cnt_age`</span></span>
+<span id="cb24-68"><a href="#cb24-68" aria-hidden="true" tabindex="-1"></a>(contacts). POLYMOD stores ages as <span class="in">`:part_age_exact`</span> and either <span class="in">`:cnt_age_exact`</span></span>
+<span id="cb24-69"><a href="#cb24-69" aria-hidden="true" tabindex="-1"></a>or estimated ranges (as strings with "NA" for missing).</span>
+<span id="cb24-70"><a href="#cb24-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-73"><a href="#cb24-73" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
+<span id="cb24-74"><a href="#cb24-74" aria-hidden="true" tabindex="-1"></a><span class="co"># Helper to parse string ages (CSV stores them as strings with "NA")</span></span>
+<span id="cb24-75"><a href="#cb24-75" aria-hidden="true" tabindex="-1"></a><span class="fu">parse_age</span>(x<span class="op">::</span><span class="dt">AbstractString</span>) <span class="op">=</span> x <span class="op">==</span> <span class="st">"NA"</span> ? <span class="cn">missing</span> <span class="op">:</span> <span class="fu">parse</span>(<span class="dt">Float64</span>, x)</span>
+<span id="cb24-76"><a href="#cb24-76" aria-hidden="true" tabindex="-1"></a><span class="fu">parse_age</span>(x<span class="op">::</span><span class="dt">Real</span>) <span class="op">=</span> <span class="fu">Float64</span>(x)</span>
+<span id="cb24-77"><a href="#cb24-77" aria-hidden="true" tabindex="-1"></a><span class="fu">parse_age</span>(<span class="op">::</span><span class="dt">Missing</span>) <span class="op">=</span> <span class="cn">missing</span></span>
+<span id="cb24-78"><a href="#cb24-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-79"><a href="#cb24-79" aria-hidden="true" tabindex="-1"></a><span class="co"># Rename participant age</span></span>
+<span id="cb24-80"><a href="#cb24-80" aria-hidden="true" tabindex="-1"></a><span class="fu">rename!</span>(participants, <span class="op">:</span>part_age_exact <span class="op">=&gt;</span> <span class="op">:</span>part_age)</span>
+<span id="cb24-81"><a href="#cb24-81" aria-hidden="true" tabindex="-1"></a>participants.part_age <span class="op">=</span> <span class="fu">Float64</span>.(participants.part_age)</span>
+<span id="cb24-82"><a href="#cb24-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-83"><a href="#cb24-83" aria-hidden="true" tabindex="-1"></a><span class="co"># Resolve contact ages: use exact if available, otherwise midpoint of range</span></span>
+<span id="cb24-84"><a href="#cb24-84" aria-hidden="true" tabindex="-1"></a>cnt_exact <span class="op">=</span> <span class="fu">parse_age</span>.(contacts.cnt_age_exact)</span>
+<span id="cb24-85"><a href="#cb24-85" aria-hidden="true" tabindex="-1"></a>cnt_min <span class="op">=</span> <span class="fu">parse_age</span>.(contacts.cnt_age_est_min)</span>
+<span id="cb24-86"><a href="#cb24-86" aria-hidden="true" tabindex="-1"></a>cnt_max <span class="op">=</span> <span class="fu">parse_age</span>.(contacts.cnt_age_est_max)</span>
+<span id="cb24-87"><a href="#cb24-87" aria-hidden="true" tabindex="-1"></a>contacts.cnt_age <span class="op">=</span> <span class="fu">coalesce</span>.(cnt_exact, (cnt_min <span class="op">.+</span> cnt_max) <span class="op">./</span> <span class="fl">2</span>)</span>
+<span id="cb24-88"><a href="#cb24-88" aria-hidden="true" tabindex="-1"></a><span class="fu">select!</span>(contacts, [<span class="op">:</span>part_id, <span class="op">:</span>cnt_age])</span>
+<span id="cb24-89"><a href="#cb24-89" aria-hidden="true" tabindex="-1"></a><span class="fu">dropmissing!</span>(contacts, <span class="op">:</span>cnt_age)</span>
+<span id="cb24-90"><a href="#cb24-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-91"><a href="#cb24-91" aria-hidden="true" tabindex="-1"></a>survey <span class="op">=</span> <span class="fu">ContactSurvey</span>(participants, contacts)</span>
+<span id="cb24-92"><a href="#cb24-92" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Survey: </span><span class="sc">$</span>(<span class="fu">nrow</span>(survey.participants))<span class="st"> participants, </span><span class="sc">$</span>(<span class="fu">nrow</span>(survey.contacts))<span class="st"> contacts"</span>)</span>
+<span id="cb24-93"><a href="#cb24-93" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb24-94"><a href="#cb24-94" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-95"><a href="#cb24-95" aria-hidden="true" tabindex="-1"></a><span class="fu">## Computing a Contact Matrix</span></span>
+<span id="cb24-96"><a href="#cb24-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-97"><a href="#cb24-97" aria-hidden="true" tabindex="-1"></a>The central operation is the **restricted functor** from surveys to contact</span>
+<span id="cb24-98"><a href="#cb24-98" aria-hidden="true" tabindex="-1"></a>matrices. We fix a partition — here, an interval-valued age partition — which</span>
+<span id="cb24-99"><a href="#cb24-99" aria-hidden="true" tabindex="-1"></a>makes the operation deterministic and functorial:</span>
+<span id="cb24-100"><a href="#cb24-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-103"><a href="#cb24-103" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
+<span id="cb24-104"><a href="#cb24-104" aria-hidden="true" tabindex="-1"></a><span class="co"># Standard 5-year age bands up to 75+</span></span>
+<span id="cb24-105"><a href="#cb24-105" aria-hidden="true" tabindex="-1"></a>partition <span class="op">=</span> <span class="fu">AgePartition</span>(</span>
+<span id="cb24-106"><a href="#cb24-106" aria-hidden="true" tabindex="-1"></a>    [<span class="fl">0</span>, <span class="fl">5</span>, <span class="fl">10</span>, <span class="fl">15</span>, <span class="fl">20</span>, <span class="fl">25</span>, <span class="fl">30</span>, <span class="fl">35</span>, <span class="fl">40</span>, <span class="fl">45</span>, <span class="fl">50</span>, <span class="fl">55</span>, <span class="fl">60</span>, <span class="fl">65</span>, <span class="fl">70</span>, <span class="fl">75</span>]</span>
+<span id="cb24-107"><a href="#cb24-107" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb24-108"><a href="#cb24-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-109"><a href="#cb24-109" aria-hidden="true" tabindex="-1"></a><span class="co"># UK 2005 population (thousands) — approximation from ONS</span></span>
+<span id="cb24-110"><a href="#cb24-110" aria-hidden="true" tabindex="-1"></a>uk_pop <span class="op">=</span> [<span class="fl">3433.0</span>, <span class="fl">3554.0</span>, <span class="fl">3824.0</span>, <span class="fl">3956.0</span>, <span class="fl">3757.0</span>, <span class="fl">3520.0</span>, <span class="fl">4009.0</span>,</span>
+<span id="cb24-111"><a href="#cb24-111" aria-hidden="true" tabindex="-1"></a>           <span class="fl">4405.0</span>, <span class="fl">4548.0</span>, <span class="fl">4187.0</span>, <span class="fl">3883.0</span>, <span class="fl">3589.0</span>, <span class="fl">3117.0</span>, <span class="fl">2765.0</span>,</span>
+<span id="cb24-112"><a href="#cb24-112" aria-hidden="true" tabindex="-1"></a>           <span class="fl">2425.0</span>, <span class="fl">3752.0</span>]</span>
+<span id="cb24-113"><a href="#cb24-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-114"><a href="#cb24-114" aria-hidden="true" tabindex="-1"></a><span class="co"># The ▷ operator applies the survey→matrix functor (type \triangleright&lt;TAB&gt;)</span></span>
+<span id="cb24-115"><a href="#cb24-115" aria-hidden="true" tabindex="-1"></a>cm <span class="op">=</span> survey <span class="op">▷</span> partition</span>
+<span id="cb24-116"><a href="#cb24-116" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Contact matrix: </span><span class="sc">$</span>(<span class="fu">n_groups</span>(cm))<span class="st"> age groups"</span>)</span>
+<span id="cb24-117"><a href="#cb24-117" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Spectral radius ρ(M) ∝ R₀: </span><span class="sc">$</span>(<span class="fu">round</span>(<span class="fu">ρ</span>(cm); digits<span class="op">=</span><span class="fl">2</span>))<span class="st">"</span>)</span>
+<span id="cb24-118"><a href="#cb24-118" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb24-119"><a href="#cb24-119" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-120"><a href="#cb24-120" aria-hidden="true" tabindex="-1"></a>The result is a <span class="in">`ContactMatrix`</span> — not just a bare array, but a categorical object</span>
+<span id="cb24-121"><a href="#cb24-121" aria-hidden="true" tabindex="-1"></a>bundling the matrix with its partition, population, and semantics:</span>
+<span id="cb24-122"><a href="#cb24-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-125"><a href="#cb24-125" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
+<span id="cb24-126"><a href="#cb24-126" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Type: </span><span class="sc">$</span>(<span class="fu">typeof</span>(cm))<span class="st">"</span>)</span>
+<span id="cb24-127"><a href="#cb24-127" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Semantics: </span><span class="sc">$</span>(cm.semantics)<span class="st">"</span>)</span>
+<span id="cb24-128"><a href="#cb24-128" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Age groups: </span><span class="sc">$</span>(<span class="fu">age_labels</span>(cm))<span class="st">"</span>)</span>
+<span id="cb24-129"><a href="#cb24-129" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb24-130"><a href="#cb24-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-131"><a href="#cb24-131" aria-hidden="true" tabindex="-1"></a><span class="fu">## Other Finite Partitions</span></span>
+<span id="cb24-132"><a href="#cb24-132" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-133"><a href="#cb24-133" aria-hidden="true" tabindex="-1"></a>The same machinery works when the survey variable is categorical. The partition</span>
+<span id="cb24-134"><a href="#cb24-134" aria-hidden="true" tabindex="-1"></a>records both the mathematical dimension (<span class="in">`:sex`</span>) and the concrete survey columns</span>
+<span id="cb24-135"><a href="#cb24-135" aria-hidden="true" tabindex="-1"></a>used for participants and contacts:</span>
+<span id="cb24-136"><a href="#cb24-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-139"><a href="#cb24-139" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
+<span id="cb24-140"><a href="#cb24-140" aria-hidden="true" tabindex="-1"></a>participants_sex <span class="op">=</span> <span class="fu">DataFrame</span>(part_id<span class="op">=</span>[<span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span>], part_sex<span class="op">=</span>[<span class="st">"F"</span>, <span class="st">"M"</span>, <span class="st">"F"</span>])</span>
+<span id="cb24-141"><a href="#cb24-141" aria-hidden="true" tabindex="-1"></a>contacts_sex <span class="op">=</span> <span class="fu">DataFrame</span>(</span>
+<span id="cb24-142"><a href="#cb24-142" aria-hidden="true" tabindex="-1"></a>    part_id<span class="op">=</span>[<span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span>],</span>
+<span id="cb24-143"><a href="#cb24-143" aria-hidden="true" tabindex="-1"></a>    cnt_sex<span class="op">=</span>[<span class="st">"M"</span>, <span class="st">"F"</span>, <span class="st">"F"</span>, <span class="st">"F"</span>],</span>
+<span id="cb24-144"><a href="#cb24-144" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb24-145"><a href="#cb24-145" aria-hidden="true" tabindex="-1"></a>survey_sex <span class="op">=</span> <span class="fu">ContactSurvey</span>(participants_sex, contacts_sex)</span>
+<span id="cb24-146"><a href="#cb24-146" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-147"><a href="#cb24-147" aria-hidden="true" tabindex="-1"></a>sex <span class="op">=</span> <span class="fu">CategoricalPartition</span>(<span class="op">:</span>sex;</span>
+<span id="cb24-148"><a href="#cb24-148" aria-hidden="true" tabindex="-1"></a>    participant_col<span class="op">=:</span>part_sex,</span>
+<span id="cb24-149"><a href="#cb24-149" aria-hidden="true" tabindex="-1"></a>    contact_col<span class="op">=:</span>cnt_sex,</span>
+<span id="cb24-150"><a href="#cb24-150" aria-hidden="true" tabindex="-1"></a>    levels<span class="op">=</span>[<span class="st">"F"</span>, <span class="st">"M"</span>],</span>
+<span id="cb24-151"><a href="#cb24-151" aria-hidden="true" tabindex="-1"></a>    labels<span class="op">=</span>[<span class="st">"female"</span>, <span class="st">"male"</span>],</span>
+<span id="cb24-152"><a href="#cb24-152" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb24-153"><a href="#cb24-153" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-154"><a href="#cb24-154" aria-hidden="true" tabindex="-1"></a>cm_sex <span class="op">=</span> survey_sex <span class="op">▷</span> sex</span>
+<span id="cb24-155"><a href="#cb24-155" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Groups: </span><span class="sc">$</span>(<span class="fu">group_labels</span>(cm_sex))<span class="st">"</span>)</span>
+<span id="cb24-156"><a href="#cb24-156" aria-hidden="true" tabindex="-1"></a><span class="fu">display</span>(<span class="fu">matrix</span>(cm_sex))</span>
+<span id="cb24-157"><a href="#cb24-157" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb24-158"><a href="#cb24-158" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-159"><a href="#cb24-159" aria-hidden="true" tabindex="-1"></a>Product partitions combine grouping dimensions without pretending that the</span>
+<span id="cb24-160"><a href="#cb24-160" aria-hidden="true" tabindex="-1"></a>result is still an age axis:</span>
+<span id="cb24-161"><a href="#cb24-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-164"><a href="#cb24-164" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
+<span id="cb24-165"><a href="#cb24-165" aria-hidden="true" tabindex="-1"></a>region <span class="op">=</span> <span class="fu">CategoricalPartition</span>(<span class="op">:</span>region;</span>
+<span id="cb24-166"><a href="#cb24-166" aria-hidden="true" tabindex="-1"></a>    participant_col<span class="op">=:</span>part_region,</span>
+<span id="cb24-167"><a href="#cb24-167" aria-hidden="true" tabindex="-1"></a>    contact_col<span class="op">=:</span>cnt_region,</span>
+<span id="cb24-168"><a href="#cb24-168" aria-hidden="true" tabindex="-1"></a>    levels<span class="op">=</span>[<span class="st">"north"</span>, <span class="st">"south"</span>],</span>
+<span id="cb24-169"><a href="#cb24-169" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb24-170"><a href="#cb24-170" aria-hidden="true" tabindex="-1"></a>sex_region <span class="op">=</span> sex <span class="op">×</span> region</span>
+<span id="cb24-171"><a href="#cb24-171" aria-hidden="true" tabindex="-1"></a><span class="fu">group_labels</span>(sex_region)</span>
+<span id="cb24-172"><a href="#cb24-172" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb24-173"><a href="#cb24-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-174"><a href="#cb24-174" aria-hidden="true" tabindex="-1"></a><span class="fu">## Symmetrisation (Idempotent Endomorphism)</span></span>
+<span id="cb24-175"><a href="#cb24-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-176"><a href="#cb24-176" aria-hidden="true" tabindex="-1"></a>Raw survey matrices are asymmetric because group sizes differ. The reciprocity</span>
+<span id="cb24-177"><a href="#cb24-177" aria-hidden="true" tabindex="-1"></a>constraint ensures total contacts from group $i$ to $j$ equal total contacts from</span>
+<span id="cb24-178"><a href="#cb24-178" aria-hidden="true" tabindex="-1"></a>$j$ to $i$:</span>
+<span id="cb24-179"><a href="#cb24-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-180"><a href="#cb24-180" aria-hidden="true" tabindex="-1"></a>$$M_{ij} \cdot N_j = M_{ji} \cdot N_i$$</span>
+<span id="cb24-181"><a href="#cb24-181" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-182"><a href="#cb24-182" aria-hidden="true" tabindex="-1"></a>Symmetrisation is an **idempotent endomorphism** in the contact matrix category.</span>
+<span id="cb24-183"><a href="#cb24-183" aria-hidden="true" tabindex="-1"></a>Use <span class="in">`↔`</span> (<span class="in">`\leftrightarrow&lt;TAB&gt;`</span>) for the reciprocity projection:</span>
+<span id="cb24-184"><a href="#cb24-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-187"><a href="#cb24-187" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
+<span id="cb24-188"><a href="#cb24-188" aria-hidden="true" tabindex="-1"></a>cm_sym <span class="op">=</span> <span class="fu">↔</span>(cm)</span>
+<span id="cb24-189"><a href="#cb24-189" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-190"><a href="#cb24-190" aria-hidden="true" tabindex="-1"></a><span class="co"># Verify reciprocity</span></span>
+<span id="cb24-191"><a href="#cb24-191" aria-hidden="true" tabindex="-1"></a>M <span class="op">=</span> <span class="fu">matrix</span>(cm_sym)</span>
+<span id="cb24-192"><a href="#cb24-192" aria-hidden="true" tabindex="-1"></a>N <span class="op">=</span> <span class="fu">population</span>(cm_sym)</span>
+<span id="cb24-193"><a href="#cb24-193" aria-hidden="true" tabindex="-1"></a>max_violation <span class="op">=</span> <span class="fu">maximum</span>(<span class="fu">abs</span>(M[i,j] <span class="op">*</span> N[j] <span class="op">-</span> M[j,i] <span class="op">*</span> N[i])</span>
+<span id="cb24-194"><a href="#cb24-194" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fu">n_groups</span>(cm_sym), j <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fu">n_groups</span>(cm_sym))</span>
+<span id="cb24-195"><a href="#cb24-195" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Max reciprocity violation: </span><span class="sc">$</span>(max_violation)<span class="st">"</span>)</span>
+<span id="cb24-196"><a href="#cb24-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-197"><a href="#cb24-197" aria-hidden="true" tabindex="-1"></a><span class="co"># Idempotence: applying twice gives the same result</span></span>
+<span id="cb24-198"><a href="#cb24-198" aria-hidden="true" tabindex="-1"></a>cm_sym2 <span class="op">=</span> <span class="fu">↔</span>(cm_sym)</span>
+<span id="cb24-199"><a href="#cb24-199" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Idempotent: </span><span class="sc">$</span>(<span class="fu">matrix</span>(cm_sym2) <span class="op">≈</span> <span class="fu">matrix</span>(cm_sym))<span class="st">"</span>)</span>
+<span id="cb24-200"><a href="#cb24-200" aria-hidden="true" tabindex="-1"></a><span class="ss">```</span></span>
+<span id="cb24-201"><a href="#cb24-201" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-202"><a href="#cb24-202" aria-hidden="true" tabindex="-1"></a><span class="ss">## Coarsening (Left Kan Extension)</span></span>
+<span id="cb24-203"><a href="#cb24-203" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-204"><a href="#cb24-204" aria-hidden="true" tabindex="-1"></a><span class="ss">A key morphism is **coarsening**: reducing the number of partition groups.</span></span>
+<span id="cb24-205"><a href="#cb24-205" aria-hidden="true" tabindex="-1"></a><span class="ss">Categorically, this is a left Kan extension along a surjective partition map</span></span>
+<span id="cb24-206"><a href="#cb24-206" aria-hidden="true" tabindex="-1"></a><span class="ss">$f: G_{\mathrm{fine}} </span><span class="sc">\t</span><span class="ss">o G_{\mathrm{coarse}}$.</span></span>
+<span id="cb24-207"><a href="#cb24-207" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-208"><a href="#cb24-208" aria-hidden="true" tabindex="-1"></a><span class="ss">For interval partitions such as age, the coarse partition must have limits that</span></span>
+<span id="cb24-209"><a href="#cb24-209" aria-hidden="true" tabindex="-1"></a><span class="ss">are a **subset** of the fine partition's limits (ensuring a well-defined</span></span>
+<span id="cb24-210"><a href="#cb24-210" aria-hidden="true" tabindex="-1"></a><span class="ss">surjection between groups).</span></span>
+<span id="cb24-211"><a href="#cb24-211" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-214"><a href="#cb24-214" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
+<span id="cb24-215"><a href="#cb24-215" aria-hidden="true" tabindex="-1"></a><span class="co"># Coarsen to broader groups (limits must be a subset of the fine partition)</span></span>
+<span id="cb24-216"><a href="#cb24-216" aria-hidden="true" tabindex="-1"></a>coarse <span class="op">=</span> <span class="fu">AgePartition</span>([<span class="fl">0</span>, <span class="fl">15</span>, <span class="fl">45</span>, <span class="fl">65</span>])</span>
+<span id="cb24-217"><a href="#cb24-217" aria-hidden="true" tabindex="-1"></a>cm_coarse <span class="op">=</span> cm <span class="op">↓</span> coarse</span>
+<span id="cb24-218"><a href="#cb24-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-219"><a href="#cb24-219" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Coarsened: </span><span class="sc">$</span>(<span class="fu">n_groups</span>(cm_coarse))<span class="st"> groups"</span>)</span>
+<span id="cb24-220"><a href="#cb24-220" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Age groups: </span><span class="sc">$</span>(<span class="fu">age_labels</span>(cm_coarse))<span class="st">"</span>)</span>
+<span id="cb24-221"><a href="#cb24-221" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Matrix:"</span>)</span>
+<span id="cb24-222"><a href="#cb24-222" aria-hidden="true" tabindex="-1"></a><span class="fu">display</span>(<span class="fu">round</span>.(<span class="fu">matrix</span>(cm_coarse); digits<span class="op">=</span><span class="fl">2</span>))</span>
+<span id="cb24-223"><a href="#cb24-223" aria-hidden="true" tabindex="-1"></a><span class="ss">```</span></span>
+<span id="cb24-224"><a href="#cb24-224" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-225"><a href="#cb24-225" aria-hidden="true" tabindex="-1"></a><span class="ss">### Functoriality</span></span>
+<span id="cb24-226"><a href="#cb24-226" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-227"><a href="#cb24-227" aria-hidden="true" tabindex="-1"></a><span class="ss">The defining property of a functor: coarsening in two steps gives the same result</span></span>
+<span id="cb24-228"><a href="#cb24-228" aria-hidden="true" tabindex="-1"></a><span class="ss">as coarsening in one step. Using `∘` for map composition:</span></span>
+<span id="cb24-229"><a href="#cb24-229" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-232"><a href="#cb24-232" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
+<span id="cb24-233"><a href="#cb24-233" aria-hidden="true" tabindex="-1"></a><span class="co"># Two-step: 16 → 4 → 2</span></span>
+<span id="cb24-234"><a href="#cb24-234" aria-hidden="true" tabindex="-1"></a>mid <span class="op">=</span> <span class="fu">AgePartition</span>([<span class="fl">0</span>, <span class="fl">15</span>, <span class="fl">45</span>, <span class="fl">65</span>])</span>
+<span id="cb24-235"><a href="#cb24-235" aria-hidden="true" tabindex="-1"></a>final_part <span class="op">=</span> <span class="fu">AgePartition</span>([<span class="fl">0</span>, <span class="fl">45</span>])</span>
+<span id="cb24-236"><a href="#cb24-236" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-237"><a href="#cb24-237" aria-hidden="true" tabindex="-1"></a><span class="co"># Compose the maps: fine → mid → coarse</span></span>
+<span id="cb24-238"><a href="#cb24-238" aria-hidden="true" tabindex="-1"></a>f <span class="op">=</span> <span class="fu">AgeMap</span>(partition, mid)</span>
+<span id="cb24-239"><a href="#cb24-239" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> <span class="fu">AgeMap</span>(mid, final_part)</span>
+<span id="cb24-240"><a href="#cb24-240" aria-hidden="true" tabindex="-1"></a>h <span class="op">=</span> g <span class="op">∘</span> f   <span class="co"># composed map (type \circ&lt;TAB&gt;)</span></span>
+<span id="cb24-241"><a href="#cb24-241" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-242"><a href="#cb24-242" aria-hidden="true" tabindex="-1"></a><span class="co"># Functoriality: (cm ↓ g) ∘ (cm ↓ f) == cm ↓ (g ∘ f)</span></span>
+<span id="cb24-243"><a href="#cb24-243" aria-hidden="true" tabindex="-1"></a>via_mid <span class="op">=</span> (cm <span class="op">↓</span> f) <span class="op">↓</span> g</span>
+<span id="cb24-244"><a href="#cb24-244" aria-hidden="true" tabindex="-1"></a>direct <span class="op">=</span> cm <span class="op">↓</span> h</span>
+<span id="cb24-245"><a href="#cb24-245" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-246"><a href="#cb24-246" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Functoriality: cm ↓ (g ∘ f) == (cm ↓ f) ↓ g"</span>)</span>
+<span id="cb24-247"><a href="#cb24-247" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"  Holds: </span><span class="sc">$</span>(<span class="fu">matrix</span>(via_mid) <span class="op">≈</span> <span class="fu">matrix</span>(direct))<span class="st">"</span>)</span>
+<span id="cb24-248"><a href="#cb24-248" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Via mid:"</span>)</span>
+<span id="cb24-249"><a href="#cb24-249" aria-hidden="true" tabindex="-1"></a><span class="fu">display</span>(<span class="fu">round</span>.(<span class="fu">matrix</span>(via_mid); digits<span class="op">=</span><span class="fl">3</span>))</span>
+<span id="cb24-250"><a href="#cb24-250" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Direct:"</span>)</span>
+<span id="cb24-251"><a href="#cb24-251" aria-hidden="true" tabindex="-1"></a><span class="fu">display</span>(<span class="fu">round</span>.(<span class="fu">matrix</span>(direct); digits<span class="op">=</span><span class="fl">3</span>))</span>
+<span id="cb24-252"><a href="#cb24-252" aria-hidden="true" tabindex="-1"></a><span class="ss">```</span></span>
+<span id="cb24-253"><a href="#cb24-253" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-254"><a href="#cb24-254" aria-hidden="true" tabindex="-1"></a><span class="ss">## What's Next?</span></span>
+<span id="cb24-255"><a href="#cb24-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-256"><a href="#cb24-256" aria-hidden="true" tabindex="-1"></a><span class="ss">- **Vignette 2**: Composition and stratification — combining settings and spatial structure</span></span>
+<span id="cb24-257"><a href="#cb24-257" aria-hidden="true" tabindex="-1"></a><span class="ss">- **Vignette 3**: The categorical framework — ACSets, schemas, and functorial data migration</span></span>
 </code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

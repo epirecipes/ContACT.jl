@@ -9,9 +9,10 @@ using DataFrames
 using LinearAlgebra
 
 # Core types
-export AgePartition, ContactSurvey, ContactMatrix,
+export AbstractPartition, IntervalPartition, CategoricalPartition, ProductPartition,
+       AgePartition, ContactSurvey, ContactMatrix,
        UnitSemantics, MeanContacts, ContactCounts, PerCapitaRate,
-       age_limits, age_labels, n_groups, matrix, population
+       dimension, group_labels, age_limits, age_labels, n_groups, matrix, population
 
 # Survey operations
 export filter_survey, subset_survey
@@ -20,7 +21,7 @@ export filter_survey, subset_survey
 export compute_matrix
 
 # Coarsening & refinement
-export coarsen, refine, AgeMap
+export coarsen, refine, PartitionMap, AgeMap
 
 # Composition
 export compose_matrices
@@ -32,7 +33,7 @@ export stratify
 export symmetrise
 
 # Operators (type \name<TAB> in REPL)
-export ⊕, ⊗, ↓, ↑, ▷, ↔, ρ, RefinementPrior
+export ⊕, ⊗, ↓, ↑, ▷, ↔, ρ, ×, RefinementPrior
 
 # Utilities
 export to_per_capita, to_counts, spectral_radius

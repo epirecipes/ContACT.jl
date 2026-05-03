@@ -12,7 +12,7 @@ Type the LaTeX name followed by TAB in the Julia REPL:
 | `↓` | `\downarrow<TAB>` | Coarsening (left Kan extension) |
 | `↑` | `\uparrow<TAB>` | Refinement (with prior) |
 | `▷` | `\triangleright<TAB>` | Functor application |
-| `∘` | `\circ<TAB>` | Map composition |
+| `∘` | `\circ<TAB>` | Partition map composition |
 | `↔` | `\leftrightarrow<TAB>` | Symmetrisation / reciprocity |
 | `ρ` | `\rho<TAB>` | Spectral radius |
 
@@ -30,12 +30,13 @@ RefinementPrior
 ## Map Composition
 
 ```@docs
-Base.:∘(::AgeMap, ::AgeMap)
+Base.:∘(::PartitionMap{D, P, Q} where {P<:AbstractPartition{D}, Q<:AbstractPartition{D}}, ::PartitionMap{D, P, Q} where {P<:AbstractPartition{D}, Q<:AbstractPartition{D}}) where D
 ```
 
 ## Coarsening & Refinement
 
 ```@docs
+PartitionMap
 AgeMap
 coarsen
 refine

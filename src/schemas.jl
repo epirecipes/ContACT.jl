@@ -128,7 +128,7 @@ const LabelledContactMatrix = ContactMatrixACSet{Float64, String, Float64}
 # ---------------------------------------------------------------------------
 
 """
-    ContactSurveyACSet(survey::ContactSurvey, partition::AgePartition; skip_invalid=false)
+    ContactSurveyACSet(survey::ContactSurvey, partition::AbstractPartition; skip_invalid=false)
 
 Convert a plain `ContactSurvey` into an ACSet representation with
 age groups assigned according to `partition`.
@@ -136,7 +136,7 @@ age groups assigned according to `partition`.
 By default, rows whose reporter or age cannot be assigned are rejected. Pass
 `skip_invalid=true` to keep the part but leave the invalid relationship unset.
 """
-function ContactSurveyACSet(survey::ContactSurvey, partition::AgePartition; skip_invalid::Bool=false)
+function ContactSurveyACSet(survey::ContactSurvey, partition::AbstractPartition; skip_invalid::Bool=false)
     acs = ContactSurveyACSet()
     n = n_groups(partition)
 
@@ -144,15 +144,13 @@ function ContactSurveyACSet(survey::ContactSurvey, partition::AgePartition; skip
     add_parts!(acs, :G, n)
 
     # Add participants with group assignments
-    limits = age_limits(partition)
     n_parts = nrow(survey.participants)
     add_parts!(acs, :P, n_parts)
-    for i in 1:n_parts
-        age = survey.participants.part_age[i]
-        grp = _assign_age_group(age, limits)
+    for (i, row) in enumerate(eachrow(survey.participants))
+        grp = assign_participant_group(partition, row)
         if grp === nothing
             skip_invalid && continue
-            throw(ArgumentError("participant row $i has age outside partition or missing/non-finite age"))
+            throw(ArgumentError("participant row $i cannot be assigned to partition $(dimension(partition))"))
         end
         set_subpart!(acs, i, :part_group, grp)
     end
@@ -170,11 +168,10 @@ function ContactSurveyACSet(survey::ContactSurvey, partition::AgePartition; skip
         end
         set_subpart!(acs, k, :reporter, idx)
 
-        age = survey.contacts.cnt_age[k]
-        grp = _assign_age_group(age, limits)
+        grp = assign_contact_group(partition, survey.contacts[k, :])
         if grp === nothing
             skip_invalid && continue
-            throw(ArgumentError("contact row $k has age outside partition or missing/non-finite age"))
+            throw(ArgumentError("contact row $k cannot be assigned to partition $(dimension(partition))"))
         end
         set_subpart!(acs, k, :cnt_group, grp)
     end
@@ -192,7 +189,7 @@ function LabelledContactMatrix(cm::ContactMatrix)
     n = n_groups(cm)
     M = matrix(cm)
     pop = population(cm)
-    labels = age_labels(cm)
+    labels = group_labels(cm)
 
     # Add groups with labels and population
     add_parts!(acs, :G, n)
@@ -217,7 +214,7 @@ end
 # ---------------------------------------------------------------------------
 
 """
-    migrate_coarsen(acs::ContactSurveyACSet, f::AgeMap)
+    migrate_coarsen(acs::ContactSurveyACSet, f::PartitionMap)
 
 Apply functorial data migration (Σ_f) to coarsen the age groups in a survey ACSet.
 
@@ -225,7 +222,7 @@ This is the ACSet-level implementation of the left Kan extension: it
 pushes forward participant and contact group assignments along the
 surjective age-group map f.
 """
-function migrate_coarsen(acs::ContactSurveyACSet, f::AgeMap)
+function migrate_coarsen(acs::ContactSurveyACSet, f::PartitionMap)
     fmap = collect(f.mapping)
     n_coarse = n_groups(f.codomain)
 

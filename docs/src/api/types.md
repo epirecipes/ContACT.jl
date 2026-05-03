@@ -1,9 +1,20 @@
 # Types
 
+## Partitions
+
+```@docs
+AbstractPartition
+IntervalPartition
+AgePartition
+CategoricalPartition
+ProductPartition
+dimension
+group_labels
+```
+
 ## Core Types
 
 ```@docs
-AgePartition
 ContactSurvey
 ContactMatrix
 ```

@@ -21,8 +21,8 @@ age partition, population, and unit semantics.
 Returns a new `ContactMatrix` whose matrix is the elementwise sum.
 """
 function compose_matrices(a::ContactMatrix{T1, S}, b::ContactMatrix{T2, S}) where {T1, T2, S}
-    a.partition.limits == b.partition.limits || throw(ArgumentError(
-        "cannot compose matrices with different age partitions"))
+    same_partition(a.partition, b.partition) || throw(ArgumentError(
+        "cannot compose matrices with different partitions"))
     isapprox(a.population, b.population; rtol=1e-10, atol=0) || throw(ArgumentError(
         "cannot compose matrices with different population vectors"))
 

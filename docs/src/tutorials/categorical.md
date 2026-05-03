@@ -11,7 +11,7 @@ ContACT.jl defines schemas that enforce structural invariants at construction ti
 
 ### Survey Schema
 
-The survey schema captures participants, contacts, and age groups with
+The survey schema captures participants, contacts, and partition groups with
 explicit morphisms:
 
 ```@example categorical
@@ -47,7 +47,7 @@ partition = AgePartition([0, 5, 18, 45, 65])
 acs = ContactSurveyACSet(survey, partition)
 
 println("Survey ACSet:")
-println("  Age groups (G): $(nparts(acs, :G))")
+println("  Partition groups (G): $(nparts(acs, :G))")
 println("  Participants (P): $(nparts(acs, :P))")
 println("  Contacts (C): $(nparts(acs, :C))")
 nothing # hide
@@ -81,7 +81,7 @@ nothing # hide
 
 ## Functorial Data Migration
 
-A surjective map ``f: G_{\text{fine}} \to G_{\text{coarse}}`` between age-group
+A surjective map ``f: G_{\text{fine}} \to G_{\text{coarse}}`` between partition-group
 objects induces a **left Kan extension** ``\Sigma_f`` that pushes survey data
 forward:
 

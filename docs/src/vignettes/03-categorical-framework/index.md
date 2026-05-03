@@ -25,10 +25,10 @@ previous vignettes used the simplified API (plain structs + operators),
 the ACSet layer provides:
 
 1.  **Schema-enforced structure**: Type-safe relationships between
-    participants, contacts, and age groups, preventing structural errors
-    at construction.
+    participants, contacts, and partition groups, preventing structural
+    errors at construction.
 2.  **Functorial data migration** ($\Sigma_f$, $\Delta_f$): Principled
-    coarsening and restriction of age-structured data along morphisms.
+    coarsening and restriction of partitioned data along morphisms.
 3.  **Undirected wiring diagrams (UWDs)**: Declarative specification of
     how setting-specific matrices compose via shared boundaries.
 
@@ -54,7 +54,7 @@ An **Attributed C-Set** (ACSet) is a functor from a schema category to
 
 The survey schema encodes the relational structure:
 
-- **Objects**: P (Participants), C (Contacts), G (Age Groups)
+- **Objects**: P (Participants), C (Contacts), G (Partition Groups)
 - **Morphisms**: `part_group: P → G`, `cnt_group: C → G`,
   `reporter: C → P`
 
@@ -132,19 +132,19 @@ partition = AgePartition([0, 5, 18, 45, 65])
 acs = ContactSurveyACSet(survey, partition)
 
 println("Survey ACSet:")
-println("  Age groups (G): $(nparts(acs, :G))")
+println("  Partition groups (G): $(nparts(acs, :G))")
 println("  Participants (P): $(nparts(acs, :P))")
 println("  Contacts (C): $(nparts(acs, :C))")
 ```
 
     Survey ACSet:
-      Age groups (G): 5
+      Partition groups (G): 5
       Participants (P): 1012
       Contacts (C): 11873
 
 The ACSet enforces referential integrity: every contact’s `:reporter`
 points to a valid participant, and every `:part_group`/`:cnt_group`
-points to a valid age group.
+points to a valid partition group.
 
 ``` julia
 # Check: all reporters are valid participants
@@ -164,7 +164,7 @@ println("All group assignments valid: $all_groups_valid")
 
 The matrix schema represents the output of the functor:
 
-- **Objects**: G (Age Groups), E (Matrix Entries)
+- **Objects**: G (Partition Groups), E (Matrix Entries)
 - **Morphisms**: `row_group: E → G`, `col_group: E → G`
 - **Attributes**: `gname: G → String`, `pop: G → Float64`,
   `value: E → Float64`
@@ -193,7 +193,7 @@ println("  Group names: $(subpart(acs_cm, :gname))")
 The power of ACSets is that morphisms between schemas induce **data
 migration functors**. For contact data, the key morphism is coarsening:
 a surjective map $f: G_{\mathrm{fine}} \to G_{\mathrm{coarse}}$ between
-age-group objects.
+partition-group objects.
 
 The **left Kan extension** $\Sigma_f$ pushes data forward along $f$:
 
@@ -428,16 +428,16 @@ println("  Regional: $(n_groups(cm_regional)) groups, ρ = $(round(ρ(cm_regiona
 
 ## Summary
 
-| Operator | LaTeX              | Category-theoretic role                 |
-|----------|--------------------|-----------------------------------------|
-| `⊕`      | `\\oplus`          | Monoidal product (commutative monoid)   |
-| `⊗`      | `\\otimes`         | Kronecker/stratification functor        |
-| `↓`      | `\\downarrow`      | Left Kan extension (coarsening)         |
-| `↑`      | `\\uparrow`        | Parameterised refinement (with prior)   |
-| `▷`      | `\\triangleright`  | Functor application (survey → matrix)   |
-| `∘`      | `\\circ`           | Morphism composition (AgeMap)           |
-| `↔`      | `\\leftrightarrow` | Reciprocity projection (symmetrisation) |
-| `ρ`      | `\\rho`            | Spectral radius (R₀ proxy)              |
+| Operator | LaTeX | Category-theoretic role |
+|----|----|----|
+| `⊕` | `\\oplus` | Monoidal product (commutative monoid) |
+| `⊗` | `\\otimes` | Kronecker/stratification functor |
+| `↓` | `\\downarrow` | Left Kan extension (coarsening) |
+| `↑` | `\\uparrow` | Parameterised refinement (with prior) |
+| `▷` | `\\triangleright` | Functor application (survey → matrix) |
+| `∘` | `\\circ` | Morphism composition (PartitionMap; `AgeMap` is the age alias) |
+| `↔` | `\\leftrightarrow` | Reciprocity projection (symmetrisation) |
+| `ρ` | `\\rho` | Spectral radius (R₀ proxy) |
 
 The categorical framework provides **formal guarantees** (functoriality,
 idempotence, associativity) that are verified both in the Julia test

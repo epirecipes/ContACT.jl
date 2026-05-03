@@ -66,9 +66,9 @@ cm_spatial = cm ⊗ coupling   # 2 regions × n ages
 
 """
     cm ↓ coarse_partition
-    cm ↓ f::AgeMap
+    cm ↓ f::PartitionMap
 
-Coarsen a contact matrix along a surjective age-group map. Type `\\downarrow<TAB>`.
+Coarsen a contact matrix along a surjective partition map. Type `\\downarrow<TAB>`.
 
 This is the left Kan extension: it pushes forward contact data while preserving
 total contacts. Satisfies functoriality (proven in Lean):
@@ -78,11 +78,11 @@ total contacts. Satisfies functoriality (proven in Lean):
 # Example
 ```julia
 cm_coarse = cm ↓ AgePartition([0, 18, 65])
-cm_coarse = cm ↓ AgeMap(fine, coarse)
+cm_coarse = cm ↓ PartitionMap(fine, coarse)
 ```
 """
-↓(cm::ContactMatrix, coarse::AgePartition) = coarsen(cm, coarse)
-↓(cm::ContactMatrix, f::AgeMap) = coarsen(cm, f)
+↓(cm::ContactMatrix, coarse::AbstractPartition) = coarsen(cm, coarse)
+↓(cm::ContactMatrix, f::PartitionMap) = coarsen(cm, f)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Refinement (parameterised disaggregation): ↑
@@ -101,10 +101,10 @@ cm_fine = cm ↑ prior
 ```
 """
 struct RefinementPrior
-    partition::AgePartition
+    partition::AbstractPartition
     population::Vector{Float64}
 
-    function RefinementPrior(partition::AgePartition, population::AbstractVector{<:Real})
+    function RefinementPrior(partition::AbstractPartition, population::AbstractVector{<:Real})
         n_groups(partition) == length(population) || throw(DimensionMismatch(
             "partition has $(n_groups(partition)) groups but population has $(length(population)) entries"))
         all(x -> isfinite(x) && x >= 0, population) ||
@@ -147,16 +147,16 @@ weights, use `compute_matrix(survey, partition; kwargs...)`.
 cm = survey ▷ partition
 ```
 """
-▷(survey::ContactSurvey, partition::AgePartition) = compute_matrix(survey, partition)
+▷(survey::ContactSurvey, partition::AbstractPartition) = compute_matrix(survey, partition)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# AgeMap composition: ∘
+# PartitionMap composition: ∘
 # ═══════════════════════════════════════════════════════════════════════════════
 
 """
     g ∘ f
 
-Compose age-group maps (right-to-left, standard mathematical convention).
+Compose partition maps (right-to-left, standard mathematical convention).
 Type `\\circ<TAB>`.
 
 Given `f: A → B` and `g: B → C`, yields `g ∘ f: A → C`.
@@ -171,14 +171,14 @@ g = AgeMap(medium, coarse)    # medium → coarse
 h = g ∘ f                     # fine → coarse (composed)
 ```
 """
-function Base.:∘(g::AgeMap, f::AgeMap)
-    f.codomain.limits == g.domain.limits || throw(ArgumentError(
-        "Cannot compose: f codomain $(f.codomain.limits) ≠ g domain $(g.domain.limits)"))
+function Base.:∘(g::PartitionMap{D}, f::PartitionMap{D}) where {D}
+    same_partition(f.codomain, g.domain) || throw(ArgumentError(
+        "Cannot compose: f codomain does not match g domain"))
     # Compose the underlying FinFunctions
     f_assignments = collect(f.mapping)
     g_assignments = collect(g.mapping)
     composed = [g_assignments[f_assignments[i]] for i in eachindex(f_assignments)]
-    AgeMap(f.domain, g.codomain, composed)
+    PartitionMap(f.domain, g.codomain, composed)
 end
 
 # ═══════════════════════════════════════════════════════════════════════════════

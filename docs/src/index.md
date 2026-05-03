@@ -5,9 +5,10 @@
 ## Overview
 
 ContACT.jl provides a category-theoretic framework for constructing,
-manipulating, and composing structured contact matrices from social mixing
-survey data. Built on [Catlab.jl](https://github.com/AlgebraicJulia/Catlab.jl),
-it provides formal guarantees (functoriality, idempotence, associativity) verified
+manipulating, and composing contact matrices over arbitrary finite survey
+partitions: age bands, sex, region, occupation, risk groups, or products such as
+age × sex. Built on [Catlab.jl](https://github.com/AlgebraicJulia/Catlab.jl), it
+provides formal guarantees (functoriality, idempotence, associativity) verified
 both in tests and companion Lean 4 proofs.
 
 ## Algebraic Operators
@@ -21,7 +22,7 @@ All core operations have Unicode operators (type LaTeX name + TAB in the REPL):
 | `↓` | `\downarrow` | Left Kan extension (coarsening) |
 | `↑` | `\uparrow` | Parameterised refinement (with prior) |
 | `▷` | `\triangleright` | Functor application (survey → matrix) |
-| `∘` | `\circ` | Morphism composition (AgeMap) |
+| `∘` | `\circ` | Morphism composition (PartitionMap) |
 | `↔` | `\leftrightarrow` | Reciprocity projection (symmetrisation) |
 | `ρ` | `\rho` | Spectral radius (R₀ proxy) |
 
@@ -38,6 +39,17 @@ M = [2.0 1.0 0.5;
      1.0 3.0 1.0;
      0.5 1.0 1.5]
 cm = ContactMatrix(M, partition, pop)
+```
+
+```@example quickstart
+# Categorical partitions use symbols already present in survey tables
+sex = CategoricalPartition(:sex;
+    participant_col=:part_sex,
+    contact_col=:cnt_sex,
+    levels=["F", "M"],
+    labels=["female", "male"],
+)
+group_labels(sex)
 ```
 
 ```@example quickstart

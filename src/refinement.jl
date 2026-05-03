@@ -7,7 +7,7 @@ This is NOT claimed to be an inverse of coarsening.
 """
 
 """
-    refine(cm::ContactMatrix, fine::AgePartition, fine_population::AbstractVector{<:Real})
+    refine(cm::ContactMatrix, fine::AbstractPartition, fine_population::AbstractVector{<:Real})
 
 Refine a coarse contact matrix to a finer partition using proportional
 disaggregation based on population distribution within each coarse group.
@@ -20,10 +20,10 @@ sub-groups within each coarse bin.
 
 # Arguments
 - `cm`: coarse contact matrix
-- `fine`: target fine age partition (must be a refinement of `cm.partition`)
+- `fine`: target fine partition (must be a refinement of `cm.partition`)
 - `fine_population`: population per fine age group (the distributional prior)
 """
-function refine(cm::ContactMatrix, fine::AgePartition,
+function refine(cm::ContactMatrix, fine::AbstractPartition,
                 fine_population::AbstractVector{<:Real})
     coarse = cm.partition
     n_fine = n_groups(fine)
@@ -33,7 +33,7 @@ function refine(cm::ContactMatrix, fine::AgePartition,
         "fine_population length $(length(fine_population)) ≠ fine groups $n_fine"))
 
     # Build the mapping from fine to coarse
-    f = AgeMap(fine, coarse)
+    f = PartitionMap(fine, coarse)
     fmap = collect(f.mapping)
 
     M_coarse = matrix(cm)

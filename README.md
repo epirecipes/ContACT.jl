@@ -5,9 +5,9 @@
 ## Overview
 
 ContACT.jl provides a categorical framework for:
-- Computing contact matrices from individual-level survey data (the **functor** from surveys to matrices)
+- Computing contact matrices from individual-level survey data over arbitrary finite partitions (the **functor** from surveys to matrices)
 - Composing setting-specific matrices (home, work, school) via **additive composition** (⊕)
-- Changing age resolution via **coarsening** (left Kan extension) and refinement
+- Changing partition resolution via **coarsening** (left Kan extension) and refinement
 - Adding spatial structure via **stratification** (Kronecker product) (⊗)
 - Enforcing reciprocity via **symmetrisation** (↔)
 
@@ -19,8 +19,15 @@ All operations come with formal guarantees verified in Lean 4.
 using ContACT
 using DataFrames
 
-# Define age partition
+# Define an age partition (age is one interval-valued partition)
 partition = AgePartition([0, 5, 18, 65])
+
+# Or define a categorical partition using symbols from the survey data
+sex = CategoricalPartition(:sex;
+    participant_col=:part_sex,
+    contact_col=:cnt_sex,
+    levels=["F", "M"],
+)
 
 # Compute contact matrix from survey data
 cm = compute_matrix(survey, partition; population=pop)
@@ -49,7 +56,7 @@ cm_sym = ↔(cm)
 | `↓` | `\downarrow` | Coarsening | Left Kan extension |
 | `↑` | `\uparrow` | Refinement with prior | Parameterised disaggregation |
 | `▷` | `\triangleright` | Survey-to-matrix functor | Functor application |
-| `∘` | `\circ` | AgeMap composition | Morphism composition |
+| `∘` | `\circ` | PartitionMap composition | Morphism composition |
 | `↔` | `\leftrightarrow` | Symmetrisation | Reciprocity projection |
 | `ρ` | `\rho` | Spectral radius | R₀ proxy |
 
@@ -58,17 +65,17 @@ cm_sym = ↔(cm)
 ### Objects
 A `ContactMatrix` bundles:
 - An n×n real matrix of mean contacts
-- An `AgePartition` (discretisation of age)
+- An `AbstractPartition` (age, sex, region, or a product such as age × sex)
 - A population vector (required for symmetrisation)
 - Unit semantics (mean contacts / counts / per-capita rates)
 
 ### Morphisms
-- **Coarsening** (via `AgeMap`): surjective age-group maps that push forward contact structure
+- **Coarsening** (via `PartitionMap`; `AgeMap` is the age-specific alias): surjective partition maps that push forward contact structure
 - **Symmetrisation**: idempotent endomorphism preserving reciprocity
 - **Setting composition**: commutative monoid structure (additive)
 
 ### Functor
-`compute_matrix` is a functor from the subcategory of surveys (with fixed age partition and weighting) to the category of contact matrices.
+`compute_matrix` is a functor from the subcategory of surveys (with fixed partition and weighting) to the category of contact matrices.
 
 ## Formal Proofs (Lean 4)
 
@@ -105,7 +112,7 @@ Pkg.add(url="https://github.com/epirecipes/ContACT.jl")
 
 ## Dependencies
 
-- [Catlab.jl](https://github.com/AlgebraicJulia/Catlab.jl) — categorical algebra (FinFunctions for age-group maps)
+- [Catlab.jl](https://github.com/AlgebraicJulia/Catlab.jl) — categorical algebra (FinFunctions for partition maps)
 - [DataFrames.jl](https://github.com/JuliaData/DataFrames.jl) — survey data handling
 - [LinearAlgebra](https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/) — matrix operations
 
