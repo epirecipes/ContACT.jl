@@ -23,33 +23,42 @@ coarse = AgePartition([0, 15, 65])
 f = PartitionMap(fine, coarse, [1, 1, 1, 2, 2, 3])
 ```
 """
-struct PartitionMap{D,P<:AbstractPartition{D},Q<:AbstractPartition{D}}
+struct PartitionMap{D,E,P<:AbstractPartition{D},Q<:AbstractPartition{E}}
     domain::P
     codomain::Q
     mapping::FinFunction
 end
 
-function PartitionMap{D}(domain::P, codomain::Q,
-                         assignments::AbstractVector{Int}) where {D,P<:AbstractPartition{D},Q<:AbstractPartition{D}}
+function _partition_map(domain::P, codomain::Q,
+                        assignments::AbstractVector{Int}) where {D,E,P<:AbstractPartition{D},Q<:AbstractPartition{E}}
     n_domain = n_groups(domain)
     n_codomain = n_groups(codomain)
     length(assignments) == n_domain || throw(ArgumentError(
         "assignments length $(length(assignments)) ≠ domain groups $n_domain"))
     all(1 .<= assignments .<= n_codomain) || throw(ArgumentError(
         "all assignments must be in 1:$n_codomain"))
-    PartitionMap{D,P,Q}(domain, codomain, FinFunction(assignments, n_codomain))
+    PartitionMap{D,E,P,Q}(domain, codomain, FinFunction(assignments, n_codomain))
 end
 
-PartitionMap(domain::AbstractPartition{D}, codomain::AbstractPartition{D},
-             assignments::AbstractVector{Int}) where {D} =
-    PartitionMap{D}(domain, codomain, assignments)
+function PartitionMap{D,E}(domain::P, codomain::Q,
+                           assignments::AbstractVector{Int}) where {D,E,P<:AbstractPartition{D},Q<:AbstractPartition{E}}
+    _partition_map(domain, codomain, assignments)
+end
+
+PartitionMap(domain::AbstractPartition{D}, codomain::AbstractPartition{E},
+             assignments::AbstractVector{Int}) where {D,E} =
+    _partition_map(domain, codomain, assignments)
 
 """
     AgeMap
 
 Compatibility alias for `PartitionMap{:age}`.
 """
-const AgeMap = PartitionMap{:age}
+const AgeMap = PartitionMap{:age,:age}
+
+AgeMap(domain::AgePartition, codomain::AgePartition) = PartitionMap(domain, codomain)
+AgeMap(domain::AgePartition, codomain::AgePartition, assignments::AbstractVector{Int}) =
+    _partition_map(domain, codomain, assignments)
 
 """
     PartitionMap(fine::IntervalPartition, coarse::IntervalPartition)
@@ -71,7 +80,7 @@ function PartitionMap{D}(fine::IntervalPartition{D}, coarse::IntervalPartition{D
         end
         push!(assignments, coarse_idx)
     end
-    PartitionMap{D}(fine, coarse, assignments)
+    PartitionMap{D,D}(fine, coarse, assignments)
 end
 
 PartitionMap(fine::IntervalPartition{D}, coarse::IntervalPartition{D}) where {D} =
@@ -95,7 +104,7 @@ function PartitionMap{D}(domain::CategoricalPartition{D}, codomain::CategoricalP
             throw(ArgumentError("mapped level $(repr(target)) is not in codomain"))
         push!(assignments, idx)
     end
-    PartitionMap{D}(domain, codomain, assignments)
+    PartitionMap{D,D}(domain, codomain, assignments)
 end
 
 PartitionMap(domain::CategoricalPartition{D}, codomain::CategoricalPartition{D},
@@ -110,11 +119,27 @@ function PartitionMap{D}(domain::CategoricalPartition{D}, codomain::CategoricalP
             throw(ArgumentError("cannot infer categorical map: level $(repr(level)) is not in codomain"))
         push!(assignments, idx)
     end
-    PartitionMap{D}(domain, codomain, assignments)
+    PartitionMap{D,D}(domain, codomain, assignments)
 end
 
 PartitionMap(domain::CategoricalPartition{D}, codomain::CategoricalPartition{D}) where {D} =
     PartitionMap{D}(domain, codomain)
+
+"""
+    PartitionMap(product::ProductPartition, factor::AbstractPartition)
+
+Construct the projection from a product partition to one of its factors.
+"""
+function PartitionMap(domain::ProductPartition, codomain::AbstractPartition)
+    matches = findall(f -> same_partition(f, codomain), collect(domain.factors))
+    length(matches) == 1 || throw(ArgumentError(
+        "cannot infer product projection: codomain must match exactly one product factor"))
+
+    factor_idx = only(matches)
+    sizes = Tuple(n_groups(f) for f in domain.factors)
+    assignments = [_cartesian_indices(i, sizes)[factor_idx] for i in 1:n_groups(domain)]
+    PartitionMap(domain, codomain, assignments)
+end
 
 """
     coarsen(cm::ContactMatrix, f::PartitionMap)

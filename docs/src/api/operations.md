@@ -11,6 +11,7 @@ Type the LaTeX name followed by TAB in the Julia REPL:
 | `⊗` | `\otimes<TAB>` | Stratification (Kronecker) |
 | `↓` | `\downarrow<TAB>` | Coarsening (left Kan extension) |
 | `↑` | `\uparrow<TAB>` | Refinement (with prior) |
+| `⤊` | `\Uuparrow<TAB>` | Activity refinement / hidden-stratum lift |
 | `▷` | `\triangleright<TAB>` | Functor application |
 | `∘` | `\circ<TAB>` | Partition map composition |
 | `↔` | `\leftrightarrow<TAB>` | Symmetrisation / reciprocity |
@@ -21,6 +22,7 @@ Type the LaTeX name followed by TAB in the Julia REPL:
 ⊗
 ↓
 ↑
+⤊
 ▷
 ↔
 ρ
@@ -30,7 +32,7 @@ RefinementPrior
 ## Map Composition
 
 ```@docs
-Base.:∘(::PartitionMap{D, P, Q} where {P<:AbstractPartition{D}, Q<:AbstractPartition{D}}, ::PartitionMap{D, P, Q} where {P<:AbstractPartition{D}, Q<:AbstractPartition{D}}) where D
+Base.:∘(::PartitionMap, ::PartitionMap)
 ```
 
 ## Coarsening & Refinement
@@ -40,6 +42,19 @@ PartitionMap
 AgeMap
 coarsen
 refine
+```
+
+## Activity Refinement
+
+```@docs
+ActivityRefinement
+ActivityMixingKernel
+AssortativeMixing
+DisassortativeMixing
+ProportionateMixing
+activity_partition
+activity_mixing_plan
+activity_refine
 ```
 
 ## Composition

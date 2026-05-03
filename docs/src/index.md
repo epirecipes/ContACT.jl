@@ -21,6 +21,7 @@ All core operations have Unicode operators (type LaTeX name + TAB in the REPL):
 | `⊗` | `\otimes` | Kronecker stratification functor |
 | `↓` | `\downarrow` | Left Kan extension (coarsening) |
 | `↑` | `\uparrow` | Parameterised refinement (with prior) |
+| `⤊` | `\Uuparrow` | Activity refinement / hidden-stratum lift |
 | `▷` | `\triangleright` | Functor application (survey → matrix) |
 | `∘` | `\circ` | Morphism composition (PartitionMap) |
 | `↔` | `\leftrightarrow` | Reciprocity projection (symmetrisation) |
@@ -77,6 +78,12 @@ println("Functorial: $(matrix(cm4 ↓ h) ≈ matrix((cm4 ↓ f) ↓ g))")
 # Symmetrise via ↔ (reciprocity projection)
 cm_reciprocal = ↔(cm)
 matrix(cm_reciprocal)
+```
+
+```@example quickstart
+# Activity refinement uses respondent activity to lift a reciprocal matrix
+# to partition × activity. Here `survey` would be a ContactSurvey over `partition`.
+println("Activity lift operator: \\Uuparrow<TAB> gives ⤊")
 ```
 
 ```@example quickstart

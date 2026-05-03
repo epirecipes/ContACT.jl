@@ -22,6 +22,9 @@ export compute_matrix
 
 # Coarsening & refinement
 export coarsen, refine, PartitionMap, AgeMap
+export ActivityRefinement, ActivityMixingKernel,
+       AssortativeMixing, DisassortativeMixing, ProportionateMixing,
+       activity_partition, activity_mixing_plan, activity_refine
 
 # Composition
 export compose_matrices
@@ -33,7 +36,7 @@ export stratify
 export symmetrise
 
 # Operators (type \name<TAB> in REPL)
-export ⊕, ⊗, ↓, ↑, ▷, ↔, ρ, ×, RefinementPrior
+export ⊕, ⊗, ↓, ↑, ⤊, ▷, ↔, ρ, ×, RefinementPrior
 
 # Utilities
 export to_per_capita, to_counts, spectral_radius
@@ -53,6 +56,7 @@ include("refinement.jl")
 include("composition.jl")
 include("stratification.jl")
 include("symmetrise.jl")
+include("activity_refinement.jl")
 include("operators.jl")
 include("schemas.jl")
 include("utils.jl")

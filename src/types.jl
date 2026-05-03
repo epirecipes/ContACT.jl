@@ -225,6 +225,17 @@ function _cartesian_index(indices::Tuple, sizes::Tuple)
     return idx
 end
 
+function _cartesian_indices(index::Integer, sizes::Tuple)
+    1 <= index <= prod(sizes) || throw(BoundsError(1:prod(sizes), index))
+    rem = index - 1
+    indices = Vector{Int}(undef, length(sizes))
+    for k in length(sizes):-1:1
+        indices[k] = rem % sizes[k] + 1
+        rem ÷= sizes[k]
+    end
+    Tuple(indices)
+end
+
 function assign_participant_group(p::Union{IntervalPartition,CategoricalPartition}, row)
     hasproperty(row, p.participant_col) ||
         throw(ArgumentError("participants must have :$(p.participant_col) column for $(dimension(p)) partition"))

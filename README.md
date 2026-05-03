@@ -8,6 +8,7 @@ ContACT.jl provides a categorical framework for:
 - Computing contact matrices from individual-level survey data over arbitrary finite partitions (the **functor** from surveys to matrices)
 - Composing setting-specific matrices (home, work, school) via **additive composition** (⊕)
 - Changing partition resolution via **coarsening** (left Kan extension) and refinement
+- Refining reciprocal matrices by respondent social activity, following Britton-Ball-style high/low or quantile activity strata (⤊)
 - Adding spatial structure via **stratification** (Kronecker product) (⊗)
 - Enforcing reciprocity via **symmetrisation** (↔)
 
@@ -45,6 +46,10 @@ cm_spatial = cm ⊗ coupling
 
 # Symmetrise (enforce reciprocity)
 cm_sym = ↔(cm)
+
+# Lift to age × activity strata using respondent contact rates
+spec = ActivityRefinement(survey; n=2, mixing=:proportionate)
+cm_activity = cm_sym ⤊ spec
 ```
 
 ## Operators
@@ -55,6 +60,7 @@ cm_sym = ↔(cm)
 | `⊗` | `\otimes` | Stratification | Pullback in slice category |
 | `↓` | `\downarrow` | Coarsening | Left Kan extension |
 | `↑` | `\uparrow` | Refinement with prior | Parameterised disaggregation |
+| `⤊` | `\Uuparrow` | Activity refinement | Hidden-stratum lift |
 | `▷` | `\triangleright` | Survey-to-matrix functor | Functor application |
 | `∘` | `\circ` | PartitionMap composition | Morphism composition |
 | `↔` | `\leftrightarrow` | Symmetrisation | Reciprocity projection |
@@ -71,6 +77,7 @@ A `ContactMatrix` bundles:
 
 ### Morphisms
 - **Coarsening** (via `PartitionMap`; `AgeMap` is the age-specific alias): surjective partition maps that push forward contact structure
+- **Activity refinement** (via `ActivityRefinement`): assumption-driven lift to a product partition such as age × activity
 - **Symmetrisation**: idempotent endomorphism preserving reciprocity
 - **Setting composition**: commutative monoid structure (additive)
 

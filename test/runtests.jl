@@ -7,7 +7,7 @@ using Catlab.CategoricalAlgebra
 using Catlab.Programs: @relation
 
 # Resolve ambiguity: use ContACT's operators explicitly
-import ContACT: ⊕, ⊗, ↓, ↑, ▷, ↔, ρ, ×
+import ContACT: ⊕, ⊗, ↓, ↑, ⤊, ▷, ↔, ρ, ×
 
 # ---------------------------------------------------------------------------
 # Test data: synthetic survey
@@ -309,6 +309,71 @@ end
     @test population(cm_fine) == fine_pop
 end
 
+@testset "Activity refinement" begin
+    participants = DataFrame(
+        part_id = 1:4,
+        part_age = [10.0, 10.0, 30.0, 30.0],
+        part_sex = ["F", "F", "M", "M"],
+        score = [1.0, 3.0, 1.0, 3.0],
+    )
+    contacts = DataFrame(
+        part_id = [1, 1, 2, 2, 2, 2, 3, 3, 4, 4, 4, 4],
+        cnt_age = [10.0, 30.0, 10.0, 10.0, 30.0, 30.0,
+                   10.0, 30.0, 10.0, 10.0, 30.0, 30.0],
+        cnt_sex = ["F", "M", "F", "F", "M", "M",
+                   "F", "M", "F", "F", "M", "M"],
+    )
+    survey = ContactSurvey(participants, contacts)
+    base = AgePartition([0, 18])
+    cm = survey ▷ base
+    @test matrix(cm) ≈ [1.5 1.5; 1.5 1.5]
+
+    spec = ActivityRefinement(survey; n=2, mixing=:assortative, score_col=:score)
+    refined = activity_refine(cm, spec)
+    @test refined.partition isa ProductPartition
+    @test group_labels(refined) == ["[0,18):low", "[0,18):high", "18+:low", "18+:high"]
+    @test population(refined) == [1.0, 1.0, 1.0, 1.0]
+    @test matrix(refined ↓ base) ≈ matrix(cm)
+    @test matrix(cm ↑ spec) ≈ matrix(refined)
+    @test matrix(cm ⤊ spec) ≈ matrix(refined)
+
+    C = matrix(refined) * Diagonal(population(refined))
+    @test C ≈ transpose(C)
+
+    for mixing in (:disassortative, :proportionate)
+        refined_mixing = activity_refine(survey, cm; n=2, mixing=mixing, score_col=:score)
+        @test matrix(refined_mixing ↓ base) ≈ matrix(cm)
+        C_mixing = matrix(refined_mixing) * Diagonal(population(refined_mixing))
+        @test C_mixing ≈ transpose(C_mixing)
+    end
+
+    sex = CategoricalPartition(:sex;
+        participant_col=:part_sex,
+        contact_col=:cnt_sex,
+        levels=["F", "M"],
+    )
+    sex_activity = activity_partition(survey, sex; cutpoints=[2.0], score_col=:score)
+    @test sex_activity isa ProductPartition
+    @test group_labels(sex_activity) == ["F:low", "F:high", "M:low", "M:high"]
+    refined_sex = activity_refine(survey, survey ▷ sex;
+        cutpoints=[2.0],
+        mixing=:proportionate,
+        score_col=:score,
+    )
+    @test matrix(refined_sex ↓ sex) ≈ matrix(survey ▷ sex)
+
+    row = [1.0, 3.6]
+    col = [1.2, 3.4]
+    @test activity_mixing_plan(row, col, :assortative) ≈ [1.0 0.0; 0.2 3.4]
+    @test activity_mixing_plan(row, col, :disassortative) ≈ [0.0 1.0; 1.2 2.4]
+    @test activity_mixing_plan(row, col, :proportionate) ≈ row * transpose(col) ./ sum(row)
+
+    @test_throws ArgumentError activity_refine(
+        ContactMatrix([1.0 2.0; 0.0 1.0], base, [2.0, 2.0]),
+        spec,
+    )
+end
+
 @testset "Utilities" begin
     p = AgePartition([0, 18, 65])
     pop = [1000.0, 3000.0, 500.0]
@@ -450,6 +515,15 @@ end
         # Dimension mismatch in RefinementPrior
         @test_throws DimensionMismatch RefinementPrior(fine, [1.0, 2.0])
         @test_throws ArgumentError RefinementPrior(fine, [800.0, -1.0, 2000.0, 2000.0, 1000.0])
+    end
+
+    @testset "⤊ with ActivityRefinement" begin
+        participants = DataFrame(part_id=1:2, part_age=[10.0, 10.0], score=[1.0, 3.0])
+        contacts = DataFrame(part_id=[1, 2, 2], cnt_age=[10.0, 10.0, 10.0])
+        survey = ContactSurvey(participants, contacts)
+        cm = ↔(survey ▷ AgePartition([0]))
+        spec = ActivityRefinement(survey; n=2, score_col=:score)
+        @test matrix(cm ⤊ spec) ≈ matrix(activity_refine(cm, spec))
     end
 
     @testset "▷ (functor application)" begin

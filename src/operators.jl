@@ -10,6 +10,7 @@ Type the LaTeX name followed by TAB in the Julia REPL to enter these:
 | `⊗` | `\\otimes` | Stratification (Kronecker) | `cm ⊗ coupling` |
 | `↓` | `\\downarrow` | Coarsening | `cm ↓ coarse` |
 | `↑` | `\\uparrow` | Refinement | `cm ↑ prior` |
+| `⤊` | `\\Uuparrow` | Activity refinement | `cm ⤊ ActivityRefinement(survey)` |
 | `▷` | `\\triangleright` | Functor (compute matrix) | `survey ▷ partition` |
 | `∘` | `\\circ` | Map composition | `g ∘ f` |
 | `↔` | `\\leftrightarrow` | Symmetrisation/reciprocity | `↔(cm)` |
@@ -115,11 +116,15 @@ end
 
 """
     cm ↑ prior::RefinementPrior
+    cm ↑ spec::ActivityRefinement
 
 Refine a coarse contact matrix to a finer partition. Type `\\uparrow<TAB>`.
 
 Unlike coarsening (which is canonical), refinement requires auxiliary assumptions
 encoded in a `RefinementPrior`. This is NOT an inverse of `↓`.
+
+When the right-hand side is an `ActivityRefinement`, this performs the
+Britton-Ball style activity lift. Use `⤊` for a visually distinct alias.
 
 # Example
 ```julia
@@ -128,6 +133,24 @@ cm_fine = cm ↑ prior
 ```
 """
 ↑(cm::ContactMatrix, prior::RefinementPrior) = refine(cm, prior.partition, prior.population)
+↑(cm::ContactMatrix, spec::ActivityRefinement) = activity_refine(cm, spec)
+
+"""
+    cm ⤊ spec::ActivityRefinement
+
+Refine a reciprocal contact matrix by respondent activity strata. Type
+`\\Uuparrow<TAB>`.
+
+The double upward arrow denotes a lift to the product partition
+`cm.partition × activity`, with the activity coupling specified by `spec`.
+
+# Example
+```julia
+spec = ActivityRefinement(survey; n=2, mixing=:proportionate)
+cm_activity = ↔(cm) ⤊ spec
+```
+"""
+⤊(cm::ContactMatrix, spec::ActivityRefinement) = activity_refine(cm, spec)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Functor application: ▷
@@ -171,7 +194,7 @@ g = AgeMap(medium, coarse)    # medium → coarse
 h = g ∘ f                     # fine → coarse (composed)
 ```
 """
-function Base.:∘(g::PartitionMap{D}, f::PartitionMap{D}) where {D}
+function Base.:∘(g::PartitionMap, f::PartitionMap)
     same_partition(f.codomain, g.domain) || throw(ArgumentError(
         "Cannot compose: f codomain does not match g domain"))
     # Compose the underlying FinFunctions
