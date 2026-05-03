@@ -12,6 +12,7 @@ Type the LaTeX name followed by TAB in the Julia REPL to enter these:
 | `↑` | `\\uparrow` | Refinement | `cm ↑ prior` |
 | `▷` | `\\triangleright` | Functor (compute matrix) | `survey ▷ partition` |
 | `∘` | `\\circ` | Map composition | `g ∘ f` |
+| `↔` | `\\leftrightarrow` | Symmetrisation/reciprocity | `↔(cm)` |
 | `ρ` | `\\rho` | Spectral radius | `ρ(cm)` |
 """
 
@@ -106,6 +107,8 @@ struct RefinementPrior
     function RefinementPrior(partition::AgePartition, population::AbstractVector{<:Real})
         n_groups(partition) == length(population) || throw(DimensionMismatch(
             "partition has $(n_groups(partition)) groups but population has $(length(population)) entries"))
+        all(x -> isfinite(x) && x >= 0, population) ||
+            throw(ArgumentError("population entries must be finite and non-negative"))
         new(partition, Float64.(population))
     end
 end
@@ -177,6 +180,29 @@ function Base.:∘(g::AgeMap, f::AgeMap)
     composed = [g_assignments[f_assignments[i]] for i in eachindex(f_assignments)]
     AgeMap(f.domain, g.codomain, composed)
 end
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Symmetrisation / reciprocity: ↔
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+    ↔(cm)
+
+Symmetrise a contact matrix by enforcing reciprocal total contacts.
+Type `\\leftrightarrow<TAB>`.
+
+The arrow denotes bidirectional balance:
+
+    `matrix(↔(cm))[i,j] * N[j] == matrix(↔(cm))[j,i] * N[i]`
+
+This is a prefix operator alias for `symmetrise(cm)`.
+
+# Example
+```julia
+cm_reciprocal = ↔(cm)
+```
+"""
+↔(cm::ContactMatrix) = symmetrise(cm)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Spectral radius: ρ

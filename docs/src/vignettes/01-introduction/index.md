@@ -1,6 +1,6 @@
 # Introduction to ContACT.jl
 Simon Frost
-2026-05-02
+2026-05-03
 
 - [Overview](#overview)
 - [Setup](#setup)
@@ -114,13 +114,14 @@ uk_pop = [3433.0, 3554.0, 3824.0, 3956.0, 3757.0, 3520.0, 4009.0,
            4405.0, 4548.0, 4187.0, 3883.0, 3589.0, 3117.0, 2765.0,
            2425.0, 3752.0]
 
-cm = compute_matrix(survey, partition; population=uk_pop)
+# The ▷ operator applies the survey→matrix functor (type \triangleright<TAB>)
+cm = survey ▷ partition
 println("Contact matrix: $(n_groups(cm)) age groups")
-println("Spectral radius (R₀ proxy): $(round(spectral_radius(cm); digits=2))")
+println("Spectral radius ρ(M) ∝ R₀: $(round(ρ(cm); digits=2))")
 ```
 
     Contact matrix: 16 age groups
-    Spectral radius (R₀ proxy): 12.24
+    Spectral radius ρ(M) ∝ R₀: 12.24
 
 The result is a `ContactMatrix` — not just a bare array, but a
 categorical object bundling the matrix with its age partition,
@@ -145,10 +146,11 @@ equal total contacts from $j$ to $i$:
 $$M_{ij} \cdot N_j = M_{ji} \cdot N_i$$
 
 Symmetrisation is an **idempotent endomorphism** in the contact matrix
-category:
+category. Use `↔` (`\leftrightarrow<TAB>`) for the reciprocity
+projection:
 
 ``` julia
-cm_sym = symmetrise(cm)
+cm_sym = ↔(cm)
 
 # Verify reciprocity
 M = matrix(cm_sym)
@@ -158,11 +160,11 @@ max_violation = maximum(abs(M[i,j] * N[j] - M[j,i] * N[i])
 println("Max reciprocity violation: $(max_violation)")
 
 # Idempotence: applying twice gives the same result
-cm_sym2 = symmetrise(cm_sym)
+cm_sym2 = ↔(cm_sym)
 println("Idempotent: $(matrix(cm_sym2) ≈ matrix(cm_sym))")
 ```
 
-    Max reciprocity violation: 4.547473508864641e-13
+    Max reciprocity violation: 1.4210854715202004e-14
     Idempotent: true
 
 ## Coarsening (Left Kan Extension)
@@ -190,44 +192,52 @@ display(round.(matrix(cm_coarse); digits=2))
     Matrix:
 
     4×4 Matrix{Float64}:
-     6.84  2.17  0.98  0.8
-     4.4   7.19  4.86  2.83
-     1.33  2.35  3.27  2.24
-     0.27  0.49  0.86  1.54
+     6.85  2.2   0.98  0.89
+     4.39  7.6   4.77  3.25
+     1.33  2.27  3.18  2.42
+     0.27  0.46  0.85  1.72
 
 ### Functoriality
 
 The defining property of a functor: coarsening in two steps gives the
-same result as coarsening in one step.
+same result as coarsening in one step. Using `∘` for map composition:
 
 ``` julia
 # Two-step: 16 → 4 → 2
 mid = AgePartition([0, 15, 45, 65])
 final_part = AgePartition([0, 45])
 
-via_mid = (cm ↓ mid) ↓ final_part
-direct = cm ↓ final_part
+# Compose the maps: fine → mid → coarse
+f = AgeMap(partition, mid)
+g = AgeMap(mid, final_part)
+h = g ∘ f   # composed map (type \circ<TAB>)
 
-println("Functoriality holds: $(matrix(via_mid) ≈ matrix(direct))")
+# Functoriality: (cm ↓ g) ∘ (cm ↓ f) == cm ↓ (g ∘ f)
+via_mid = (cm ↓ f) ↓ g
+direct = cm ↓ h
+
+println("Functoriality: cm ↓ (g ∘ f) == (cm ↓ f) ↓ g")
+println("  Holds: $(matrix(via_mid) ≈ matrix(direct))")
 println("\nVia mid:")
 display(round.(matrix(via_mid); digits=3))
 println("\nDirect:")
 display(round.(matrix(direct); digits=3))
 ```
 
-    Functoriality holds: true
+    Functoriality: cm ↓ (g ∘ f) == (cm ↓ f) ↓ g
+      Holds: true
 
     Via mid:
 
     Direct:
 
     2×2 Matrix{Float64}:
-     9.941  5.008
-     2.454  3.991
+     10.406  5.436
+      2.262  4.054
 
     2×2 Matrix{Float64}:
-     9.941  5.008
-     2.454  3.991
+     10.406  5.436
+      2.262  4.054
 
 ## What’s Next?
 

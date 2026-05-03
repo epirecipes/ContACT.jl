@@ -21,7 +21,6 @@ end
 
 makedocs(;
     modules = [ContACT],
-    warnonly = true,
     authors = "Simon Frost",
     sitename = "ContACT.jl",
     repo = Remotes.GitHub("epirecipes", "ContACT.jl"),

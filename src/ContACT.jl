@@ -32,7 +32,7 @@ export stratify
 export symmetrise
 
 # Operators (type \name<TAB> in REPL)
-export ⊕, ⊗, ↓, ↑, ▷, ρ, RefinementPrior
+export ⊕, ⊗, ↓, ↑, ▷, ↔, ρ, RefinementPrior
 
 # Utilities
 export to_per_capita, to_counts, spectral_radius

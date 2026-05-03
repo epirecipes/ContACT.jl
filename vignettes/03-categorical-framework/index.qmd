@@ -7,6 +7,15 @@ format:
   html:
     code-fold: false
     toc: true
+  gfm:
+    toc: true
+  pdf:
+    documentclass: article
+    toc: true
+    mainfont: "STIX Two Text"
+    mathfont: "STIX Two Math"
+    monofont: "Fira Code"
+    pdf-engine: xelatex
 ---
 
 ## Overview
@@ -32,7 +41,8 @@ using DataFrames
 using LinearAlgebra
 using Catlab
 using Catlab.CategoricalAlgebra
-import ContACT: ⊕, ⊗, ↓, ↑, ▷, ρ
+using Catlab.Programs: @relation
+import ContACT: ⊕, ⊗, ↓, ↑, ▷, ↔, ρ
 ```
 
 ## ACSet Schemas
@@ -110,7 +120,7 @@ The matrix schema represents the output of the functor:
 # Compute a contact matrix and convert to ACSet
 pop = [6987.0, 11537.0, 35854.0, 16000.0, 9492.0]
 cm = compute_matrix(survey, partition; population=pop)
-cm_sym = symmetrise(cm)
+cm_sym = ↔(cm)
 
 acs_cm = LabelledContactMatrix(cm_sym)
 println("\nContact Matrix ACSet:")
@@ -199,8 +209,6 @@ a **declarative** way to specify how matrices combine, enabling:
 - Diagrammatic reasoning about intervention scenarios
 
 ```{julia}
-using Catlab.Programs: @relation
-
 # Define a composition diagram
 diagram = @relation (pop,) begin
     home(pop)
@@ -285,8 +293,8 @@ acs_survey = ContactSurveyACSet(survey, partition_4)
 # Step 2: Apply the functor (▷)
 cm_full = compute_matrix(survey, partition_4; population=pop_4)
 
-# Step 3: Symmetrise (idempotent endomorphism)
-cm_sym = symmetrise(cm_full)
+# Step 3: Symmetrise via ↔ (idempotent reciprocity projection)
+cm_sym = ↔(cm_full)
 
 # Step 4: Coarsen via ↓
 cm_2grp = cm_sym ↓ AgePartition([0, 18])
@@ -313,6 +321,7 @@ println("  Regional: $(n_groups(cm_regional)) groups, ρ = $(round(ρ(cm_regiona
 | `↑` | `\\uparrow` | Parameterised refinement (with prior) |
 | `▷` | `\\triangleright` | Functor application (survey → matrix) |
 | `∘` | `\\circ` | Morphism composition (AgeMap) |
+| `↔` | `\\leftrightarrow` | Reciprocity projection (symmetrisation) |
 | `ρ` | `\\rho` | Spectral radius (R₀ proxy) |
 
 The categorical framework provides **formal guarantees** (functoriality, idempotence,

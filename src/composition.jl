@@ -20,14 +20,15 @@ age partition, population, and unit semantics.
 
 Returns a new `ContactMatrix` whose matrix is the elementwise sum.
 """
-function compose_matrices(a::ContactMatrix{T, S}, b::ContactMatrix{T, S}) where {T, S}
+function compose_matrices(a::ContactMatrix{T1, S}, b::ContactMatrix{T2, S}) where {T1, T2, S}
     a.partition.limits == b.partition.limits || throw(ArgumentError(
         "cannot compose matrices with different age partitions"))
-    a.population ≈ b.population || throw(ArgumentError(
+    isapprox(a.population, b.population; rtol=1e-10, atol=0) || throw(ArgumentError(
         "cannot compose matrices with different population vectors"))
 
-    M = matrix(a) + matrix(b)
-    ContactMatrix(M, a.partition, a.population, a.semantics)
+    T = promote_type(T1, T2)
+    M = Matrix{T}(matrix(a)) + Matrix{T}(matrix(b))
+    ContactMatrix(M, a.partition, Vector{T}(a.population), a.semantics)
 end
 
 """

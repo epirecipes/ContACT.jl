@@ -13,6 +13,7 @@ Type the LaTeX name followed by TAB in the Julia REPL:
 | `↑` | `\uparrow<TAB>` | Refinement (with prior) |
 | `▷` | `\triangleright<TAB>` | Functor application |
 | `∘` | `\circ<TAB>` | Map composition |
+| `↔` | `\leftrightarrow<TAB>` | Symmetrisation / reciprocity |
 | `ρ` | `\rho<TAB>` | Spectral radius |
 
 ```@docs
@@ -21,6 +22,7 @@ Type the LaTeX name followed by TAB in the Julia REPL:
 ↓
 ↑
 ▷
+↔
 ρ
 RefinementPrior
 ```

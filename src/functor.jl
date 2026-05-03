@@ -49,10 +49,17 @@ function compute_matrix(survey::ContactSurvey, partition::AgePartition;
     cnt_groups = _assign_age_group.(survey.contacts.cnt_age, Ref(limits))
 
     # Build weight vector
-    if weights !== nothing && weights in propertynames(survey.participants)
-        w = Float64.(survey.participants[!, weights])
-    else
+    if weights === nothing
         w = ones(Float64, nrow(survey.participants))
+    else
+        weights in propertynames(survey.participants) ||
+            throw(ArgumentError("weight column :$weights not found in participants"))
+        raw_weights = survey.participants[!, weights]
+        any(ismissing, raw_weights) &&
+            throw(ArgumentError("weight column :$weights contains missing values"))
+        w = Float64.(raw_weights)
+        all(x -> isfinite(x) && x >= 0, w) ||
+            throw(ArgumentError("weight column :$weights must be finite and non-negative"))
     end
 
     # Count weighted contacts per (participant_group, contact_group) pair
@@ -96,10 +103,11 @@ function compute_matrix(survey::ContactSurvey, partition::AgePartition;
     ContactMatrix(M, partition, pop, MeanContacts())
 end
 
-"""Assign a single age to an age group index (1-based), or nothing if missing."""
+# Assign a single age to an age group index (1-based), or nothing if missing.
 function _assign_age_group(age, limits::Vector{Float64})
-    (age === missing || isnan(Float64(age))) && return nothing
+    age === missing && return nothing
     a = Float64(age)
+    isfinite(a) || return nothing
     # Find the last limit ≤ age
     grp = searchsortedlast(limits, a)
     grp == 0 && return nothing  # age below minimum limit

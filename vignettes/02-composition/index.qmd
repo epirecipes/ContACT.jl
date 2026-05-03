@@ -7,6 +7,15 @@ format:
   html:
     code-fold: false
     toc: true
+  gfm:
+    toc: true
+  pdf:
+    documentclass: article
+    toc: true
+    mainfont: "STIX Two Text"
+    mathfont: "STIX Two Math"
+    monofont: "Fira Code"
+    pdf-engine: xelatex
 ---
 
 ## Overview
@@ -194,10 +203,10 @@ survey = ContactSurvey(participants, contacts_df)
 fine_part = AgePartition([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75])
 cm_fine = survey ▷ fine_part                    # F(survey)
 cm_4grp = cm_fine ↓ AgePartition([0, 15, 45, 65])   # left Kan extension
-cm_sym  = symmetrise(cm_4grp)                   # idempotent endomorphism
+cm_sym  = ↔(cm_4grp)                            # reciprocity projection
 cm_3reg = cm_sym ⊗ coupling                     # Kronecker stratification
 
-println("Pipeline: Survey ▷ Partition ↓ Coarse → Symmetrise ⊗ Coupling")
+println("Pipeline: Survey ▷ Partition ↓ Coarse ↔ ⊗ Coupling")
 println("  $(n_groups(cm_fine)) → $(n_groups(cm_4grp)) → $(n_groups(cm_3reg)) groups")
 println("  ρ(M_fine)   = $(round(ρ(cm_fine); digits=2))")
 println("  ρ(M_coarse) = $(round(ρ(cm_4grp); digits=2))")

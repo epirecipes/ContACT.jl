@@ -19,11 +19,9 @@ proofs/.lake/build/
 proofs/.lake/packages/
 proofs/.lake/config/
 
-# Quarto render output
-vignettes/**/*.html
-vignettes/**/*.pdf
-vignettes/**/_files/
+# Quarto scratch output (rendered Markdown/HTML/PDF are committed intentionally)
 vignettes/.quarto/
+vignettes/.gitignore
 
 # Coverage
 *.cov

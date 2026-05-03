@@ -102,13 +102,24 @@ end
 # Open contact matrices (structured cospans for composition)
 # ---------------------------------------------------------------------------
 
-"""
-Open contact matrices expose age groups as interfaces for composition.
-When two open matrices share age groups at a boundary, they compose
-by summing contributions at shared groups.
-"""
 const OpenContactMatrixOb, OpenContactMatrix =
     OpenACSetTypes(ContactMatrixACSet, :G)
+
+"""
+    OpenContactMatrixOb
+
+Interface object type for open contact matrices. Age groups are exposed as
+composition boundaries.
+"""
+OpenContactMatrixOb
+
+"""
+    OpenContactMatrix
+
+Structured cospan type for open contact matrices. When two open matrices share
+age groups at a boundary, they compose by summing contributions at shared groups.
+"""
+OpenContactMatrix
 
 const LabelledContactMatrix = ContactMatrixACSet{Float64, String, Float64}
 
@@ -117,12 +128,15 @@ const LabelledContactMatrix = ContactMatrixACSet{Float64, String, Float64}
 # ---------------------------------------------------------------------------
 
 """
-    ContactSurveyACSet(survey::ContactSurvey, partition::AgePartition)
+    ContactSurveyACSet(survey::ContactSurvey, partition::AgePartition; skip_invalid=false)
 
 Convert a plain `ContactSurvey` into an ACSet representation with
 age groups assigned according to `partition`.
+
+By default, rows whose reporter or age cannot be assigned are rejected. Pass
+`skip_invalid=true` to keep the part but leave the invalid relationship unset.
 """
-function ContactSurveyACSet(survey::ContactSurvey, partition::AgePartition)
+function ContactSurveyACSet(survey::ContactSurvey, partition::AgePartition; skip_invalid::Bool=false)
     acs = ContactSurveyACSet()
     n = n_groups(partition)
 
@@ -136,7 +150,10 @@ function ContactSurveyACSet(survey::ContactSurvey, partition::AgePartition)
     for i in 1:n_parts
         age = survey.participants.part_age[i]
         grp = _assign_age_group(age, limits)
-        grp === nothing && continue
+        if grp === nothing
+            skip_invalid && continue
+            throw(ArgumentError("participant row $i has age outside partition or missing/non-finite age"))
+        end
         set_subpart!(acs, i, :part_group, grp)
     end
 
@@ -147,12 +164,18 @@ function ContactSurveyACSet(survey::ContactSurvey, partition::AgePartition)
     for k in 1:n_contacts
         pid = survey.contacts.part_id[k]
         idx = get(part_id_to_idx, pid, nothing)
-        idx === nothing && continue
+        if idx === nothing
+            skip_invalid && continue
+            throw(ArgumentError("contact row $k references unknown participant id $pid"))
+        end
         set_subpart!(acs, k, :reporter, idx)
 
         age = survey.contacts.cnt_age[k]
         grp = _assign_age_group(age, limits)
-        grp === nothing && continue
+        if grp === nothing
+            skip_invalid && continue
+            throw(ArgumentError("contact row $k has age outside partition or missing/non-finite age"))
+        end
         set_subpart!(acs, k, :cnt_group, grp)
     end
 

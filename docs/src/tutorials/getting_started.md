@@ -82,13 +82,14 @@ nothing # hide
 ## Symmetrisation
 
 Raw survey matrices are asymmetric. Symmetrisation enforces reciprocity
-(``M_{ij} N_j = M_{ji} N_i``) and is **idempotent**:
+(``M_{ij} N_j = M_{ji} N_i``) and is **idempotent**. Use `↔`
+(`\leftrightarrow<TAB>`) as the reciprocity projection:
 
 ```@example tutorial
-cm_sym = symmetrise(cm)
+cm_sym = ↔(cm)
 
 # Check idempotence
-cm_sym2 = symmetrise(cm_sym)
+cm_sym2 = ↔(cm_sym)
 println("Idempotent: $(matrix(cm_sym2) ≈ matrix(cm_sym))")
 nothing # hide
 ```

@@ -45,8 +45,11 @@ struct AgePartition
     labels::Vector{String}
 
     function AgePartition(limits::AbstractVector{<:Real}; labels::Vector{String}=String[])
-        sorted = sort(collect(Float64, limits))
+        raw_limits = collect(Float64, limits)
+        sorted = sort(raw_limits)
         length(sorted) > 0 || throw(ArgumentError("age limits must be non-empty"))
+        all(isfinite, sorted) || throw(ArgumentError("age limits must be finite"))
+        all(>=(0), sorted) || throw(ArgumentError("age limits must be non-negative"))
         allunique(sorted) || throw(ArgumentError("age limits must be unique"))
 
         if isempty(labels)
@@ -54,6 +57,8 @@ struct AgePartition
         else
             length(labels) == length(sorted) ||
                 throw(ArgumentError("length(labels) must equal length(limits)"))
+            raw_limits == sorted ||
+                throw(ArgumentError("age limits must already be sorted when custom labels are supplied"))
         end
         new(sorted, labels)
     end
@@ -142,14 +147,20 @@ struct ContactMatrix{T<:Real, S<:UnitSemantics}
     population::Vector{T}
     semantics::S
 
-    function ContactMatrix(M::AbstractMatrix{T}, partition::AgePartition,
+    function ContactMatrix(M::AbstractMatrix{<:Real}, partition::AgePartition,
                            population::AbstractVector{<:Real},
-                           semantics::S=MeanContacts()) where {T<:Real, S<:UnitSemantics}
+                           semantics::S=MeanContacts()) where {S<:UnitSemantics}
         n = n_groups(partition)
         size(M) == (n, n) || throw(DimensionMismatch(
             "matrix size $(size(M)) does not match partition with $n groups"))
         length(population) == n || throw(DimensionMismatch(
             "population length $(length(population)) does not match partition with $n groups"))
+        all(x -> isfinite(x) && x >= 0, M) ||
+            throw(ArgumentError("contact matrix entries must be finite and non-negative"))
+        all(x -> isfinite(x) && x >= 0, population) ||
+            throw(ArgumentError("population entries must be finite and non-negative"))
+
+        T = promote_type(eltype(M), eltype(population))
         pop = Vector{T}(population)
         new{T, S}(Matrix{T}(M), partition, pop, semantics)
     end

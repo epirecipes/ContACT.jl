@@ -1,6 +1,6 @@
 # The Categorical Framework
 Simon Frost
-2026-05-02
+2026-05-03
 
 - [Overview](#overview)
 - [Setup](#setup)
@@ -41,7 +41,8 @@ using DataFrames
 using LinearAlgebra
 using Catlab
 using Catlab.CategoricalAlgebra
-import ContACT: ⊕, ⊗, ↓
+using Catlab.Programs: @relation
+import ContACT: ⊕, ⊗, ↓, ↑, ▷, ↔, ρ
 ```
 
 ## ACSet Schemas
@@ -172,7 +173,7 @@ The matrix schema represents the output of the functor:
 # Compute a contact matrix and convert to ACSet
 pop = [6987.0, 11537.0, 35854.0, 16000.0, 9492.0]
 cm = compute_matrix(survey, partition; population=pop)
-cm_sym = symmetrise(cm)
+cm_sym = ↔(cm)
 
 acs_cm = LabelledContactMatrix(cm_sym)
 println("\nContact Matrix ACSet:")
@@ -242,7 +243,7 @@ println("  (Groups $(nparts(acs_fine, :G)) → $(nparts(acs_coarse, :G)))")
 ### Functoriality of Migration
 
 Composing two coarsening maps gives the same result as the composite
-map:
+map. This is the key property expressed with the `∘` operator:
 
 ``` julia
 # Three-level hierarchy
@@ -258,18 +259,18 @@ f2 = AgeMap(medium, very_coarse)
 acs_med = migrate_coarsen(acs_vf, f1)
 acs_vc_twostep = migrate_coarsen(acs_med, f2)
 
-# One step: very_fine → very_coarse
-f_composed = AgeMap(very_fine, very_coarse)
+# One step using composed map: f2 ∘ f1
+f_composed = f2 ∘ f1   # type \circ<TAB>
 acs_vc_direct = migrate_coarsen(acs_vf, f_composed)
 
-# Same result
-println("Functoriality of data migration:")
+# Same result — functoriality!
+println("Functoriality of data migration (Σ_{g∘f} = Σ_g ∘ Σ_f):")
 println("  Groups match: $(nparts(acs_vc_twostep, :G) == nparts(acs_vc_direct, :G))")
 println("  Part groups match: $(subpart(acs_vc_twostep, :part_group) == subpart(acs_vc_direct, :part_group))")
 println("  Contact groups match: $(subpart(acs_vc_twostep, :cnt_group) == subpart(acs_vc_direct, :cnt_group))")
 ```
 
-    Functoriality of data migration:
+    Functoriality of data migration (Σ_{g∘f} = Σ_g ∘ Σ_f):
       Groups match: true
       Part groups match: true
       Contact groups match: true
@@ -285,8 +286,6 @@ enabling:
 - Diagrammatic reasoning about intervention scenarios
 
 ``` julia
-using Catlab.Programs: @relation
-
 # Define a composition diagram
 diagram = @relation (pop,) begin
     home(pop)
@@ -384,59 +383,61 @@ display(round.(total_lockdown; digits=2))
 
 ## Putting It All Together
 
-The full categorical pipeline:
+The full categorical pipeline expressed with Unicode operators:
 
 1.  **Survey → ACSet** (schema-enforced structure)
 2.  **ACSet → ACSet** via functorial migration (coarsening)
-3.  **ACSet → ContactMatrix** (compute functor)
-4.  **ContactMatrix → ContactMatrix** via ⊕, ⊗, symmetrise, ↓
+3.  **Survey ▷ Partition** (compute functor)
+4.  **ContactMatrix ↓ ∘ ⊕ ⊗** (algebraic manipulation)
 
 ``` julia
-# Full pipeline
+# Full pipeline using operators
 partition_4 = AgePartition([0, 5, 18, 65])
 pop_4 = [6987.0, 11537.0, 35854.0, 9492.0]
 
 # Step 1: Survey to structured ACSet
 acs_survey = ContactSurveyACSet(survey, partition_4)
 
-# Step 2: Compute contact matrix
+# Step 2: Apply the functor (▷)
 cm_full = compute_matrix(survey, partition_4; population=pop_4)
 
-# Step 3: Symmetrise
-cm_sym = symmetrise(cm_full)
+# Step 3: Symmetrise via ↔ (idempotent reciprocity projection)
+cm_sym = ↔(cm_full)
 
-# Step 4: Coarsen to children/adults (5 is a subset of [0,5,18,65])
+# Step 4: Coarsen via ↓
 cm_2grp = cm_sym ↓ AgePartition([0, 18])
 
-# Step 5: Stratify for 2 regions
+# Step 5: Stratify via ⊗
 coupling_2 = [0.9 0.1; 0.1 0.9]
 cm_regional = cm_2grp ⊗ coupling_2
 
 println("Complete pipeline results:")
 println("  Survey: $(nparts(acs_survey, :P)) participants, $(nparts(acs_survey, :C)) contacts")
-println("  Full matrix: $(n_groups(cm_full)) groups")
-println("  Symmetrised: $(n_groups(cm_sym)) groups")
-println("  Coarsened: $(n_groups(cm_2grp)) groups")
-println("  Regional: $(n_groups(cm_regional)) groups (2 regions × 2 ages)")
-println("  Spectral radius: $(round(spectral_radius(cm_regional); digits=2))")
+println("  Full matrix: $(n_groups(cm_full)) groups, ρ = $(round(ρ(cm_full); digits=2))")
+println("  Symmetrised: $(n_groups(cm_sym)) groups, ρ = $(round(ρ(cm_sym); digits=2))")
+println("  Coarsened: $(n_groups(cm_2grp)) groups, ρ = $(round(ρ(cm_2grp); digits=2))")
+println("  Regional: $(n_groups(cm_regional)) groups, ρ = $(round(ρ(cm_regional); digits=2))")
 ```
 
     Complete pipeline results:
       Survey: 1012 participants, 11873 contacts
-      Full matrix: 4 groups
-      Symmetrised: 4 groups
-      Coarsened: 2 groups
-      Regional: 4 groups (2 regions × 2 ages)
-      Spectral radius: 11.18
+      Full matrix: 4 groups, ρ = 12.15
+      Symmetrised: 4 groups, ρ = 12.25
+      Coarsened: 2 groups, ρ = 11.18
+      Regional: 4 groups, ρ = 11.18
 
 ## Summary
 
-| Layer           | What it provides                   | Key operation        |
-|-----------------|------------------------------------|----------------------|
-| Plain structs   | Ergonomic API                      | `⊕`, `⊗`, `↓`        |
-| ACSet schemas   | Type safety, referential integrity | `ContactSurveyACSet` |
-| Data migration  | Functorial coarsening/restriction  | `migrate_coarsen`    |
-| Wiring diagrams | Declarative composition            | `compose_uwd`        |
+| Operator | LaTeX              | Category-theoretic role                 |
+|----------|--------------------|-----------------------------------------|
+| `⊕`      | `\\oplus`          | Monoidal product (commutative monoid)   |
+| `⊗`      | `\\otimes`         | Kronecker/stratification functor        |
+| `↓`      | `\\downarrow`      | Left Kan extension (coarsening)         |
+| `↑`      | `\\uparrow`        | Parameterised refinement (with prior)   |
+| `▷`      | `\\triangleright`  | Functor application (survey → matrix)   |
+| `∘`      | `\\circ`           | Morphism composition (AgeMap)           |
+| `↔`      | `\\leftrightarrow` | Reciprocity projection (symmetrisation) |
+| `ρ`      | `\\rho`            | Spectral radius (R₀ proxy)              |
 
 The categorical framework provides **formal guarantees** (functoriality,
 idempotence, associativity) that are verified both in the Julia test

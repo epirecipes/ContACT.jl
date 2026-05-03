@@ -1,7 +1,7 @@
 """
 Symmetrisation morphism.
 
-Makes a contact matrix symmetric so that c_ij · N_i = c_ji · N_j,
+Makes a contact matrix reciprocal so that c_ij · N_j = c_ji · N_i,
 preserving the reciprocity constraint (total contacts from group i to j
 equals total contacts from j to i).
 
@@ -17,7 +17,10 @@ Symmetrise a contact matrix preserving the reciprocity constraint.
 For each pair (i, j), the symmetrised entry is:
     M_sym[i, j] = (M[i, j] · N_j + M[j, i] · N_i) / (2 · N_j)
 
-This ensures c_ij · N_i = c_ji · N_j in the result.
+This ensures c_ij · N_j = c_ji · N_i in the result.
+
+If a group has zero population, reciprocal finite rates only exist when the
+corresponding total contacts are also zero; otherwise an `ArgumentError` is thrown.
 
 # Returns
 A new `ContactMatrix` with a symmetric contact pattern.
@@ -32,7 +35,13 @@ function symmetrise(cm::ContactMatrix)
         for j in 1:n
             # Total contacts from i→j and j→i, averaged
             total_ij = M[i, j] * pop[j] + M[j, i] * pop[i]
-            M_sym[i, j] = pop[j] > 0 ? total_ij / (2.0 * pop[j]) : 0.0
+            if pop[j] == 0
+                total_ij == 0 || throw(ArgumentError(
+                    "cannot symmetrise pair ($i, $j): group $j has zero population but nonzero total contacts"))
+                M_sym[i, j] = 0.0
+            else
+                M_sym[i, j] = total_ij / (2.0 * pop[j])
+            end
         end
     end
 

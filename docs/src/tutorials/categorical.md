@@ -69,7 +69,7 @@ nothing # hide
 ```@example categorical
 pop = [6987.0, 11537.0, 35854.0, 16000.0, 9492.0]
 cm = compute_matrix(survey, partition; population=pop)
-cm_sym = symmetrise(cm)
+cm_sym = ↔(cm)
 
 acs_cm = LabelledContactMatrix(cm_sym)
 println("Contact Matrix ACSet:")
@@ -186,13 +186,13 @@ pop_4 = [6987.0, 11537.0, 35854.0, 9492.0]
 
 acs_survey = ContactSurveyACSet(survey, partition_4)
 cm_full = compute_matrix(survey, partition_4; population=pop_4)
-cm_sym2 = symmetrise(cm_full)
+cm_sym2 = ↔(cm_full)
 cm_2grp = cm_sym2 ↓ AgePartition([0, 18])
 cm_regional = cm_2grp ⊗ [0.9 0.1; 0.1 0.9]
 
-println("Pipeline: Survey → ACSet → Matrix → Symmetrise → Coarsen → Stratify")
+println("Pipeline: Survey → ACSet → Matrix → ↔ → ↓ → ⊗")
 println("  Input: $(nparts(acs_survey, :P)) participants")
 println("  Final: $(n_groups(cm_regional)) groups")
-println("  Spectral radius: $(round(spectral_radius(cm_regional); digits=2))")
+println("  Spectral radius: $(round(ρ(cm_regional); digits=2))")
 nothing # hide
 ```

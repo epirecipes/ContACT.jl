@@ -2,6 +2,8 @@ name = "ContACT"
 uuid = "26035af4-eac7-442e-a6d9-7ff0777c6303"
 version = "0.1.0"
 authors = ["Simon Frost"]
+description = "Applied category theory for structured contact matrices"
+license = "MIT"
 
 [deps]
 Catlab = "134e5e36-593f-5add-ad60-77f754baafbe"

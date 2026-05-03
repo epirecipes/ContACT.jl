@@ -11,7 +11,7 @@ This is equivalent to the Kronecker product: A_strat = D ⊗ A_local.
 """
 
 """
-    stratify(cm::ContactMatrix, coupling::AbstractMatrix)
+    stratify(cm::ContactMatrix, coupling::AbstractMatrix; stratum_populations=nothing)
 
 Stratify a contact matrix across strata connected by a coupling matrix.
 
@@ -21,16 +21,22 @@ Every stratum shares the same local contact pattern.
 # Arguments
 - `cm`: local contact matrix (shared across all strata)
 - `coupling`: n_strata × n_strata mixing matrix between strata
+- `stratum_populations`: optional expanded population vector, or an
+  n_ages × n_strata matrix whose columns are stratum-specific age populations.
+  If omitted, the local population is split equally across strata.
 
 # Returns
 A `ContactMatrix` with expanded age partition (strata × age groups).
 """
-function stratify(cm::ContactMatrix, coupling::AbstractMatrix{<:Real})
+function stratify(cm::ContactMatrix, coupling::AbstractMatrix{<:Real};
+                  stratum_populations::Union{Nothing, AbstractVector{<:Real}, AbstractMatrix{<:Real}}=nothing)
     M = matrix(cm)
     n_ages = n_groups(cm)
     n_strata = size(coupling, 1)
     size(coupling, 1) == size(coupling, 2) || throw(DimensionMismatch(
         "coupling matrix must be square, got $(size(coupling))"))
+    all(x -> isfinite(x) && x >= 0, coupling) ||
+        throw(ArgumentError("coupling entries must be finite and non-negative"))
 
     # Kronecker product: coupling ⊗ local
     n_total = n_strata * n_ages
@@ -56,9 +62,20 @@ function stratify(cm::ContactMatrix, coupling::AbstractMatrix{<:Real})
     strat_limits = collect(1.0:n_total)  # synthetic limits for stratified partition
     strat_partition = AgePartition(strat_limits; labels=strat_labels)
 
-    # Replicated population
+    # Replicated population. By default, split the local population equally
+    # across strata; callers can pass explicit expanded populations when known.
     pop = population(cm)
-    strat_pop = repeat(pop, n_strata) ./ n_strata
+    strat_pop = if stratum_populations === nothing
+        repeat(pop, n_strata) ./ n_strata
+    elseif stratum_populations isa AbstractMatrix
+        size(stratum_populations) == (n_ages, n_strata) || throw(DimensionMismatch(
+            "stratum_populations matrix must be $n_ages × $n_strata, got $(size(stratum_populations))"))
+        vec(Float64.(stratum_populations))
+    else
+        length(stratum_populations) == n_total || throw(DimensionMismatch(
+            "stratum_populations vector must have length $n_total, got $(length(stratum_populations))"))
+        Float64.(stratum_populations)
+    end
 
     ContactMatrix(A_strat, strat_partition, strat_pop, cm.semantics)
 end
@@ -71,15 +88,22 @@ connected by a coupling matrix. The source stratum's matrix is used.
 """
 function stratify(cms::AbstractVector{<:ContactMatrix}, coupling::AbstractMatrix{<:Real})
     n_strata = length(cms)
+    isempty(cms) && throw(ArgumentError("cannot stratify an empty collection"))
     size(coupling) == (n_strata, n_strata) || throw(DimensionMismatch(
         "coupling must be $n_strata × $n_strata, got $(size(coupling))"))
+    all(x -> isfinite(x) && x >= 0, coupling) ||
+        throw(ArgumentError("coupling entries must be finite and non-negative"))
 
     n_ages = n_groups(cms[1])
     all(cm -> n_groups(cm) == n_ages, cms) || throw(ArgumentError(
         "all contact matrices must have the same number of age groups"))
+    all(cm -> cm.partition.limits == cms[1].partition.limits, cms) || throw(ArgumentError(
+        "all contact matrices must have the same age partition"))
+    all(cm -> typeof(cm.semantics) == typeof(cms[1].semantics), cms) || throw(ArgumentError(
+        "all contact matrices must have the same unit semantics"))
 
     n_total = n_strata * n_ages
-    T = promote_type(eltype(matrix(cms[1])), eltype(coupling))
+    T = promote_type((eltype(matrix(cm)) for cm in cms)..., eltype(coupling))
     A_strat = zeros(T, n_total, n_total)
 
     for s_to in 1:n_strata

@@ -9,7 +9,7 @@ ContACT.jl provides a categorical framework for:
 - Composing setting-specific matrices (home, work, school) via **additive composition** (⊕)
 - Changing age resolution via **coarsening** (left Kan extension) and refinement
 - Adding spatial structure via **stratification** (Kronecker product) (⊗)
-- Enforcing reciprocity via **symmetrisation**
+- Enforcing reciprocity via **symmetrisation** (↔)
 
 All operations come with formal guarantees verified in Lean 4.
 
@@ -37,7 +37,7 @@ coupling = [0.8 0.1 0.1; 0.1 0.8 0.1; 0.1 0.1 0.8]
 cm_spatial = cm ⊗ coupling
 
 # Symmetrise (enforce reciprocity)
-cm_sym = symmetrise(cm)
+cm_sym = ↔(cm)
 ```
 
 ## Operators
@@ -47,6 +47,11 @@ cm_sym = symmetrise(cm)
 | `⊕` | `\oplus` | Additive composition | Coproduct in setting category |
 | `⊗` | `\otimes` | Stratification | Pullback in slice category |
 | `↓` | `\downarrow` | Coarsening | Left Kan extension |
+| `↑` | `\uparrow` | Refinement with prior | Parameterised disaggregation |
+| `▷` | `\triangleright` | Survey-to-matrix functor | Functor application |
+| `∘` | `\circ` | AgeMap composition | Morphism composition |
+| `↔` | `\leftrightarrow` | Symmetrisation | Reciprocity projection |
+| `ρ` | `\rho` | Spectral radius | R₀ proxy |
 
 ## Categorical Framework
 

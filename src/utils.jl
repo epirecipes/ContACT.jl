@@ -6,7 +6,7 @@ Utility functions for ContACT.jl.
     to_per_capita(cm::ContactMatrix)
 
 Convert a contact matrix from mean contacts to per-capita rates.
-Divides each column by the population of the contact age group.
+Divides each column by the population of the contactor age group.
 """
 function to_per_capita(cm::ContactMatrix)
     M = matrix(cm)
@@ -15,8 +15,13 @@ function to_per_capita(cm::ContactMatrix)
 
     M_pc = zeros(Float64, n, n)
     for j in 1:n
-        for i in 1:n
-            M_pc[i, j] = pop[i] > 0 ? M[i, j] / pop[i] : 0.0
+        if pop[j] == 0
+            all(iszero, M[:, j]) || throw(ArgumentError(
+                "cannot convert column $j to per-capita rates: zero population with nonzero contacts"))
+        else
+            for i in 1:n
+                M_pc[i, j] = M[i, j] / pop[j]
+            end
         end
     end
     ContactMatrix(M_pc, cm.partition, pop, PerCapitaRate())

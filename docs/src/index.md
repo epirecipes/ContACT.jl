@@ -22,6 +22,7 @@ All core operations have Unicode operators (type LaTeX name + TAB in the REPL):
 | `↑` | `\uparrow` | Parameterised refinement (with prior) |
 | `▷` | `\triangleright` | Functor application (survey → matrix) |
 | `∘` | `\circ` | Morphism composition (AgeMap) |
+| `↔` | `\leftrightarrow` | Reciprocity projection (symmetrisation) |
 | `ρ` | `\rho` | Spectral radius (R₀ proxy) |
 
 ## Quick Example
@@ -58,6 +59,12 @@ h = g ∘ f                        # composed: fine → 2 groups
 
 # Functoriality: cm ↓ (g ∘ f) == (cm ↓ f) ↓ g
 println("Functorial: $(matrix(cm4 ↓ h) ≈ matrix((cm4 ↓ f) ↓ g))")
+```
+
+```@example quickstart
+# Symmetrise via ↔ (reciprocity projection)
+cm_reciprocal = ↔(cm)
+matrix(cm_reciprocal)
 ```
 
 ```@example quickstart

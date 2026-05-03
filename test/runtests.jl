@@ -7,7 +7,7 @@ using Catlab.CategoricalAlgebra
 using Catlab.Programs: @relation
 
 # Resolve ambiguity: use ContACT's operators explicitly
-import ContACT: ⊕, ⊗, ↓, ↑, ▷, ρ
+import ContACT: ⊕, ⊗, ↓, ↑, ▷, ↔, ρ
 
 # ---------------------------------------------------------------------------
 # Test data: synthetic survey
@@ -38,14 +38,18 @@ end
     @test n_groups(p) == 3
     @test age_limits(p) == [0.0, 18.0, 65.0]
     @test age_labels(p) == ["[0,18)", "[18,65)", "65+"]
+    @test age_limits(AgePartition([65, 0, 18])) == [0.0, 18.0, 65.0]
 
     # Custom labels
     p2 = AgePartition([0, 5, 18]; labels=["child", "youth", "adult"])
     @test age_labels(p2) == ["child", "youth", "adult"]
+    @test_throws ArgumentError AgePartition([18, 0, 65]; labels=["adult", "child", "senior"])
 
     # Validation
     @test_throws ArgumentError AgePartition(Int[])
     @test_throws ArgumentError AgePartition([5, 5, 10])
+    @test_throws ArgumentError AgePartition([-1, 0, 18])
+    @test_throws ArgumentError AgePartition([0, Inf])
 end
 
 @testset "ContactSurvey" begin
@@ -82,6 +86,12 @@ end
     # Dimension mismatch
     @test_throws DimensionMismatch ContactMatrix(M, AgePartition([0, 10]), pop)
     @test_throws DimensionMismatch ContactMatrix(M, p, [1.0, 2.0])
+
+    # Value validation
+    @test_throws ArgumentError ContactMatrix([-1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0], p, pop)
+    @test_throws ArgumentError ContactMatrix([NaN 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0], p, pop)
+    @test_throws ArgumentError ContactMatrix(M, p, [1000.0, -1.0, 500.0])
+    @test_throws ArgumentError ContactMatrix(M, p, [1000.0, Inf, 500.0])
 end
 
 @testset "compute_matrix (functor)" begin
@@ -95,6 +105,19 @@ end
     @test all(matrix(cm) .>= 0)
     # Should have some contacts in each group
     @test sum(matrix(cm)) > 0
+
+    weighted_participants = DataFrame(part_id=[1, 2], part_age=[5.0, 25.0], weight=[2.0, 1.0])
+    weighted_contacts = DataFrame(part_id=[1, 1, 2], cnt_age=[5.0, 25.0, 25.0])
+    weighted = ContactSurvey(weighted_participants, weighted_contacts)
+    weighted_cm = compute_matrix(weighted, AgePartition([0, 18]); weights=:weight)
+    @test matrix(weighted_cm) ≈ [1.0 0.0; 1.0 1.0]
+    @test_throws ArgumentError compute_matrix(weighted, AgePartition([0, 18]); weights=:missing_weight)
+    weighted_participants.bad_weight = [1.0, -1.0]
+    @test_throws ArgumentError compute_matrix(
+        ContactSurvey(weighted_participants, weighted_contacts),
+        AgePartition([0, 18]);
+        weights=:bad_weight,
+    )
 end
 
 @testset "Coarsening" begin
@@ -138,6 +161,12 @@ end
 
     # Commutativity
     @test matrix(cm_home ⊕ cm_work) ≈ matrix(cm_work ⊕ cm_home)
+
+    # Numeric types promote naturally
+    cm_int = ContactMatrix([1 2 3; 4 5 6; 7 8 9], p, [1000, 3000, 500])
+    mixed = cm_int ⊕ cm_home
+    @test eltype(matrix(mixed)) == Float64
+    @test matrix(mixed) ≈ [1 2 3; 4 5 6; 7 8 9] .+ M_home
 end
 
 @testset "Stratification (⊗)" begin
@@ -155,6 +184,16 @@ end
     M_strat = matrix(cm_strat)
     @test M_strat[1:3, 1:3] ≈ 0.7 .* M
     @test M_strat[4:6, 1:3] ≈ 0.3 .* M
+
+    stratum_pop = [600.0 400.0;
+                   2000.0 1000.0;
+                   300.0 200.0]
+    cm_strat_pop = stratify(cm, coupling; stratum_populations=stratum_pop)
+    @test population(cm_strat_pop) == vec(stratum_pop)
+
+    @test_throws ArgumentError cm ⊗ [1.0 -0.1; 0.0 1.0]
+    @test_throws ArgumentError stratify([cm, ContactMatrix(M, AgePartition([0, 10, 65]), pop)], coupling)
+    @test_throws ArgumentError stratify([cm, ContactMatrix(M, p, pop, PerCapitaRate())], coupling)
 end
 
 @testset "Symmetrisation" begin
@@ -176,6 +215,14 @@ end
     # Idempotence: symmetrise(symmetrise(M)) == symmetrise(M)
     cm_sym2 = symmetrise(cm_sym)
     @test matrix(cm_sym2) ≈ M_sym atol=1e-10
+    @test matrix(↔(cm)) ≈ M_sym
+
+    zero_pop_ok = ContactMatrix([0.0 0.0; 0.0 4.0], AgePartition([0, 18]), [0.0, 10.0])
+    zero_pop_sym = symmetrise(zero_pop_ok)
+    @test matrix(zero_pop_sym) == [0.0 0.0; 0.0 4.0]
+    @test_throws ArgumentError symmetrise(
+        ContactMatrix([1.0 2.0; 3.0 4.0], AgePartition([0, 18]), [0.0, 10.0])
+    )
 end
 
 @testset "Refinement" begin
@@ -202,10 +249,17 @@ end
     # Per capita conversion
     cm_pc = to_per_capita(cm)
     @test cm_pc.semantics isa PerCapitaRate
+    @test matrix(cm_pc) ≈ [M[i, j] / pop[j] for i in 1:3, j in 1:3]
 
     # Counts conversion
     cm_counts = to_counts(cm)
     @test cm_counts.semantics isa ContactCounts
+    @test matrix(cm_counts) ≈ [M[i, j] * pop[j] for i in 1:3, j in 1:3]
+    @test matrix(to_per_capita(cm_counts)) ≈ M
+
+    @test_throws ArgumentError to_per_capita(
+        ContactMatrix([0.0 1.0; 0.0 0.0], AgePartition([0, 18]), [10.0, 0.0])
+    )
 
     # Spectral radius
     sr = spectral_radius(cm)
@@ -228,6 +282,18 @@ end
             reporter_idx = subpart(acs, k, :reporter)
             @test 1 <= reporter_idx <= nparts(acs, :P)
         end
+
+        invalid_age = ContactSurvey(
+            DataFrame(part_id=[1], part_age=[-1.0]),
+            DataFrame(part_id=[1], cnt_age=[10.0]),
+        )
+        @test_throws ArgumentError ContactSurveyACSet(invalid_age, partition)
+
+        invalid_reporter = ContactSurvey(
+            DataFrame(part_id=[1], part_age=[10.0]),
+            DataFrame(part_id=[2], cnt_age=[10.0]),
+        )
+        @test_throws ArgumentError ContactSurveyACSet(invalid_reporter, partition)
     end
 
     @testset "LabelledContactMatrix ACSet" begin
@@ -314,6 +380,7 @@ end
 
         # Dimension mismatch in RefinementPrior
         @test_throws DimensionMismatch RefinementPrior(fine, [1.0, 2.0])
+        @test_throws ArgumentError RefinementPrior(fine, [800.0, -1.0, 2000.0, 2000.0, 1000.0])
     end
 
     @testset "▷ (functor application)" begin
@@ -355,6 +422,38 @@ end
         wrong = AgeMap(AgePartition([0, 30, 65]), coarse)
         @test_throws ArgumentError wrong ∘ f
     end
+end
+
+@testset "Integrated algebraic pipeline" begin
+    survey = make_test_survey()
+    fine = AgePartition([0, 18, 45, 65])
+    medium = AgePartition([0, 18, 65])
+    coarse = AgePartition([0, 65])
+    coupling = [0.8 0.2; 0.1 0.9]
+
+    f = AgeMap(fine, medium)
+    g = AgeMap(medium, coarse)
+    h = g ∘ f
+
+    cm_fine = survey ▷ fine
+    cm_medium = cm_fine ↓ f
+    cm_coarse = cm_fine ↓ h
+    cm_two_step = cm_medium ↓ g
+    @test matrix(cm_coarse) ≈ matrix(cm_two_step)
+
+    reciprocal = ↔(cm_medium)
+    N = population(reciprocal)
+    R = matrix(reciprocal)
+    @test all(R[i, j] * N[j] ≈ R[j, i] * N[i] for i in 1:n_groups(reciprocal), j in 1:n_groups(reciprocal))
+
+    regional = reciprocal ⊗ coupling
+    @test n_groups(regional) == 2 * n_groups(reciprocal)
+    @test ρ(regional) > 0
+
+    intervention = reciprocal ⊕ ContactMatrix(zeros(n_groups(reciprocal), n_groups(reciprocal)),
+                                               reciprocal.partition,
+                                               population(reciprocal))
+    @test matrix(intervention) ≈ matrix(reciprocal)
 end
 
 end # top-level testset
