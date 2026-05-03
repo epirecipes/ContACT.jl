@@ -7,6 +7,15 @@ format:
   html:
     code-fold: false
     toc: true
+  gfm:
+    toc: true
+  pdf:
+    documentclass: article
+    toc: true
+    mainfont: "STIX Two Text"
+    mathfont: "STIX Two Math"
+    monofont: "Fira Code"
+    pdf-engine: xelatex
 ---
 
 ## Overview
@@ -112,10 +121,11 @@ $j$ to $i$:
 
 $$M_{ij} \cdot N_j = M_{ji} \cdot N_i$$
 
-Symmetrisation is an **idempotent endomorphism** in the contact matrix category:
+Symmetrisation is an **idempotent endomorphism** in the contact matrix category.
+Use `↔` (`\leftrightarrow<TAB>`) for the reciprocity projection:
 
 ```{julia}
-cm_sym = symmetrise(cm)
+cm_sym = ↔(cm)
 
 # Verify reciprocity
 M = matrix(cm_sym)
@@ -125,7 +135,7 @@ max_violation = maximum(abs(M[i,j] * N[j] - M[j,i] * N[i])
 println("Max reciprocity violation: $(max_violation)")
 
 # Idempotence: applying twice gives the same result
-cm_sym2 = symmetrise(cm_sym)
+cm_sym2 = ↔(cm_sym)
 println("Idempotent: $(matrix(cm_sym2) ≈ matrix(cm_sym))")
 ```
 

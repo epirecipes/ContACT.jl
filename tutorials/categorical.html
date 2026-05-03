@@ -43,7 +43,7 @@ println(&quot;All reporters valid: $all_reporters_valid&quot;)
 println(&quot;All group assignments valid: $all_groups_valid&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">All reporters valid: true
 All group assignments valid: true</code></pre><h3 id="Contact-Matrix-Schema"><a class="docs-heading-anchor" href="#Contact-Matrix-Schema">Contact Matrix Schema</a><a id="Contact-Matrix-Schema-1"></a><a class="docs-heading-anchor-permalink" href="#Contact-Matrix-Schema" title="Permalink"></a></h3><pre><code class="language-julia hljs">pop = [6987.0, 11537.0, 35854.0, 16000.0, 9492.0]
 cm = compute_matrix(survey, partition; population=pop)
-cm_sym = symmetrise(cm)
+cm_sym = ↔(cm)
 
 acs_cm = LabelledContactMatrix(cm_sym)
 println(&quot;Contact Matrix ACSet:&quot;)
@@ -130,14 +130,14 @@ pop_4 = [6987.0, 11537.0, 35854.0, 9492.0]
 
 acs_survey = ContactSurveyACSet(survey, partition_4)
 cm_full = compute_matrix(survey, partition_4; population=pop_4)
-cm_sym2 = symmetrise(cm_full)
+cm_sym2 = ↔(cm_full)
 cm_2grp = cm_sym2 ↓ AgePartition([0, 18])
 cm_regional = cm_2grp ⊗ [0.9 0.1; 0.1 0.9]
 
-println(&quot;Pipeline: Survey → ACSet → Matrix → Symmetrise → Coarsen → Stratify&quot;)
+println(&quot;Pipeline: Survey → ACSet → Matrix → ↔ → ↓ → ⊗&quot;)
 println(&quot;  Input: $(nparts(acs_survey, :P)) participants&quot;)
 println(&quot;  Final: $(n_groups(cm_regional)) groups&quot;)
-println(&quot;  Spectral radius: $(round(spectral_radius(cm_regional); digits=2))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Pipeline: Survey → ACSet → Matrix → Symmetrise → Coarsen → Stratify
+println(&quot;  Spectral radius: $(round(ρ(cm_regional); digits=2))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Pipeline: Survey → ACSet → Matrix → ↔ → ↓ → ⊗
   Input: 1012 participants
   Final: 4 groups
-  Spectral radius: 11.18</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="composition.html">« Composition &amp; Stratification</a><a class="docs-footer-nextpage" href="../vignettes/01-introduction/index.html">Introduction »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 2 May 2026 23:13">Saturday 2 May 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+  Spectral radius: 11.18</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="composition.html">« Composition &amp; Stratification</a><a class="docs-footer-nextpage" href="../vignettes/01-introduction/index.html">Introduction »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Sunday 3 May 2026 09:42">Sunday 3 May 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
