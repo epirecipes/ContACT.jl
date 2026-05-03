@@ -173,8 +173,8 @@ window.Quarto = {
 <h2 class="anchored" data-anchor-id="overview">Overview</h2>
 <p>This vignette dives into the <strong>deeper categorical machinery</strong> of ContACT.jl, powered by <a href="https://github.com/AlgebraicJulia/Catlab.jl">Catlab.jl</a>. While the previous vignettes used the simplified API (plain structs + operators), the ACSet layer provides:</p>
 <ol type="1">
-<li><strong>Schema-enforced structure</strong>: Type-safe relationships between participants, contacts, and age groups, preventing structural errors at construction.</li>
-<li><strong>Functorial data migration</strong> (<span class="math inline">\(\Sigma_f\)</span>, <span class="math inline">\(\Delta_f\)</span>): Principled coarsening and restriction of age-structured data along morphisms.</li>
+<li><strong>Schema-enforced structure</strong>: Type-safe relationships between participants, contacts, and partition groups, preventing structural errors at construction.</li>
+<li><strong>Functorial data migration</strong> (<span class="math inline">\(\Sigma_f\)</span>, <span class="math inline">\(\Delta_f\)</span>): Principled coarsening and restriction of partitioned data along morphisms.</li>
 <li><strong>Undirected wiring diagrams (UWDs)</strong>: Declarative specification of how setting-specific matrices compose via shared boundaries.</li>
 </ol>
 </section>
@@ -198,7 +198,7 @@ window.Quarto = {
 <h3 class="anchored" data-anchor-id="contactsurveyschema">ContactSurveySchema</h3>
 <p>The survey schema encodes the relational structure:</p>
 <ul>
-<li><strong>Objects</strong>: P (Participants), C (Contacts), G (Age Groups)</li>
+<li><strong>Objects</strong>: P (Participants), C (Contacts), G (Partition Groups)</li>
 <li><strong>Morphisms</strong>: <code>part_group: P → G</code>, <code>cnt_group: C → G</code>, <code>reporter: C → P</code></li>
 </ul>
 <p>This makes the foreign-key relationships explicit and type-checked.</p>
@@ -275,17 +275,17 @@ window.Quarto = {
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>acs <span class="op">=</span> <span class="fu">ContactSurveyACSet</span>(survey, partition)</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Survey ACSet:"</span>)</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"  Age groups (G): </span><span class="sc">$</span>(<span class="fu">nparts</span>(acs, <span class="op">:</span>G))<span class="st">"</span>)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"  Partition groups (G): </span><span class="sc">$</span>(<span class="fu">nparts</span>(acs, <span class="op">:</span>G))<span class="st">"</span>)</span>
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"  Participants (P): </span><span class="sc">$</span>(<span class="fu">nparts</span>(acs, <span class="op">:</span>P))<span class="st">"</span>)</span>
 <span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"  Contacts (C): </span><span class="sc">$</span>(<span class="fu">nparts</span>(acs, <span class="op">:</span>C))<span class="st">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Survey ACSet:
-  Age groups (G): 5
+  Partition groups (G): 5
   Participants (P): 1012
   Contacts (C): 11873</code></pre>
 </div>
 </div>
-<p>The ACSet enforces referential integrity: every contact’s <code>:reporter</code> points to a valid participant, and every <code>:part_group</code>/<code>:cnt_group</code> points to a valid age group.</p>
+<p>The ACSet enforces referential integrity: every contact’s <code>:reporter</code> points to a valid participant, and every <code>:part_group</code>/<code>:cnt_group</code> points to a valid partition group.</p>
 <div id="8" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Check: all reporters are valid participants</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>all_valid <span class="op">=</span> <span class="fu">all</span>(<span class="fl">1</span> <span class="op">.&lt;=</span> <span class="fu">subpart</span>(acs, <span class="op">:</span>reporter) <span class="op">.&lt;=</span> <span class="fu">nparts</span>(acs, <span class="op">:</span>P))</span>
@@ -305,7 +305,7 @@ All group assignments valid: true</code></pre>
 <h3 class="anchored" data-anchor-id="contactmatrixschema">ContactMatrixSchema</h3>
 <p>The matrix schema represents the output of the functor:</p>
 <ul>
-<li><strong>Objects</strong>: G (Age Groups), E (Matrix Entries)</li>
+<li><strong>Objects</strong>: G (Partition Groups), E (Matrix Entries)</li>
 <li><strong>Morphisms</strong>: <code>row_group: E → G</code>, <code>col_group: E → G</code></li>
 <li><strong>Attributes</strong>: <code>gname: G → String</code>, <code>pop: G → Float64</code>, <code>value: E → Float64</code></li>
 </ul>
@@ -332,7 +332,7 @@ Contact Matrix ACSet:
 </section>
 <section id="functorial-data-migration" class="level2">
 <h2 class="anchored" data-anchor-id="functorial-data-migration">Functorial Data Migration</h2>
-<p>The power of ACSets is that morphisms between schemas induce <strong>data migration functors</strong>. For contact data, the key morphism is coarsening: a surjective map <span class="math inline">\(f: G_{\mathrm{fine}} \to G_{\mathrm{coarse}}\)</span> between age-group objects.</p>
+<p>The power of ACSets is that morphisms between schemas induce <strong>data migration functors</strong>. For contact data, the key morphism is coarsening: a surjective map <span class="math inline">\(f: G_{\mathrm{fine}} \to G_{\mathrm{coarse}}\)</span> between partition-group objects.</p>
 <p>The <strong>left Kan extension</strong> <span class="math inline">\(\Sigma_f\)</span> pushes data forward along <span class="math inline">\(f\)</span>:</p>
 <div id="12" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Start with fine partition</span></span>
@@ -563,6 +563,11 @@ Lockdown scenario (70% work reduction):</code></pre>
 <section id="summary" class="level2">
 <h2 class="anchored" data-anchor-id="summary">Summary</h2>
 <table class="caption-top table">
+<colgroup>
+<col style="width: 24%">
+<col style="width: 17%">
+<col style="width: 58%">
+</colgroup>
 <thead>
 <tr class="header">
 <th>Operator</th>
@@ -599,7 +604,7 @@ Lockdown scenario (70% work reduction):</code></pre>
 <tr class="even">
 <td><code>∘</code></td>
 <td><code>\\circ</code></td>
-<td>Morphism composition (AgeMap)</td>
+<td>Morphism composition (PartitionMap; <code>AgeMap</code> is the age alias)</td>
 </tr>
 <tr class="odd">
 <td><code>↔︎</code></td>
@@ -1099,9 +1104,9 @@ Lockdown scenario (70% work reduction):</code></pre>
 <span id="cb28-26"><a href="#cb28-26" aria-hidden="true" tabindex="-1"></a>layer provides:</span>
 <span id="cb28-27"><a href="#cb28-27" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-28"><a href="#cb28-28" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Schema-enforced structure**: Type-safe relationships between participants,</span>
-<span id="cb28-29"><a href="#cb28-29" aria-hidden="true" tabindex="-1"></a>   contacts, and age groups, preventing structural errors at construction.</span>
+<span id="cb28-29"><a href="#cb28-29" aria-hidden="true" tabindex="-1"></a>   contacts, and partition groups, preventing structural errors at construction.</span>
 <span id="cb28-30"><a href="#cb28-30" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Functorial data migration** ($\Sigma_f$, $\Delta_f$): Principled coarsening</span>
-<span id="cb28-31"><a href="#cb28-31" aria-hidden="true" tabindex="-1"></a>   and restriction of age-structured data along morphisms.</span>
+<span id="cb28-31"><a href="#cb28-31" aria-hidden="true" tabindex="-1"></a>   and restriction of partitioned data along morphisms.</span>
 <span id="cb28-32"><a href="#cb28-32" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Undirected wiring diagrams (UWDs)**: Declarative specification of how</span>
 <span id="cb28-33"><a href="#cb28-33" aria-hidden="true" tabindex="-1"></a>   setting-specific matrices compose via shared boundaries.</span>
 <span id="cb28-34"><a href="#cb28-34" aria-hidden="true" tabindex="-1"></a></span>
@@ -1127,7 +1132,7 @@ Lockdown scenario (70% work reduction):</code></pre>
 <span id="cb28-56"><a href="#cb28-56" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-57"><a href="#cb28-57" aria-hidden="true" tabindex="-1"></a>The survey schema encodes the relational structure:</span>
 <span id="cb28-58"><a href="#cb28-58" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-59"><a href="#cb28-59" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Objects**: P (Participants), C (Contacts), G (Age Groups)</span>
+<span id="cb28-59"><a href="#cb28-59" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Objects**: P (Participants), C (Contacts), G (Partition Groups)</span>
 <span id="cb28-60"><a href="#cb28-60" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Morphisms**: <span class="in">`part_group: P → G`</span>, <span class="in">`cnt_group: C → G`</span>, <span class="in">`reporter: C → P`</span></span>
 <span id="cb28-61"><a href="#cb28-61" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-62"><a href="#cb28-62" aria-hidden="true" tabindex="-1"></a>This makes the foreign-key relationships explicit and type-checked.</span>
@@ -1162,13 +1167,13 @@ Lockdown scenario (70% work reduction):</code></pre>
 <span id="cb28-95"><a href="#cb28-95" aria-hidden="true" tabindex="-1"></a>acs <span class="op">=</span> <span class="fu">ContactSurveyACSet</span>(survey, partition)</span>
 <span id="cb28-96"><a href="#cb28-96" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-97"><a href="#cb28-97" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Survey ACSet:"</span>)</span>
-<span id="cb28-98"><a href="#cb28-98" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"  Age groups (G): </span><span class="sc">$</span>(<span class="fu">nparts</span>(acs, <span class="op">:</span>G))<span class="st">"</span>)</span>
+<span id="cb28-98"><a href="#cb28-98" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"  Partition groups (G): </span><span class="sc">$</span>(<span class="fu">nparts</span>(acs, <span class="op">:</span>G))<span class="st">"</span>)</span>
 <span id="cb28-99"><a href="#cb28-99" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"  Participants (P): </span><span class="sc">$</span>(<span class="fu">nparts</span>(acs, <span class="op">:</span>P))<span class="st">"</span>)</span>
 <span id="cb28-100"><a href="#cb28-100" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"  Contacts (C): </span><span class="sc">$</span>(<span class="fu">nparts</span>(acs, <span class="op">:</span>C))<span class="st">"</span>)</span>
 <span id="cb28-101"><a href="#cb28-101" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb28-102"><a href="#cb28-102" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-103"><a href="#cb28-103" aria-hidden="true" tabindex="-1"></a>The ACSet enforces referential integrity: every contact's <span class="in">`:reporter`</span> points to a</span>
-<span id="cb28-104"><a href="#cb28-104" aria-hidden="true" tabindex="-1"></a>valid participant, and every <span class="in">`:part_group`</span>/<span class="in">`:cnt_group`</span> points to a valid age group.</span>
+<span id="cb28-104"><a href="#cb28-104" aria-hidden="true" tabindex="-1"></a>valid participant, and every <span class="in">`:part_group`</span>/<span class="in">`:cnt_group`</span> points to a valid partition group.</span>
 <span id="cb28-105"><a href="#cb28-105" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-108"><a href="#cb28-108" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
 <span id="cb28-109"><a href="#cb28-109" aria-hidden="true" tabindex="-1"></a><span class="co"># Check: all reporters are valid participants</span></span>
@@ -1185,7 +1190,7 @@ Lockdown scenario (70% work reduction):</code></pre>
 <span id="cb28-120"><a href="#cb28-120" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-121"><a href="#cb28-121" aria-hidden="true" tabindex="-1"></a>The matrix schema represents the output of the functor:</span>
 <span id="cb28-122"><a href="#cb28-122" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-123"><a href="#cb28-123" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Objects**: G (Age Groups), E (Matrix Entries)</span>
+<span id="cb28-123"><a href="#cb28-123" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Objects**: G (Partition Groups), E (Matrix Entries)</span>
 <span id="cb28-124"><a href="#cb28-124" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Morphisms**: <span class="in">`row_group: E → G`</span>, <span class="in">`col_group: E → G`</span></span>
 <span id="cb28-125"><a href="#cb28-125" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Attributes**: <span class="in">`gname: G → String`</span>, <span class="in">`pop: G → Float64`</span>, <span class="in">`value: E → Float64`</span></span>
 <span id="cb28-126"><a href="#cb28-126" aria-hidden="true" tabindex="-1"></a></span>
@@ -1206,7 +1211,7 @@ Lockdown scenario (70% work reduction):</code></pre>
 <span id="cb28-143"><a href="#cb28-143" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-144"><a href="#cb28-144" aria-hidden="true" tabindex="-1"></a>The power of ACSets is that morphisms between schemas induce **data migration</span>
 <span id="cb28-145"><a href="#cb28-145" aria-hidden="true" tabindex="-1"></a>functors**. For contact data, the key morphism is coarsening: a surjective map</span>
-<span id="cb28-146"><a href="#cb28-146" aria-hidden="true" tabindex="-1"></a>$f: G_{\mathrm{fine}} \to G_{\mathrm{coarse}}$ between age-group objects.</span>
+<span id="cb28-146"><a href="#cb28-146" aria-hidden="true" tabindex="-1"></a>$f: G_{\mathrm{fine}} \to G_{\mathrm{coarse}}$ between partition-group objects.</span>
 <span id="cb28-147"><a href="#cb28-147" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-148"><a href="#cb28-148" aria-hidden="true" tabindex="-1"></a>The **left Kan extension** $\Sigma_f$ pushes data forward along $f$:</span>
 <span id="cb28-149"><a href="#cb28-149" aria-hidden="true" tabindex="-1"></a></span>
@@ -1393,7 +1398,7 @@ Lockdown scenario (70% work reduction):</code></pre>
 <span id="cb28-346"><a href="#cb28-346" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`↓`</span> <span class="pp">|</span> <span class="in">`\\downarrow`</span> <span class="pp">|</span> Left Kan extension (coarsening) <span class="pp">|</span></span>
 <span id="cb28-347"><a href="#cb28-347" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`↑`</span> <span class="pp">|</span> <span class="in">`\\uparrow`</span> <span class="pp">|</span> Parameterised refinement (with prior) <span class="pp">|</span></span>
 <span id="cb28-348"><a href="#cb28-348" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`▷`</span> <span class="pp">|</span> <span class="in">`\\triangleright`</span> <span class="pp">|</span> Functor application (survey → matrix) <span class="pp">|</span></span>
-<span id="cb28-349"><a href="#cb28-349" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`∘`</span> <span class="pp">|</span> <span class="in">`\\circ`</span> <span class="pp">|</span> Morphism composition (AgeMap) <span class="pp">|</span></span>
+<span id="cb28-349"><a href="#cb28-349" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`∘`</span> <span class="pp">|</span> <span class="in">`\\circ`</span> <span class="pp">|</span> Morphism composition (PartitionMap; <span class="in">`AgeMap`</span> is the age alias) <span class="pp">|</span></span>
 <span id="cb28-350"><a href="#cb28-350" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`↔`</span> <span class="pp">|</span> <span class="in">`\\leftrightarrow`</span> <span class="pp">|</span> Reciprocity projection (symmetrisation) <span class="pp">|</span></span>
 <span id="cb28-351"><a href="#cb28-351" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`ρ`</span> <span class="pp">|</span> <span class="in">`\\rho`</span> <span class="pp">|</span> Spectral radius (R₀ proxy) <span class="pp">|</span></span>
 <span id="cb28-352"><a href="#cb28-352" aria-hidden="true" tabindex="-1"></a></span>

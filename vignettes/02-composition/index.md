@@ -74,7 +74,7 @@ cm_school = ContactMatrix(M_school, partition, uk_pop)
 cm_other  = ContactMatrix(M_other, partition, uk_pop)
 ```
 
-    ContactMatrix{Float64, MeanContacts} (4×4 age groups)
+    ContactMatrix{Float64, MeanContacts} (4×4 groups)
 
 ## Additive Composition with ⊕
 
