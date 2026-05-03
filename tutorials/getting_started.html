@@ -75,10 +75,11 @@ uk_pop = [3433.0, 3554.0, 3824.0, 3956.0, 3757.0, 3520.0, 4009.0,
            4405.0, 4548.0, 4187.0, 3883.0, 3589.0, 3117.0, 2765.0,
            2425.0, 3752.0]
 
-cm = compute_matrix(survey, partition; population=uk_pop)
+# Apply the survey→matrix functor using ▷ (type \triangleright&lt;TAB&gt;)
+cm = survey ▷ partition
 println(&quot;Contact matrix: $(n_groups(cm)) age groups&quot;)
-println(&quot;Spectral radius (R₀ proxy): $(round(spectral_radius(cm); digits=2))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Contact matrix: 16 age groups
-Spectral radius (R₀ proxy): 12.24</code></pre><p>The result bundles the matrix with its partition, population, and semantics:</p><pre><code class="language-julia hljs">println(&quot;Semantics: $(cm.semantics)&quot;)
+println(&quot;ρ(M) ∝ R₀: $(round(ρ(cm); digits=2))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Contact matrix: 16 age groups
+ρ(M) ∝ R₀: 12.24</code></pre><p>The result bundles the matrix with its partition, population, and semantics:</p><pre><code class="language-julia hljs">println(&quot;Semantics: $(cm.semantics)&quot;)
 println(&quot;Age groups: $(age_labels(cm))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Semantics: MeanContacts()
 Age groups: [&quot;[0,5)&quot;, &quot;[5,10)&quot;, &quot;[10,15)&quot;, &quot;[15,20)&quot;, &quot;[20,25)&quot;, &quot;[25,30)&quot;, &quot;[30,35)&quot;, &quot;[35,40)&quot;, &quot;[40,45)&quot;, &quot;[45,50)&quot;, &quot;[50,55)&quot;, &quot;[55,60)&quot;, &quot;[60,65)&quot;, &quot;[65,70)&quot;, &quot;[70,75)&quot;, &quot;75+&quot;]</code></pre><h2 id="Symmetrisation"><a class="docs-heading-anchor" href="#Symmetrisation">Symmetrisation</a><a id="Symmetrisation-1"></a><a class="docs-heading-anchor-permalink" href="#Symmetrisation" title="Permalink"></a></h2><p>Raw survey matrices are asymmetric. Symmetrisation enforces reciprocity (<span>$M_{ij} N_j = M_{ji} N_i$</span>) and is <strong>idempotent</strong>:</p><pre><code class="language-julia hljs">cm_sym = symmetrise(cm)
 
@@ -91,22 +92,27 @@ max_violation = maximum(
     abs(M[i,j] * N[j] - M[j,i] * N[i])
     for i in 1:n_groups(cm_sym), j in 1:n_groups(cm_sym)
 )
-println(&quot;Max reciprocity violation: $(max_violation)&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Max reciprocity violation: 4.547473508864641e-13</code></pre><h2 id="Coarsening"><a class="docs-heading-anchor" href="#Coarsening">Coarsening</a><a id="Coarsening-1"></a><a class="docs-heading-anchor-permalink" href="#Coarsening" title="Permalink"></a></h2><p>Coarsening is the left Kan extension along a surjective age-group map. The coarse partition&#39;s limits must be a subset of the fine partition&#39;s limits:</p><pre><code class="language-julia hljs">coarse = AgePartition([0, 15, 45, 65])
+println(&quot;Max reciprocity violation: $(max_violation)&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Max reciprocity violation: 1.4210854715202004e-14</code></pre><h2 id="Coarsening"><a class="docs-heading-anchor" href="#Coarsening">Coarsening</a><a id="Coarsening-1"></a><a class="docs-heading-anchor-permalink" href="#Coarsening" title="Permalink"></a></h2><p>Coarsening is the left Kan extension along a surjective age-group map. The coarse partition&#39;s limits must be a subset of the fine partition&#39;s limits:</p><pre><code class="language-julia hljs">coarse = AgePartition([0, 15, 45, 65])
 cm_coarse = cm ↓ coarse
 
 println(&quot;Coarsened: $(n_groups(cm_coarse)) groups&quot;)
 println(&quot;Labels: $(age_labels(cm_coarse))&quot;)
 round.(matrix(cm_coarse); digits=2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 Matrix{Float64}:
- 6.84  2.17  0.98  0.8
- 4.4   7.19  4.86  2.83
- 1.33  2.35  3.27  2.24
- 0.27  0.49  0.86  1.54</code></pre><h3 id="Functoriality"><a class="docs-heading-anchor" href="#Functoriality">Functoriality</a><a id="Functoriality-1"></a><a class="docs-heading-anchor-permalink" href="#Functoriality" title="Permalink"></a></h3><p>Coarsening in two steps gives the same result as one step:</p><pre><code class="language-julia hljs">mid = AgePartition([0, 15, 45, 65])
+ 6.85  2.2   0.98  0.89
+ 4.39  7.6   4.77  3.25
+ 1.33  2.27  3.18  2.42
+ 0.27  0.46  0.85  1.72</code></pre><h3 id="Functoriality"><a class="docs-heading-anchor" href="#Functoriality">Functoriality</a><a id="Functoriality-1"></a><a class="docs-heading-anchor-permalink" href="#Functoriality" title="Permalink"></a></h3><p>Coarsening in two steps gives the same result as one step — the defining property verified in our Lean proofs. Express with <code>∘</code> (map composition):</p><pre><code class="language-julia hljs">mid = AgePartition([0, 15, 45, 65])
 final_part = AgePartition([0, 45])
 
-via_mid = (cm ↓ mid) ↓ final_part
-direct = cm ↓ final_part
+# Compose maps with ∘ (type \circ&lt;TAB&gt;)
+f = AgeMap(partition, mid)
+g = AgeMap(mid, final_part)
+h = g ∘ f
 
-println(&quot;Functoriality holds: $(matrix(via_mid) ≈ matrix(direct))&quot;)
+via_mid = (cm ↓ f) ↓ g
+direct = cm ↓ h
+
+println(&quot;cm ↓ (g ∘ f) ≈ (cm ↓ f) ↓ g: $(matrix(via_mid) ≈ matrix(direct))&quot;)
 round.(matrix(direct); digits=2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2×2 Matrix{Float64}:
- 9.94  5.01
- 2.45  3.99</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../index.html">« Home</a><a class="docs-footer-nextpage" href="composition.html">Composition &amp; Stratification »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 2 May 2026 16:45">Saturday 2 May 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+ 10.41  5.44
+  2.26  4.05</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../index.html">« Home</a><a class="docs-footer-nextpage" href="composition.html">Composition &amp; Stratification »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 2 May 2026 23:13">Saturday 2 May 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

@@ -81,7 +81,7 @@ cm_total = cm_home ⊕ cm_work ⊕ cm_school ⊕ cm_other
 
 println("Total contact matrix (4 age groups):")
 display(round.(matrix(cm_total); digits=2))
-println("\nSpectral radius: $(round(spectral_radius(cm_total); digits=2))")
+println("\nSpectral radius ρ(M): $(round(ρ(cm_total); digits=2))")
 ```
 
 Verify the monoid axioms:
@@ -118,11 +118,11 @@ cm_lockdown = cm_home ⊕ cm_wfh ⊕ cm_other
 cm_full_lockdown = cm_home
 
 # Compare spectral radii (proportional to R₀)
-println("Scenario analysis (spectral radius as R₀ proxy):")
-println("  Normal:          $(round(spectral_radius(cm_total); digits=2))")
-println("  School closure:  $(round(spectral_radius(cm_closure); digits=2))")
-println("  Lockdown (WFH):  $(round(spectral_radius(cm_lockdown); digits=2))")
-println("  Full lockdown:   $(round(spectral_radius(cm_full_lockdown); digits=2))")
+println("Scenario analysis — ρ(M) as R₀ proxy:")
+println("  Normal:          $(round(ρ(cm_total); digits=2))")
+println("  School closure:  $(round(ρ(cm_closure); digits=2))")
+println("  Lockdown (WFH):  $(round(ρ(cm_lockdown); digits=2))")
+println("  Full lockdown:   $(round(ρ(cm_full_lockdown); digits=2))")
 ```
 
 ## Spatial Stratification with ⊗
@@ -144,7 +144,7 @@ coupling = [0.8 0.15 0.05;
 cm_spatial = cm_total ⊗ coupling
 
 println("Stratified matrix: $(n_groups(cm_spatial)) groups (3 regions × 4 ages)")
-println("Spectral radius: $(round(spectral_radius(cm_spatial); digits=2))")
+println("ρ(M_spatial): $(round(ρ(cm_spatial); digits=2))")
 ```
 
 The resulting block structure:
@@ -159,7 +159,8 @@ display(round.(M_spatial[1:4, 5:8]; digits=2))
 
 ## Composing Operations
 
-The categorical framework ensures operations compose cleanly:
+The categorical framework ensures operations compose cleanly. Using ContACT.jl's
+Unicode operators, the full pipeline reads algebraically:
 
 ```{julia}
 # Start with fine-grained POLYMOD data
@@ -183,20 +184,25 @@ dropmissing!(contacts_df, :cnt_age)
 
 survey = ContactSurvey(participants, contacts_df)
 
-# Compute → Coarsen → Symmetrise → Stratify
+# ─── The algebraic pipeline ─────────────────────────────────────────────
+# Each line uses a Unicode operator:
+#   ▷  functor application (survey → matrix)
+#   ↓  coarsening (left Kan extension)
+#   ⊗  stratification (Kronecker product)
+#   ρ  spectral radius
+
 fine_part = AgePartition([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75])
-fine_pop = [3433.0, 3554.0, 3824.0, 3956.0, 3757.0, 3520.0, 4009.0,
-            4405.0, 4548.0, 4187.0, 3883.0, 3589.0, 3117.0, 2765.0,
-            2425.0, 3752.0]
+cm_fine = survey ▷ fine_part                    # F(survey)
+cm_4grp = cm_fine ↓ AgePartition([0, 15, 45, 65])   # left Kan extension
+cm_sym  = symmetrise(cm_4grp)                   # idempotent endomorphism
+cm_3reg = cm_sym ⊗ coupling                     # Kronecker stratification
 
-cm_fine = compute_matrix(survey, fine_part; population=fine_pop)
-cm_4grp = cm_fine ↓ AgePartition([0, 15, 45, 65])
-cm_sym  = symmetrise(cm_4grp)
-cm_3reg = cm_sym ⊗ coupling
-
-println("Pipeline: Survey → 16-group → 4-group → symmetrise → 3-region")
-println("Final size: $(n_groups(cm_3reg)) groups")
-println("Spectral radius: $(round(spectral_radius(cm_3reg); digits=2))")
+println("Pipeline: Survey ▷ Partition ↓ Coarse → Symmetrise ⊗ Coupling")
+println("  $(n_groups(cm_fine)) → $(n_groups(cm_4grp)) → $(n_groups(cm_3reg)) groups")
+println("  ρ(M_fine)   = $(round(ρ(cm_fine); digits=2))")
+println("  ρ(M_coarse) = $(round(ρ(cm_4grp); digits=2))")
+println("  ρ(M_sym)    = $(round(ρ(cm_sym); digits=2))")
+println("  ρ(M_3reg)   = $(round(ρ(cm_3reg); digits=2))")
 ```
 
 ## What's Next?

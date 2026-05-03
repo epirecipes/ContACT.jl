@@ -55,11 +55,11 @@ cm_closure = cm_home ⊕ cm_work ⊕ cm_other
 cm_wfh = ContactMatrix(0.3 .* M_work, partition, uk_pop)
 cm_lockdown = cm_home ⊕ cm_wfh ⊕ cm_other
 
-println(&quot;Spectral radius (R₀ proxy):&quot;)
-println(&quot;  Normal:         $(round(spectral_radius(cm_total); digits=2))&quot;)
-println(&quot;  School closure: $(round(spectral_radius(cm_closure); digits=2))&quot;)
-println(&quot;  Lockdown:       $(round(spectral_radius(cm_lockdown); digits=2))&quot;)
-println(&quot;  Home only:      $(round(spectral_radius(cm_home); digits=2))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Spectral radius (R₀ proxy):
+println(&quot;Spectral radius ρ(M) ∝ R₀:&quot;)
+println(&quot;  Normal:         $(round(ρ(cm_total); digits=2))&quot;)
+println(&quot;  School closure: $(round(ρ(cm_closure); digits=2))&quot;)
+println(&quot;  Lockdown:       $(round(ρ(cm_lockdown); digits=2))&quot;)
+println(&quot;  Home only:      $(round(ρ(cm_home); digits=2))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Spectral radius ρ(M) ∝ R₀:
   Normal:         10.21
   School closure: 6.62
   Lockdown:       4.59
@@ -70,8 +70,8 @@ coupling = [0.8 0.15 0.05;
 
 cm_spatial = cm_total ⊗ coupling
 println(&quot;Stratified: $(n_groups(cm_spatial)) groups (3 regions × 4 ages)&quot;)
-println(&quot;Spectral radius: $(round(spectral_radius(cm_spatial); digits=2))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Stratified: 12 groups (3 regions × 4 ages)
-Spectral radius: 10.21</code></pre><p>The block structure of the stratified matrix:</p><pre><code class="language-julia hljs">M_spatial = matrix(cm_spatial)
+println(&quot;ρ(M_spatial): $(round(ρ(cm_spatial); digits=2))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Stratified: 12 groups (3 regions × 4 ages)
+ρ(M_spatial): 10.21</code></pre><p>The block structure of the stratified matrix:</p><pre><code class="language-julia hljs">M_spatial = matrix(cm_spatial)
 println(&quot;Diagonal block (region 1 local):&quot;)
 display(round.(M_spatial[1:4, 1:4]; digits=2))
 println(&quot;\nOff-diagonal block (region 1 → region 2):&quot;)
@@ -85,4 +85,4 @@ round.(matrix(cm_2reg); digits=2)</code></pre><pre class="documenter-example-out
  7.78  2.8   0.86  0.31
  2.31  4.85  0.26  0.54
  0.86  0.31  7.78  2.8
- 0.26  0.54  2.31  4.85</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="getting_started.html">« Getting Started</a><a class="docs-footer-nextpage" href="categorical.html">Categorical Framework »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 2 May 2026 16:45">Saturday 2 May 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+ 0.26  0.54  2.31  4.85</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="getting_started.html">« Getting Started</a><a class="docs-footer-nextpage" href="categorical.html">Categorical Framework »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 2 May 2026 23:13">Saturday 2 May 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
