@@ -38,6 +38,8 @@ makedocs(;
             "Introduction" => "vignettes/01-introduction/index.md",
             "Composition" => "vignettes/02-composition/index.md",
             "Categorical Framework" => "vignettes/03-categorical-framework/index.md",
+            "Generalized Contact Matrices" => "vignettes/04-generalized-contact-matrices/index.md",
+            "CoMix/SEP Reconstruction" => "vignettes/05-comix-sep-reconstruction/index.md",
         ],
         "API Reference" => [
             "Types" => "api/types.md",

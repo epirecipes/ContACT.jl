@@ -9,6 +9,8 @@ ContACT.jl provides a categorical framework for:
 - Composing setting-specific matrices (home, work, school) via **additive composition** (⊕)
 - Changing partition resolution via **coarsening** (left Kan extension) and refinement
 - Refining reciprocal matrices by respondent social activity, following Britton-Ball-style high/low or quantile activity strata (⤊)
+- Lifting age matrices to generalized age × SES/contact matrices with explicit mixing assumptions (⊠)
+- Reconstructing generalized matrices from partial participant-side covariates with source-stratified intermediate matrices
 - Adding spatial structure via **stratification** (Kronecker product) (⊗)
 - Enforcing reciprocity via **symmetrisation** (↔)
 
@@ -50,6 +52,14 @@ cm_sym = ↔(cm)
 # Lift to age × activity strata using respondent contact rates
 spec = ActivityRefinement(survey; n=2, mixing=:proportionate)
 cm_activity = cm_sym ⤊ spec
+
+# Lift to age × SES strata using an explicit generalized-matrix assumption
+ses = CategoricalPartition(:ses; levels=["low", "middle", "high"])
+gcm_spec = GeneralizedLift(ses; distribution=[0.35, 0.45, 0.20])
+cm_age_ses = cm_sym ⊠ gcm_spec
+
+# For partial data, build an intermediate matrix with richer participant columns
+partial = compute_source_stratified_matrix(survey, partition, partition × ses)
 ```
 
 ## Operators
@@ -61,6 +71,7 @@ cm_activity = cm_sym ⤊ spec
 | `↓` | `\downarrow` | Coarsening | Left Kan extension |
 | `↑` | `\uparrow` | Refinement with prior | Parameterised disaggregation |
 | `⤊` | `\Uuparrow` | Activity refinement | Hidden-stratum lift |
+| `⊠` | `\boxtimes` | Generalized product lift | Section of product coarsening |
 | `▷` | `\triangleright` | Survey-to-matrix functor | Functor application |
 | `∘` | `\circ` | PartitionMap composition | Morphism composition |
 | `↔` | `\leftrightarrow` | Symmetrisation | Reciprocity projection |
@@ -78,6 +89,8 @@ A `ContactMatrix` bundles:
 ### Morphisms
 - **Coarsening** (via `PartitionMap`; `AgeMap` is the age-specific alias): surjective partition maps that push forward contact structure
 - **Activity refinement** (via `ActivityRefinement`): assumption-driven lift to a product partition such as age × activity
+- **Generalized lifts** (via `GeneralizedLift`): assumption-driven sections from a base partition to a product partition such as age × SES
+- **Constrained partial-data lifts** (via `SourceStratifiedContactMatrix` and `ConstrainedGeneralizedLift`): reconstruct product matrices constrained by participant-side covariates, coarsening, and reciprocity
 - **Symmetrisation**: idempotent endomorphism preserving reciprocity
 - **Setting composition**: commutative monoid structure (additive)
 

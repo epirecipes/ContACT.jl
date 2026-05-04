@@ -7,7 +7,7 @@ using Catlab.CategoricalAlgebra
 using Catlab.Programs: @relation
 
 # Resolve ambiguity: use ContACT's operators explicitly
-import ContACT: ⊕, ⊗, ↓, ↑, ⤊, ▷, ↔, ρ, ×
+import ContACT: ⊕, ⊗, ↓, ↑, ⤊, ⊠, ▷, ↔, ρ, ×
 
 # ---------------------------------------------------------------------------
 # Test data: synthetic survey
@@ -133,6 +133,259 @@ end
         contact_col=:cnt_occupation,
         levels=["worker"],
     )
+end
+
+@testset "Source-stratified matrices" begin
+    participants = DataFrame(
+        part_id = 1:4,
+        part_age = [10.0, 10.0, 30.0, 30.0],
+        part_sep = ["low", "high", "low", "high"],
+        part_edu = ["low", "low", "high", "high"],
+        weight = [2.0, 1.0, 1.0, 1.0],
+    )
+    contacts = DataFrame(
+        part_id = [1, 1, 2, 3, 3, 4, 4],
+        cnt_age = [10.0, 30.0, 10.0, 30.0, 30.0, 10.0, 30.0],
+    )
+    survey = ContactSurvey(participants, contacts)
+
+    age = AgePartition([0, 18]; labels=["child", "adult"])
+    sep = CategoricalPartition(:sep;
+        participant_col=:part_sep,
+        contact_col=:cnt_sep,
+        levels=["low", "high"],
+    )
+    edu = CategoricalPartition(:edu;
+        participant_col=:part_edu,
+        contact_col=:cnt_edu,
+        levels=["low", "high"],
+    )
+    source = age × sep × edu
+
+    partial = compute_source_stratified_matrix(survey, age, source)
+    @test partial isa SourceStratifiedContactMatrix
+    @test size(partial) == (2, 8)
+    @test target_partition(partial) == age
+    @test source_partition(partial) == source
+    @test n_target_groups(partial) == 2
+    @test n_source_groups(partial) == 8
+    @test target_group_labels(partial) == ["child", "adult"]
+    @test source_group_labels(partial)[1:4] == [
+        "child:low:low", "child:low:high", "child:high:low", "child:high:high"
+    ]
+    @test population(partial) ≈ [1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0]
+    @test matrix(partial) ≈ [
+        1.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0;
+        1.0 0.0 0.0 0.0 0.0 2.0 0.0 1.0
+    ]
+    @test source_total_contacts(partial) ≈ matrix(partial) * Diagonal(population(partial))
+
+    weighted = compute_source_stratified_matrix(survey, age, source; weights=:weight)
+    @test population(weighted) ≈ [2.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0]
+    @test matrix(weighted) ≈ matrix(partial)
+
+    provided_pop = [10.0, 0.0, 8.0, 0.0, 0.0, 12.0, 0.0, 9.0]
+    with_pop = compute_source_stratified_matrix(survey, age, source; population=provided_pop)
+    @test population(with_pop) == provided_pop
+
+    @test_throws DimensionMismatch SourceStratifiedContactMatrix(
+        zeros(2, 7), age, source, provided_pop
+    )
+    @test_throws DimensionMismatch SourceStratifiedContactMatrix(
+        zeros(2, 8), age, source, provided_pop[1:7]
+    )
+    @test_throws ArgumentError compute_source_stratified_matrix(
+        survey, age, source; weights=:missing_weight
+    )
+
+    source_to_age = PartitionMap(source, age)
+    age_source = coarsen_sources(partial, source_to_age)
+    @test target_partition(age_source) == age
+    @test source_partition(age_source) == age
+    @test population(age_source) ≈ [2.0, 2.0]
+    @test matrix(age_source) ≈ [1.0 0.5; 0.5 1.5]
+
+    base = ContactMatrix([2.0 1.0; 1.0 3.0], age, [2.0, 2.0])
+    aligned = align_source_stratified_matrix(partial, base, source_to_age)
+    @test matrix(coarsen_sources(aligned, source_to_age)) ≈ matrix(base)
+    @test source_total_contacts(aligned) ≈ 2 .* source_total_contacts(partial)
+
+    @test_throws ArgumentError align_source_stratified_matrix(
+        partial,
+        ContactMatrix([2.0 1.0; 1.0 3.0], age, [3.0, 1.0]),
+        source_to_age,
+    )
+    @test_throws ArgumentError align_source_stratified_matrix(
+        partial,
+        ContactMatrix([2.0 2.0; 0.0 3.0], age, [2.0, 2.0]),
+        source_to_age,
+    )
+    @test_throws ArgumentError align_source_stratified_matrix(
+        SourceStratifiedContactMatrix(zeros(2, 8), age, source, population(partial)),
+        base,
+        source_to_age,
+    )
+
+    constrained = ConstrainedGeneralizedLift(aligned; source_map=source_to_age)
+    @test full_partition(constrained) == source
+    @test intermediate_matrix(constrained) == aligned
+    @test source_map(constrained) == source_to_age
+    @test structural_zeros(constrained) == (population(aligned) .== 0)
+
+    @test_throws DimensionMismatch ConstrainedGeneralizedLift(
+        aligned; source_map=source_to_age, structural_zeros=[false, true]
+    )
+    @test_throws ArgumentError ConstrainedGeneralizedLift(
+        aligned; source_map=source_to_age, structural_zeros=trues(8)
+    )
+
+    full = base ⊠ constrained
+    @test full isa ContactMatrix
+    @test full.partition == source
+    @test population(full) ≈ population(aligned)
+    @test matrix(full ↓ age) ≈ matrix(base)
+    @test matrix(base ↑ constrained) ≈ matrix(full)
+    @test matrix(constrained_generalize(base, constrained)) ≈ matrix(full)
+
+    full_counts = matrix(full) * Diagonal(population(full))
+    @test full_counts ≈ transpose(full_counts)
+    aligned_counts = source_total_contacts(aligned)
+    fmap = collect(source_to_age.mapping)
+    reconstructed_intermediate = zeros(size(aligned_counts))
+    for source_group in axes(full_counts, 2)
+        for target_group in axes(full_counts, 1)
+            reconstructed_intermediate[fmap[target_group], source_group] +=
+                full_counts[target_group, source_group]
+        end
+    end
+    @test reconstructed_intermediate ≈ aligned_counts
+
+    for group in findall(structural_zeros(constrained))
+        @test all(iszero, full_counts[:, group])
+        @test all(iszero, full_counts[group, :])
+    end
+end
+
+@testset "Parameterized constrained lift (q-parameters)" begin
+    # Setup: 2 age groups × 2 SEP groups
+    age = AgePartition([0, 18]; labels=["child", "adult"])
+    sep = CategoricalPartition(:sep;
+        participant_col=:part_sep,
+        contact_col=:cnt_sep,
+        levels=["low", "high"],
+    )
+    prod = age × sep
+    # 4 groups: (child,low), (child,high), (adult,low), (adult,high)
+    prod_pop = [100.0, 100.0, 150.0, 150.0]
+
+    # Build a source-stratified intermediate: 2 target (age) × 4 source (age×sep)
+    # Mean contacts reported by each source group into each target age group
+    interm_M = [3.0 2.0 1.0 1.5;   # child contacted by (child,low), (child,high), (adult,low), (adult,high)
+                1.5 1.0 2.5 2.0]   # adult contacted by ...
+    interm = SourceStratifiedContactMatrix(interm_M, age, prod, prod_pop)
+
+    # Reciprocal base matrix over age
+    base_pop = [200.0, 300.0]
+    base_M = [5.0 2.5; 2.5 4.5]
+    base_counts = base_M * Diagonal(base_pop)
+    # Ensure reciprocal: symmetrize total contacts
+    base_counts_sym = (base_counts + base_counts') / 2
+    base_M_sym = base_counts_sym * Diagonal(1.0 ./ base_pop)
+    base = ContactMatrix(base_M_sym, age, base_pop)
+
+    source_to_age = PartitionMap(prod, age)
+    spec = ConstrainedGeneralizedLift(interm; source_map=source_to_age)
+
+    @testset "q=0 matches proportionate solver" begin
+        params = BlockAssortativityParams(q=Dict(:sep => 0.0))
+        pspec = ParameterizedConstrainedLift(spec; default_params=params)
+        result_q0 = constrained_generalize(base, pspec)
+        result_prop = constrained_generalize(base, spec)
+        @test matrix(result_q0) ≈ matrix(result_prop)
+    end
+
+    @testset "assortative q > 0 increases same-SEP contacts" begin
+        params = BlockAssortativityParams(q=Dict(:sep => 0.5))
+        pspec = ParameterizedConstrainedLift(spec; default_params=params)
+        result_assort = constrained_generalize(base, pspec)
+        result_prop = constrained_generalize(base, spec)
+        # Assortativity index for SEP should be higher
+        ai_assort = assortativity_index(result_assort, :sep)
+        ai_prop = assortativity_index(result_prop, :sep)
+        @test ai_assort > ai_prop
+    end
+
+    @testset "disassortative q < 0 decreases same-SEP contacts" begin
+        params = BlockAssortativityParams(q=Dict(:sep => -0.5))
+        pspec = ParameterizedConstrainedLift(spec; default_params=params)
+        result_dis = constrained_generalize(base, pspec)
+        result_prop = constrained_generalize(base, spec)
+        ai_dis = assortativity_index(result_dis, :sep)
+        ai_prop = assortativity_index(result_prop, :sep)
+        @test ai_dis < ai_prop
+    end
+
+    @testset "coarsening invariant preserved" begin
+        params = BlockAssortativityParams(q=Dict(:sep => 0.3))
+        pspec = ParameterizedConstrainedLift(spec; default_params=params)
+        result = constrained_generalize(base, pspec)
+        @test matrix(result ↓ age) ≈ matrix(base) atol=1e-10
+    end
+
+    @testset "reciprocity preserved" begin
+        params = BlockAssortativityParams(q=Dict(:sep => 0.4))
+        pspec = ParameterizedConstrainedLift(spec; default_params=params)
+        result = constrained_generalize(base, pspec)
+        C = matrix(result) * Diagonal(population(result))
+        @test C ≈ C' atol=1e-10
+    end
+
+    @testset "operator dispatch" begin
+        params = BlockAssortativityParams(q=Dict(:sep => 0.2))
+        pspec = ParameterizedConstrainedLift(spec; default_params=params)
+        @test matrix(base ⊠ pspec) ≈ matrix(constrained_generalize(base, pspec))
+        @test matrix(base ↑ pspec) ≈ matrix(constrained_generalize(base, pspec))
+    end
+
+    @testset "is_feasible" begin
+        feasible_params = BlockAssortativityParams(q=Dict(:sep => 0.3))
+        pspec_f = ParameterizedConstrainedLift(spec; default_params=feasible_params)
+        @test is_feasible(base, pspec_f) == true
+
+        # Very extreme q should be infeasible
+        extreme_params = BlockAssortativityParams(q=Dict(:sep => 0.99))
+        pspec_e = ParameterizedConstrainedLift(spec; default_params=extreme_params)
+        # May or may not be feasible depending on structure; just test it returns Bool
+        @test is_feasible(base, pspec_e) isa Bool
+    end
+
+    @testset "sample_constrained_lifts" begin
+        using Random
+        rng = Random.MersenneTwister(42)
+        samples = sample_constrained_lifts(base, spec, 5;
+            dimensions=[:sep], bounds=(-0.5, 0.5), rng=rng)
+        @test length(samples) <= 5
+        @test length(samples) >= 1  # at least some feasible
+        for (params, cm) in samples
+            @test cm isa ContactMatrix
+            @test all(matrix(cm) .>= -1e-10)
+            # Coarsening invariant
+            @test matrix(cm ↓ age) ≈ matrix(base) atol=1e-10
+        end
+    end
+
+    @testset "per-block params" begin
+        block_params = Dict(
+            (1, 1) => BlockAssortativityParams(q=Dict(:sep => 0.5)),
+            (2, 2) => BlockAssortativityParams(q=Dict(:sep => -0.3)),
+        )
+        pspec = ParameterizedConstrainedLift(spec;
+            block_params=block_params,
+            default_params=BlockAssortativityParams(q=Dict(:sep => 0.0)))
+        result = constrained_generalize(base, pspec)
+        @test result isa ContactMatrix
+        @test matrix(result ↓ age) ≈ matrix(base) atol=1e-10
+    end
 end
 
 @testset "ContactMatrix construction" begin
@@ -374,6 +627,61 @@ end
     )
 end
 
+@testset "Generalized contact matrices" begin
+    age = AgePartition([0, 18])
+    pop = [100.0, 200.0]
+    base = ContactMatrix([2.0 0.5; 1.0 1.5], age, pop)
+    ses = CategoricalPartition(:ses;
+        levels=["low", "middle", "high"],
+        labels=["low", "middle", "high"],
+    )
+    dist = [0.35, 0.45, 0.20]
+
+    random_spec = GeneralizedLift(ses; distribution=dist, mixing=:random)
+    g_random = base ⊠ random_spec
+    @test g_random.partition isa ProductPartition
+    @test group_labels(g_random) == [
+        "[0,18):low", "[0,18):middle", "[0,18):high",
+        "18+:low", "18+:middle", "18+:high",
+    ]
+    @test population(g_random) ≈ product_population(pop, dist)
+    @test matrix(g_random ↓ age) ≈ matrix(base)
+    @test matrix(base ↑ random_spec) ≈ matrix(g_random)
+    @test matrix(generalize(base, ses; distribution=dist)) ≈ matrix(g_random)
+    @test ρ(g_random) ≈ ρ(base)
+
+    activity = [0.2, 0.4, 0.4]
+    assortativity = [0.60, 0.50, 0.65]
+    split = [0.60, 0.60, 0.50]
+    assortative_spec = GeneralizedLift(ses;
+        distribution=dist,
+        mixing=AssortativeDimensionMixing(activity, assortativity; offdiag_split=split),
+    )
+    g_assortative = base ⊠ assortative_spec
+    @test matrix(g_assortative ↓ age) ≈ matrix(base)
+    total_assortative = matrix(g_assortative) * Diagonal(population(g_assortative))
+    @test total_assortative ≈ transpose(total_assortative)
+    @test !(ρ(g_assortative) ≈ ρ(base))
+
+    explicit_block = BlockMixing(dist * transpose(dist))
+    pop_matrix = [35.0 45.0 20.0;
+                  70.0 90.0 40.0]
+    g_joint = generalize(base, ses, pop_matrix; mixing=explicit_block)
+    @test population(g_joint) ≈ [35.0, 45.0, 20.0, 70.0, 90.0, 40.0]
+    @test matrix(g_joint ↓ age) ≈ matrix(base)
+    @test n_groups(g_joint ↓ ses) == 3
+
+    K = next_generation_matrix(base; transmissibility=0.5, recovery_rate=0.25)
+    @test K ≈ 2.0 .* [matrix(base)[i, j] * pop[i] / pop[j] for i in 1:2, j in 1:2]
+    @test R₀(base; transmissibility=0.5, recovery_rate=0.25) ≈ 2.0 * ρ(base)
+    beta = calibrate_transmissibility(base, 2.7; recovery_rate=0.25)
+    @test R0(base; transmissibility=beta, recovery_rate=0.25) ≈ 2.7
+
+    @test_throws ArgumentError GeneralizedLift(ses; distribution=[0.5, 0.5, 0.5])
+    @test_throws ArgumentError generalize(base, ses, [10.0, 20.0, 30.0, 40.0, 50.0, 60.0])
+    @test_throws ArgumentError BlockMixing([0.5 0.5; 0.5 0.5])
+end
+
 @testset "Utilities" begin
     p = AgePartition([0, 18, 65])
     pop = [1000.0, 3000.0, 500.0]
@@ -597,6 +905,132 @@ end
                                                reciprocal.partition,
                                                population(reciprocal))
     @test matrix(intervention) ≈ matrix(reciprocal)
+end
+
+@testset "SEP metrics" begin
+    # 2×2 product partition: age × SEP
+    age = IntervalPartition{:age,Float64}([0.0, 50.0])
+    sep = CategoricalPartition(:sep, ["low", "high"])
+    prod_part = age × sep
+    # 4 groups: (young,low), (young,high), (old,low), (old,high)
+    pop = [300.0, 200.0, 250.0, 250.0]
+    # Build a matrix with known structure:
+    # - diagonal-heavy in SEP dimension (assortative by SEP)
+    M = [4.0 1.0 1.0 0.5;   # (young,low) contacted by ...
+         1.0 3.0 0.5 1.0;   # (young,high) contacted by ...
+         1.0 0.5 4.0 1.0;   # (old,low) contacted by ...
+         0.5 1.0 1.0 3.0]   # (old,high) contacted by ...
+    cm = ContactMatrix(M, prod_part, pop)
+
+    @testset "marginal_matrix" begin
+        # Marginalize to SEP dimension
+        cm_sep = marginal_matrix(cm, :sep)
+        @test n_groups(cm_sep) == 2
+        @test group_labels(cm_sep) == ["low", "high"]
+        # Marginal should be 2×2 with age summed out
+        @test all(matrix(cm_sep) .> 0)
+
+        # Marginalize to age dimension
+        cm_age = marginal_matrix(cm, :age)
+        @test n_groups(cm_age) == 2
+        @test group_labels(cm_age) == ["[0,50)", "50+"]
+    end
+
+    @testset "assortativity_index" begin
+        # Purely proportionate mixing 2×2: assortativity = 1.0
+        prop_M = [0.6 0.4; 0.6 0.4]  # row-normalized constant → diag/row sums to 1.0
+        prop_cm = ContactMatrix(prop_M, sep, [500.0, 500.0])
+        ai_prop = assortativity_index(prop_cm)
+        @test ai_prop ≈ 1.0
+
+        # Perfect assortative 2×2: assortativity = 2.0
+        assort_M = [1.0 0.0; 0.0 1.0]
+        assort_cm = ContactMatrix(assort_M, sep, [500.0, 500.0])
+        ai_assort = assortativity_index(assort_cm)
+        @test ai_assort ≈ 2.0
+
+        # Anti-assortative 2×2: assortativity = 0.0
+        anti_M = [0.0 1.0; 1.0 0.0]
+        anti_cm = ContactMatrix(anti_M, sep, [500.0, 500.0])
+        ai_anti = assortativity_index(anti_cm)
+        @test ai_anti ≈ 0.0
+
+        # Product matrix SEP-dimension assortativity
+        ai_sep = assortativity_index(cm, :sep)
+        @test ai_sep > 1.0  # our matrix is SEP-assortative
+    end
+
+    @testset "type_reproduction_number" begin
+        # Simple 2×2 next-gen matrix with known Tg
+        # K = transmissibility/recovery * M * diag(pop)/sum(pop)
+        simple_M = [2.0 1.0; 1.0 2.0]
+        simple_pop = [500.0, 500.0]
+        simple_cm = ContactMatrix(simple_M, sep, simple_pop)
+
+        # Target group 1 only
+        Tg = type_reproduction_number(simple_cm, [1])
+        @test Tg > 0
+        @test isfinite(Tg)
+
+        # Target all groups → should equal R0
+        Tg_all = type_reproduction_number(simple_cm, [1, 2])
+        R0_val = basic_reproduction_number(simple_cm)
+        @test Tg_all ≈ R0_val
+
+        # Boolean mask target
+        Tg_bool = type_reproduction_number(simple_cm, [true, false])
+        @test Tg_bool ≈ Tg
+
+        # Label-based target
+        Tg_label = type_reproduction_number(simple_cm, ["low"])
+        @test Tg_label ≈ Tg
+    end
+
+    @testset "control_threshold" begin
+        @test control_threshold(0.0) == 0.0
+        @test control_threshold(1.0) == 0.0
+        @test control_threshold(2.0) ≈ 0.5
+        @test control_threshold(4.0) ≈ 0.75
+        @test_throws ArgumentError control_threshold(-1.0)
+        @test_throws ArgumentError control_threshold(Inf)
+    end
+
+    @testset "control_effort" begin
+        simple_M = [2.0 1.0; 1.0 2.0]
+        simple_pop = [600.0, 400.0]
+        simple_cm = ContactMatrix(simple_M, sep, simple_pop)
+
+        # Manual computation
+        Tg = type_reproduction_number(simple_cm, [1])
+        thresh = control_threshold(Tg)
+        effort = control_effort(simple_cm, [1], thresh)
+        @test effort ≈ thresh * 600.0 / 1000.0
+        @test effort >= 0
+
+        # Keyword form should match
+        effort_kw = control_effort(simple_cm, [1])
+        @test effort_kw ≈ effort
+    end
+
+    @testset "PartitionMap product→product projection" begin
+        # age × sep → sep projection
+        proj = PartitionMap(prod_part, sep)
+        cm_sep = coarsen(cm, proj)
+        @test n_groups(cm_sep) == 2
+        @test group_labels(cm_sep) == ["low", "high"]
+
+        # Verify total contacts preserved
+        C_full = matrix(cm) * Diagonal(pop)
+        C_sep = matrix(cm_sep) * Diagonal(population(cm_sep))
+        @test sum(C_full) ≈ sum(C_sep)
+
+        # age × sep → age projection
+        proj_age = PartitionMap(prod_part, age)
+        cm_age = coarsen(cm, proj_age)
+        @test n_groups(cm_age) == 2
+        C_age = matrix(cm_age) * Diagonal(population(cm_age))
+        @test sum(C_age) ≈ sum(C_full)
+    end
 end
 
 end # top-level testset

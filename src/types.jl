@@ -163,6 +163,9 @@ end
 ProductPartition(factors::AbstractPartition...) = ProductPartition(factors)
 
 ×(a::AbstractPartition, b::AbstractPartition) = ProductPartition(a, b)
+×(a::ProductPartition, b::AbstractPartition) = ProductPartition(a.factors..., b)
+×(a::AbstractPartition, b::ProductPartition) = ProductPartition(a, b.factors...)
+×(a::ProductPartition, b::ProductPartition) = ProductPartition(a.factors..., b.factors...)
 
 """Number of groups in the partition."""
 n_groups(p::AbstractPartition) = length(group_labels(p))

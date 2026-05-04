@@ -11,6 +11,7 @@ Type the LaTeX name followed by TAB in the Julia REPL to enter these:
 | `↓` | `\\downarrow` | Coarsening | `cm ↓ coarse` |
 | `↑` | `\\uparrow` | Refinement | `cm ↑ prior` |
 | `⤊` | `\\Uuparrow` | Activity refinement | `cm ⤊ ActivityRefinement(survey)` |
+| `⊠` | `\\boxtimes` | Generalized product lift | `cm ⊠ GeneralizedLift(ses; distribution=p)` |
 | `▷` | `\\triangleright` | Functor (compute matrix) | `survey ▷ partition` |
 | `∘` | `\\circ` | Map composition | `g ∘ f` |
 | `↔` | `\\leftrightarrow` | Symmetrisation/reciprocity | `↔(cm)` |
@@ -117,6 +118,8 @@ end
 """
     cm ↑ prior::RefinementPrior
     cm ↑ spec::ActivityRefinement
+    cm ↑ spec::GeneralizedLift
+    cm ↑ spec::ConstrainedGeneralizedLift
 
 Refine a coarse contact matrix to a finer partition. Type `\\uparrow<TAB>`.
 
@@ -125,6 +128,8 @@ encoded in a `RefinementPrior`. This is NOT an inverse of `↓`.
 
 When the right-hand side is an `ActivityRefinement`, this performs the
 Britton-Ball style activity lift. Use `⤊` for a visually distinct alias.
+When the right-hand side is a `GeneralizedLift` or `ConstrainedGeneralizedLift`,
+this performs a product lift. Use `⊠` for a visually distinct alias.
 
 # Example
 ```julia
@@ -134,6 +139,9 @@ cm_fine = cm ↑ prior
 """
 ↑(cm::ContactMatrix, prior::RefinementPrior) = refine(cm, prior.partition, prior.population)
 ↑(cm::ContactMatrix, spec::ActivityRefinement) = activity_refine(cm, spec)
+↑(cm::ContactMatrix, spec::GeneralizedLift) = generalize(cm, spec)
+↑(cm::ContactMatrix, spec::ConstrainedGeneralizedLift) = constrained_generalize(cm, spec)
+↑(cm::ContactMatrix, pspec::ParameterizedConstrainedLift) = constrained_generalize(cm, pspec)
 
 """
     cm ⤊ spec::ActivityRefinement
@@ -151,6 +159,27 @@ cm_activity = ↔(cm) ⤊ spec
 ```
 """
 ⤊(cm::ContactMatrix, spec::ActivityRefinement) = activity_refine(cm, spec)
+
+"""
+    cm ⊠ spec::Union{GeneralizedLift,ConstrainedGeneralizedLift}
+
+Lift a contact matrix to a generalized product partition. Type
+`\\boxtimes<TAB>`.
+
+The boxed product arrow denotes an assumption-driven lift from `P` to `P × Q`.
+Coarsening the result along the projection `P × Q → P` recovers the original
+matrix.
+
+# Example
+```julia
+ses = CategoricalPartition(:ses; levels=["low", "middle", "high"])
+spec = GeneralizedLift(ses; distribution=[0.35, 0.45, 0.20])
+G = cm ⊠ spec
+```
+"""
+⊠(cm::ContactMatrix, spec::GeneralizedLift) = generalize(cm, spec)
+⊠(cm::ContactMatrix, spec::ConstrainedGeneralizedLift) = constrained_generalize(cm, spec)
+⊠(cm::ContactMatrix, pspec::ParameterizedConstrainedLift) = constrained_generalize(cm, pspec)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Functor application: ▷

@@ -22,6 +22,7 @@ All core operations have Unicode operators (type LaTeX name + TAB in the REPL):
 | `↓` | `\downarrow` | Left Kan extension (coarsening) |
 | `↑` | `\uparrow` | Parameterised refinement (with prior) |
 | `⤊` | `\Uuparrow` | Activity refinement / hidden-stratum lift |
+| `⊠` | `\boxtimes` | Generalized product lift |
 | `▷` | `\triangleright` | Functor application (survey → matrix) |
 | `∘` | `\circ` | Morphism composition (PartitionMap) |
 | `↔` | `\leftrightarrow` | Reciprocity projection (symmetrisation) |
@@ -87,6 +88,11 @@ println("Activity lift operator: \\Uuparrow<TAB> gives ⤊")
 ```
 
 ```@example quickstart
+# Generalized lifts construct age × SES/contact matrices from assumptions.
+println("Generalized lift operator: \\boxtimes<TAB> gives ⊠")
+```
+
+```@example quickstart
 # Spectral radius ρ — proportional to R₀
 println("ρ(M) = $(round(ρ(cm); digits=2))")
 ```
@@ -105,6 +111,7 @@ Pages = [
     "tutorials/getting_started.md",
     "tutorials/composition.md",
     "tutorials/categorical.md",
+    "vignettes/04-generalized-contact-matrices/index.md",
     "api/types.md",
     "api/survey.md",
     "api/operations.md",

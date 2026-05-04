@@ -142,6 +142,39 @@ function PartitionMap(domain::ProductPartition, codomain::AbstractPartition)
 end
 
 """
+    PartitionMap(domain::ProductPartition, codomain::ProductPartition)
+
+Construct the projection from a product partition to a product of a subset of
+its factors.
+"""
+function PartitionMap(domain::ProductPartition, codomain::ProductPartition)
+    domain_factors = collect(domain.factors)
+    codomain_factors = collect(codomain.factors)
+    factor_indices = Int[]
+    used = Set{Int}()
+
+    for factor in codomain_factors
+        matches = [i for i in eachindex(domain_factors)
+                   if !(i in used) && same_partition(domain_factors[i], factor)]
+        length(matches) == 1 || throw(ArgumentError(
+            "cannot infer product projection: each codomain factor must match exactly one unused domain factor"))
+        idx = only(matches)
+        push!(factor_indices, idx)
+        push!(used, idx)
+    end
+
+    domain_sizes = Tuple(n_groups(f) for f in domain_factors)
+    codomain_sizes = Tuple(n_groups(f) for f in codomain_factors)
+    assignments = Int[]
+    for i in 1:n_groups(domain)
+        domain_indices = _cartesian_indices(i, domain_sizes)
+        codomain_indices = Tuple(domain_indices[j] for j in factor_indices)
+        push!(assignments, _cartesian_index(codomain_indices, codomain_sizes))
+    end
+    PartitionMap(domain, codomain, assignments)
+end
+
+"""
     coarsen(cm::ContactMatrix, f::PartitionMap)
 
 Coarsen a contact matrix along a finite partition map (left Kan extension).
