@@ -6,9 +6,6 @@ vignettes/Manifest.toml
 # Documenter build output
 docs/build/
 
-# Documenter vignettes (generated from vignettes/ at build time)
-docs/src/vignettes/
-
 # macOS
 .DS_Store
 

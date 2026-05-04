@@ -1,0 +1,223 @@
+# Introduction to ContACT.jl
+
+ContACT.jl applies **category theory** to the construction and manipulation of
+contact matrices from social mixing surveys. Age bands are the motivating
+example, but matrices can be indexed by any finite survey partition: sex, region,
+occupation, risk group, or product partitions such as age × sex. This vignette
+introduces the core workflow using the POLYMOD study (Mossong et al., 2008) —
+the gold standard for parameterising infectious disease models.
+
+The key categorical insight: a contact matrix is not merely a numerical array but
+an **object** in a category where morphisms are structure-preserving transformations
+(coarsening, symmetrisation, composition).
+
+## Setup
+
+```@example v01
+using ContACT
+using CSV
+using DataFrames
+using LinearAlgebra
+import ContACT: ×
+nothing # hide
+```
+
+## Loading POLYMOD Data
+
+We use a subset of the POLYMOD UK study: 1012 participants and their 11876 reported
+contacts.
+
+```@example v01
+data_dir = joinpath(dirname(dirname(pathof(ContACT))), "data")
+participants = CSV.read(joinpath(data_dir, "polymod_uk_participants.csv"), DataFrame)
+contacts = CSV.read(joinpath(data_dir, "polymod_uk_contacts.csv"), DataFrame)
+
+println("Participants: $(nrow(participants))")
+println("Contacts: $(nrow(contacts))")
+nothing # hide
+```
+
+## Preparing the Survey
+
+ContACT.jl expects a `ContactSurvey` with participant identifiers. The chosen
+partition supplies the participant/contact columns used for grouping. For an
+`AgePartition`, those default to `:part_age` (participants) and `:cnt_age`
+(contacts). POLYMOD stores ages as `:part_age_exact` and either `:cnt_age_exact`
+or estimated ranges (as strings with "NA" for missing).
+
+```@example v01
+# Helper to parse string ages (CSV stores them as strings with "NA")
+parse_age(x::AbstractString) = x == "NA" ? missing : parse(Float64, x)
+parse_age(x::Real) = Float64(x)
+parse_age(::Missing) = missing
+
+# Rename participant age
+rename!(participants, :part_age_exact => :part_age)
+participants.part_age = Float64.(participants.part_age)
+
+# Resolve contact ages: use exact if available, otherwise midpoint of range
+cnt_exact = parse_age.(contacts.cnt_age_exact)
+cnt_min = parse_age.(contacts.cnt_age_est_min)
+cnt_max = parse_age.(contacts.cnt_age_est_max)
+contacts.cnt_age = coalesce.(cnt_exact, (cnt_min .+ cnt_max) ./ 2)
+select!(contacts, [:part_id, :cnt_age])
+dropmissing!(contacts, :cnt_age)
+
+survey = ContactSurvey(participants, contacts)
+println("Survey: $(nrow(survey.participants)) participants, $(nrow(survey.contacts)) contacts")
+nothing # hide
+```
+
+## Computing a Contact Matrix
+
+The central operation is the **restricted functor** from surveys to contact
+matrices. We fix a partition — here, an interval-valued age partition — which
+makes the operation deterministic and functorial:
+
+```@example v01
+# Standard 5-year age bands up to 75+
+partition = AgePartition(
+    [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75]
+)
+
+# UK 2005 population (thousands) — approximation from ONS
+uk_pop = [3433.0, 3554.0, 3824.0, 3956.0, 3757.0, 3520.0, 4009.0,
+           4405.0, 4548.0, 4187.0, 3883.0, 3589.0, 3117.0, 2765.0,
+           2425.0, 3752.0]
+
+# The ▷ operator applies the survey→matrix functor (type \triangleright<TAB>)
+cm = survey ▷ partition
+println("Contact matrix: $(n_groups(cm)) age groups")
+println("Spectral radius ρ(M) ∝ R₀: $(round(ρ(cm); digits=2))")
+nothing # hide
+```
+
+The result is a `ContactMatrix` — not just a bare array, but a categorical object
+bundling the matrix with its partition, population, and semantics:
+
+```@example v01
+println("Type: $(typeof(cm))")
+println("Semantics: $(cm.semantics)")
+println("Age groups: $(age_labels(cm))")
+nothing # hide
+```
+
+## Other Finite Partitions
+
+The same machinery works when the survey variable is categorical. The partition
+records both the mathematical dimension (`:sex`) and the concrete survey columns
+used for participants and contacts:
+
+```@example v01
+participants_sex = DataFrame(part_id=[1, 2, 3], part_sex=["F", "M", "F"])
+contacts_sex = DataFrame(
+    part_id=[1, 1, 2, 3],
+    cnt_sex=["M", "F", "F", "F"],
+)
+survey_sex = ContactSurvey(participants_sex, contacts_sex)
+
+sex = CategoricalPartition(:sex;
+    participant_col=:part_sex,
+    contact_col=:cnt_sex,
+    levels=["F", "M"],
+    labels=["female", "male"],
+)
+
+cm_sex = survey_sex ▷ sex
+println("Groups: $(group_labels(cm_sex))")
+display(matrix(cm_sex))
+nothing # hide
+```
+
+Product partitions combine grouping dimensions without pretending that the
+result is still an age axis:
+
+```@example v01
+region = CategoricalPartition(:region;
+    participant_col=:part_region,
+    contact_col=:cnt_region,
+    levels=["north", "south"],
+)
+sex_region = sex × region
+group_labels(sex_region)
+```
+
+## Symmetrisation (Idempotent Endomorphism)
+
+Raw survey matrices are asymmetric because group sizes differ. The reciprocity
+constraint ensures total contacts from group ``i`` to ``j`` equal total contacts from
+``j`` to ``i``:
+
+```math
+M_{ij} \cdot N_j = M_{ji} \cdot N_i
+```
+
+Symmetrisation is an **idempotent endomorphism** in the contact matrix category.
+Use `↔` (`\leftrightarrow<TAB>`) for the reciprocity projection:
+
+```@example v01
+cm_sym = ↔(cm)
+
+# Verify reciprocity
+M = matrix(cm_sym)
+N = population(cm_sym)
+max_violation = maximum(abs(M[i,j] * N[j] - M[j,i] * N[i])
+    for i in 1:n_groups(cm_sym), j in 1:n_groups(cm_sym))
+println("Max reciprocity violation: $(max_violation)")
+
+# Idempotence: applying twice gives the same result
+cm_sym2 = ↔(cm_sym)
+println("Idempotent: $(matrix(cm_sym2) ≈ matrix(cm_sym))")
+nothing # hide
+```
+
+## Coarsening (Left Kan Extension)
+
+A key morphism is **coarsening**: reducing the number of partition groups.
+Categorically, this is a left Kan extension along a surjective partition map
+``f: G_{\mathrm{fine}} \to G_{\mathrm{coarse}}``.
+
+For interval partitions such as age, the coarse partition must have limits that
+are a **subset** of the fine partition's limits (ensuring a well-defined
+surjection between groups).
+
+```@example v01
+# Coarsen to broader groups (limits must be a subset of the fine partition)
+coarse = AgePartition([0, 15, 45, 65])
+cm_coarse = cm ↓ coarse
+
+println("Coarsened: $(n_groups(cm_coarse)) groups")
+println("Age groups: $(age_labels(cm_coarse))")
+println("Matrix:")
+display(round.(matrix(cm_coarse); digits=2))
+nothing # hide
+```
+
+### Functoriality
+
+The defining property of a functor: coarsening in two steps gives the same result
+as coarsening in one step. Using `∘` for map composition:
+
+```@example v01
+# Two-step: 16 → 4 → 2
+mid = AgePartition([0, 15, 45, 65])
+final_part = AgePartition([0, 45])
+
+# Compose the maps: fine → mid → coarse
+f = AgeMap(partition, mid)
+g = AgeMap(mid, final_part)
+h = g ∘ f   # composed map (type \circ<TAB>)
+
+# Functoriality: (cm ↓ g) ∘ (cm ↓ f) == cm ↓ (g ∘ f)
+via_mid = (cm ↓ f) ↓ g
+direct = cm ↓ h
+
+println("Functoriality: cm ↓ (g ∘ f) == (cm ↓ f) ↓ g")
+println("  Holds: $(matrix(via_mid) ≈ matrix(direct))")
+nothing # hide
+```
+
+## What's Next?
+
+- **Vignette 2**: Composition and stratification — combining settings and spatial structure
+- **Vignette 3**: The categorical framework — ACSets, schemas, and functorial data migration
