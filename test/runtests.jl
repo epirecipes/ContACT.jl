@@ -1104,4 +1104,197 @@ end
     end
 end
 
+@testset "Epidemic bounds" begin
+    @testset "Scalar solvers" begin
+        # Subcritical: t_α = 0 for α ≤ 1
+        @test solve_final_size_scalar(0.5) == 0.0
+        @test solve_final_size_scalar(1.0) == 0.0
+
+        # Known values: α=2 → τ ≈ 0.7968
+        τ2 = solve_final_size_scalar(2.0)
+        @test abs(1 - τ2 - exp(-2.0 * τ2)) < 1e-12
+        @test 0.79 < τ2 < 0.80
+
+        # α=3 → τ ≈ 0.9401
+        τ3 = solve_final_size_scalar(3.0)
+        @test abs(1 - τ3 - exp(-3.0 * τ3)) < 1e-12
+        @test 0.93 < τ3 < 0.95
+
+        # Extended: γ=0 reduces to basic
+        @test solve_final_size_ext(2.0, 0.0) ≈ τ2 atol=1e-10
+
+        # Extended: γ > 0 always has positive solution
+        t_ext = solve_final_size_ext(0.5, 1.0)
+        @test t_ext > 0.0
+        @test abs(t_ext - (1 - exp(-0.5 * t_ext - 1.0))) < 1e-12
+
+        # Extended: larger γ → larger final size
+        t1 = solve_final_size_ext(2.0, 0.5)
+        t2 = solve_final_size_ext(2.0, 1.0)
+        @test t2 > t1 > τ2
+    end
+
+    @testset "Vector final-size solver" begin
+        # Homogeneous: K = [m], π = [1] → τ = t_m
+        K1 = [2.5;;]
+        π1 = [1.0]
+        τ1 = solve_final_size_vector(K1, π1)
+        @test length(τ1) == 1
+        @test τ1[1] ≈ solve_final_size_scalar(2.5) atol=1e-10
+
+        # Subcritical: R₀ ≤ 1
+        K_sub = [0.4 0.2; 0.3 0.5]
+        π_sub = [0.3, 0.7]
+        @test all(solve_final_size_vector(K_sub, π_sub) .== 0.0)
+
+        # 2-type symmetric: K = [a b; b a], π = [0.5, 0.5]
+        K2 = [1.5 0.5; 0.5 1.5]
+        π2 = [0.5, 0.5]
+        τ2 = solve_final_size_vector(K2, π2)
+        @test τ2[1] ≈ τ2[2] atol=1e-10  # symmetric → same final sizes
+        @test all(τ2 .> 0)  # R₀ = 2 > 1
+    end
+
+    @testset "R₀ bounds - general" begin
+        # Homogeneous: all row sums equal → bounds collapse
+        K_homo = [1.0 1.0; 1.0 1.0]
+        b = r0_bounds(K_homo; info=:row)
+        @test b.lower ≈ 2.0
+        @test b.upper ≈ 2.0
+
+        # Asymmetric
+        K_asym = [1.5 0.5; 0.3 1.7]
+        b_row = r0_bounds(K_asym; info=:row)
+        b_col = r0_bounds(K_asym; info=:col)
+        R0_actual = maximum(abs.(eigvals(K_asym)))
+        @test b_row.lower ≤ R0_actual ≤ b_row.upper
+        @test b_col.lower ≤ R0_actual ≤ b_col.upper
+
+        # Row sums: [2.0, 2.0] → bounds [2,2]
+        @test b_row.lower ≈ 2.0
+        @test b_row.upper ≈ 2.0
+
+        # Both info
+        b_both = r0_bounds(K_asym; info=:both)
+        @test b_both.lower ≥ b_row.lower
+        @test b_both.upper ≤ b_row.upper
+    end
+
+    @testset "R₀ bounds - detailed balance" begin
+        # Symmetric K with equal π → detailed balance holds
+        K_db = [2.0 0.5; 0.5 1.5]
+        π_db = [0.5, 0.5]  # πᵢKᵢⱼ = πⱼKⱼᵢ ✓
+        b = r0_bounds_detailed_balance(K_db, π_db; info=:row)
+        R0_actual = maximum(abs.(eigvals(K_db)))
+
+        # Lower bound ≥ general lower bound
+        b_gen = r0_bounds(K_db; info=:row)
+        @test b.lower ≥ b_gen.lower - 1e-10  # DB lower is tighter
+
+        # Bounds contain actual R₀
+        @test b.lower ≤ R0_actual + 1e-10
+        @test b.upper ≥ R0_actual - 1e-10
+
+        # ContactMatrix wrapper
+        part = AgePartition([0, 50])
+        cm = ContactMatrix([7.0 3.0; 3.0 5.0], part, [5000.0, 5000.0])
+        b_cm = r0_bounds_detailed_balance(cm; info=:row)
+        @test b_cm.lower > 0
+        @test b_cm.upper ≥ b_cm.lower
+    end
+
+    @testset "Final size bounds - column sums" begin
+        # 2-type example
+        K = [1.8 0.4; 0.6 1.2]
+        π = [0.3, 0.7]
+        bounds = final_size_bounds(K, π; info=:col)
+
+        # Actual final sizes for comparison
+        τ_actual = solve_final_size_vector(K, π)
+
+        # Bounds must contain actual values
+        for i in 1:2
+            @test bounds.lower[i] ≤ τ_actual[i] + 1e-8
+            @test bounds.upper[i] ≥ τ_actual[i] - 1e-8
+        end
+
+        # Lower ≤ upper
+        @test all(bounds.lower .≤ bounds.upper .+ 1e-10)
+    end
+
+    @testset "Final size bounds - row sums" begin
+        K = [1.8 0.4; 0.6 1.2]
+        π = [0.3, 0.7]
+        bounds = final_size_bounds(K, π; info=:row)
+
+        τ_actual = solve_final_size_vector(K, π)
+
+        # Lower bounds are 0 (always valid)
+        @test all(bounds.lower .== 0.0)
+
+        # Upper bounds must contain actual
+        for i in 1:2
+            @test bounds.upper[i] ≥ τ_actual[i] - 1e-8
+        end
+    end
+
+    @testset "Total final size bounds" begin
+        K = [2.0 0.3; 0.5 1.5]
+        π = [0.4, 0.6]
+        τ_actual = solve_final_size_vector(K, π)
+        τ_bar_actual = sum(π .* τ_actual)
+
+        # Row sums
+        b_row = total_final_size_bounds(K, π; info=:row)
+        @test b_row.lower ≤ τ_bar_actual + 1e-8
+        @test b_row.upper ≥ τ_bar_actual - 1e-8
+
+        # Column sums
+        b_col = total_final_size_bounds(K, π; info=:col)
+        @test b_col.lower ≤ τ_bar_actual + 1e-8
+        @test b_col.upper ≥ τ_bar_actual - 1e-8
+
+        # Subcritical → all zero
+        K_sub = [0.5 0.2; 0.1 0.4]
+        b_sub = total_final_size_bounds(K_sub, π; info=:row)
+        @test b_sub.lower == 0.0
+        @test b_sub.upper == 0.0
+    end
+
+    @testset "ContactMatrix convenience" begin
+        part = AgePartition([0, 18, 65])
+        pop = [11000.0, 33000.0, 9500.0]
+        M = [7.0 2.5 1.0; 2.0 8.0 2.0; 0.5 2.0 4.0]
+        cm = ContactMatrix(M, part, pop)
+
+        b = r0_bounds(cm; info=:row)
+        @test b.lower > 0
+        @test b.upper ≥ b.lower
+
+        fs = final_size_bounds(cm; info=:col)
+        @test length(fs.lower) == 3
+        @test all(fs.lower .≥ 0)
+        @test all(fs.upper .≤ 1.0)
+
+        tfs = total_final_size_bounds(cm; info=:row)
+        @test 0 ≤ tfs.lower ≤ tfs.upper ≤ 1.0
+    end
+
+    @testset "Epidemic uncertainty over fiber" begin
+        # Create a small set of contact matrices
+        part = AgePartition([0, 50])
+        pop = [5000.0, 5000.0]
+        cms = [
+            ContactMatrix([6.0 2.0; 2.0 5.0], part, pop),
+            ContactMatrix([7.0 1.5; 1.5 4.5], part, pop),
+            ContactMatrix([5.0 3.0; 3.0 6.0], part, pop),
+        ]
+        result = epidemic_uncertainty(cms)
+        @test result.r0.lower ≤ result.r0.upper
+        @test result.final_size.lower ≤ result.final_size.upper
+        @test result.r0.lower > 0
+        @test result.final_size.lower ≥ 0
+    end
+end
+
 end # top-level testset

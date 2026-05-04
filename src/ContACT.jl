@@ -58,6 +58,12 @@ export to_per_capita, to_counts, spectral_radius,
        marginal_matrix, assortativity_index, type_reproduction_number,
        control_threshold, control_effort
 
+# Epidemic bounds (Britton et al. 2025)
+export EpidemicBounds, r0_bounds, r0_bounds_detailed_balance,
+       final_size_bounds, total_final_size_bounds,
+       solve_final_size_scalar, solve_final_size_ext, solve_final_size_vector,
+       epidemic_uncertainty
+
 # ACSet schemas & categorical machinery
 export SchContactSurvey, ContactSurveyACSet,
        SchContactMatrix, LabelledContactMatrix,
@@ -80,5 +86,6 @@ include("generalized_lift.jl")
 include("operators.jl")
 include("schemas.jl")
 include("utils.jl")
+include("epidemic_bounds.jl")
 
 end # module

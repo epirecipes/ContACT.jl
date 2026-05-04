@@ -137,3 +137,20 @@ type_reproduction_number
 control_threshold
 control_effort
 ```
+
+## Epidemic Bounds
+
+Functions implementing R₀ and final-size bounds from partial NGM information
+(Britton, Poletti, Scarpa & Pellis, 2025).
+
+```@docs
+EpidemicBounds
+r0_bounds
+r0_bounds_detailed_balance
+final_size_bounds
+total_final_size_bounds
+solve_final_size_scalar
+solve_final_size_ext
+solve_final_size_vector
+epidemic_uncertainty
+```
