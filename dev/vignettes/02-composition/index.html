@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Composition · ContACT.jl</title><meta name="title" content="Composition · ContACT.jl"/><meta property="og:title" content="Composition · ContACT.jl"/><meta property="twitter:title" content="Composition · ContACT.jl"/><meta name="description" content="Documentation for ContACT.jl."/><meta property="og:description" content="Documentation for ContACT.jl."/><meta property="twitter:description" content="Documentation for ContACT.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">ContACT.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../tutorials/getting_started/">Getting Started</a></li><li><a class="tocitem" href="../../tutorials/composition/">Composition &amp; Stratification</a></li><li><a class="tocitem" href="../../tutorials/categorical/">Categorical Framework</a></li></ul></li><li><span class="tocitem">Vignettes</span><ul><li><a class="tocitem" href="../01-introduction/">Introduction</a></li><li class="is-active"><a class="tocitem" href>Composition</a><ul class="internal"><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Setting-Specific-Matrices"><span>Setting-Specific Matrices</span></a></li><li><a class="tocitem" href="#Additive-Composition-with"><span>Additive Composition with ⊕</span></a></li><li><a class="tocitem" href="#Intervention-Modelling"><span>Intervention Modelling</span></a></li><li><a class="tocitem" href="#Spatial-Stratification-with"><span>Spatial Stratification with ⊗</span></a></li><li><a class="tocitem" href="#Composing-Operations"><span>Composing Operations</span></a></li><li><a class="tocitem" href="#What&#39;s-Next?"><span>What&#39;s Next?</span></a></li></ul></li><li><a class="tocitem" href="../03-categorical-framework/">Categorical Framework</a></li><li><a class="tocitem" href="../04-generalized-contact-matrices/">Generalized Contact Matrices</a></li><li><a class="tocitem" href="../05-comix-sep-reconstruction/">CoMix/SEP Reconstruction</a></li><li><a class="tocitem" href="../06-polymod-reconstruction/">POLYMOD Real-Data Reconstruction</a></li><li><a class="tocitem" href="../07-epidemic-bounds/">Epidemic Bounds</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../api/types/">Types</a></li><li><a class="tocitem" href="../../api/survey/">Survey Operations</a></li><li><a class="tocitem" href="../../api/operations/">Matrix Operations</a></li><li><a class="tocitem" href="../../api/schemas/">ACSet Schemas</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Vignettes</a></li><li class="is-active"><a href>Composition</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Composition</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/epirecipes/ContACT.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/epirecipes/ContACT.jl/blob/main/docs/src/vignettes/02-composition.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Composition-and-Stratification"><a class="docs-heading-anchor" href="#Composition-and-Stratification">Composition and Stratification</a><a id="Composition-and-Stratification-1"></a><a class="docs-heading-anchor-permalink" href="#Composition-and-Stratification" title="Permalink"></a></h1><p>Contact surveys record the <strong>setting</strong> where contacts occur: home, work, school, transport, leisure. The total contact matrix decomposes as a sum of setting-specific matrices. This is not merely addition — it&#39;s a <strong>commutative monoid</strong> structure in the category of contact matrices with formal guarantees:</p><ul><li><strong>Associativity</strong>: <span>$(A \oplus B) \oplus C = A \oplus (B \oplus C)$</span></li><li><strong>Commutativity</strong>: <span>$A \oplus B = B \oplus A$</span></li><li><strong>Identity</strong>: <span>$A \oplus \mathbf{0} = A$</span></li></ul><p>Spatial stratification uses the <strong>Kronecker product</strong> (<span>$\otimes$</span>) with a coupling matrix to create multi-region contact patterns.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><pre><code class="language-julia hljs">using ContACT
+using CSV
+using DataFrames
+using LinearAlgebra</code></pre><h2 id="Setting-Specific-Matrices"><a class="docs-heading-anchor" href="#Setting-Specific-Matrices">Setting-Specific Matrices</a><a id="Setting-Specific-Matrices-1"></a><a class="docs-heading-anchor-permalink" href="#Setting-Specific-Matrices" title="Permalink"></a></h2><p>We construct synthetic setting-specific matrices based on known patterns from POLYMOD for a 4-group age structure:</p><pre><code class="language-julia hljs">partition = AgePartition([0, 5, 18, 65])
+uk_pop = [6987.0, 11537.0, 35854.0, 9492.0]  # aggregated to 4 groups (thousands)
+
+# Home: strong assortative mixing, parent-child contacts
+M_home = [1.8 0.3 0.4 0.1;
+          0.3 0.6 0.2 0.1;
+          0.4 0.2 1.0 0.3;
+          0.1 0.1 0.3 0.8]
+
+# Work: concentrated in working-age adults
+M_work = [0.0 0.0 0.0 0.0;
+          0.0 0.1 1.5 0.2;
+          0.0 1.5 2.5 0.4;
+          0.0 0.2 0.4 0.3]
+
+# School: strong child-child contacts
+M_school = [3.5 2.0 0.1 0.0;
+            2.0 5.0 0.3 0.0;
+            0.1 0.3 0.2 0.0;
+            0.0 0.0 0.0 0.0]
+
+# Other: weak mixing across all groups
+M_other = [0.5 0.3 0.4 0.2;
+           0.3 0.5 0.8 0.3;
+           0.4 0.8 1.2 0.5;
+           0.2 0.3 0.5 0.4]
+
+cm_home   = ContactMatrix(M_home, partition, uk_pop)
+cm_work   = ContactMatrix(M_work, partition, uk_pop)
+cm_school = ContactMatrix(M_school, partition, uk_pop)
+cm_other  = ContactMatrix(M_other, partition, uk_pop)</code></pre><h2 id="Additive-Composition-with"><a class="docs-heading-anchor" href="#Additive-Composition-with">Additive Composition with ⊕</a><a id="Additive-Composition-with-1"></a><a class="docs-heading-anchor-permalink" href="#Additive-Composition-with" title="Permalink"></a></h2><p>The total contact matrix is the <strong>monoidal sum</strong> of all settings:</p><pre><code class="language-julia hljs"># Using the ⊕ operator (type \oplus&lt;TAB&gt; in Julia REPL)
+cm_total = cm_home ⊕ cm_work ⊕ cm_school ⊕ cm_other
+
+println(&quot;Total contact matrix (4 age groups):&quot;)
+display(round.(matrix(cm_total); digits=2))
+println(&quot;\nSpectral radius ρ(M): $(round(ρ(cm_total); digits=2))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Total contact matrix (4 age groups):
+
+Spectral radius ρ(M): 10.21</code></pre><p>Verify the monoid axioms:</p><pre><code class="language-julia hljs"># Associativity
+lhs = (cm_home ⊕ cm_work) ⊕ cm_school
+rhs = cm_home ⊕ (cm_work ⊕ cm_school)
+println(&quot;Associativity: $(matrix(lhs) ≈ matrix(rhs))&quot;)
+
+# Commutativity
+println(&quot;Commutativity: $(matrix(cm_home ⊕ cm_work) ≈ matrix(cm_work ⊕ cm_home))&quot;)
+
+# Identity (zero matrix)
+zero_cm = ContactMatrix(zeros(4, 4), partition, uk_pop)
+println(&quot;Identity: $(matrix(cm_home ⊕ zero_cm) ≈ matrix(cm_home))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Associativity: true
+Commutativity: true
+Identity: true</code></pre><h2 id="Intervention-Modelling"><a class="docs-heading-anchor" href="#Intervention-Modelling">Intervention Modelling</a><a id="Intervention-Modelling-1"></a><a class="docs-heading-anchor-permalink" href="#Intervention-Modelling" title="Permalink"></a></h2><p>The compositional structure makes it natural to model interventions that selectively modify settings:</p><pre><code class="language-julia hljs"># School closure: remove school contacts entirely
+cm_closure = cm_home ⊕ cm_work ⊕ cm_other
+
+# Work-from-home: reduce work contacts by 70%
+M_work_reduced = 0.3 .* M_work
+cm_wfh = ContactMatrix(M_work_reduced, partition, uk_pop)
+cm_lockdown = cm_home ⊕ cm_wfh ⊕ cm_other
+
+# Full lockdown: only home contacts
+cm_full_lockdown = cm_home
+
+# Compare spectral radii (proportional to R₀)
+println(&quot;Scenario analysis — ρ(M) as R₀ proxy:&quot;)
+println(&quot;  Normal:          $(round(ρ(cm_total); digits=2))&quot;)
+println(&quot;  School closure:  $(round(ρ(cm_closure); digits=2))&quot;)
+println(&quot;  Lockdown (WFH):  $(round(ρ(cm_lockdown); digits=2))&quot;)
+println(&quot;  Full lockdown:   $(round(ρ(cm_full_lockdown); digits=2))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Scenario analysis — ρ(M) as R₀ proxy:
+  Normal:          10.21
+  School closure:  6.62
+  Lockdown (WFH):  4.59
+  Full lockdown:   2.09</code></pre><h2 id="Spatial-Stratification-with"><a class="docs-heading-anchor" href="#Spatial-Stratification-with">Spatial Stratification with ⊗</a><a id="Spatial-Stratification-with-1"></a><a class="docs-heading-anchor-permalink" href="#Spatial-Stratification-with" title="Permalink"></a></h2><p>When modelling epidemics across regions, we combine <strong>local contact patterns</strong> with <strong>inter-regional coupling</strong>. This is the Kronecker product:</p><p class="math-container">\[M_{\text{spatial}} = C \otimes M_{\text{local}}\]</p><p>where <span>$C$</span> is the coupling matrix encoding between-region mixing.</p><pre><code class="language-julia hljs"># Three regions with mostly-local mixing
+coupling = [0.8 0.15 0.05;
+            0.15 0.7 0.15;
+            0.05 0.15 0.8]
+
+# Stratify the total contact matrix
+cm_spatial = cm_total ⊗ coupling
+
+println(&quot;Stratified matrix: $(n_groups(cm_spatial)) groups (3 regions × 4 ages)&quot;)
+println(&quot;ρ(M_spatial): $(round(ρ(cm_spatial); digits=2))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Stratified matrix: 12 groups (3 regions × 4 ages)
+ρ(M_spatial): 10.21</code></pre><p>The resulting block structure:</p><pre><code class="language-julia hljs">M_spatial = matrix(cm_spatial)
+println(&quot;Block structure (region 1 ↔ region 1, top-left 4×4):&quot;)
+display(round.(M_spatial[1:4, 1:4]; digits=2))
+println(&quot;\nBlock structure (region 1 ↔ region 2, off-diagonal 4×4):&quot;)
+display(round.(M_spatial[1:4, 5:8]; digits=2))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Block structure (region 1 ↔ region 1, top-left 4×4):
+
+Block structure (region 1 ↔ region 2, off-diagonal 4×4):</code></pre><h2 id="Composing-Operations"><a class="docs-heading-anchor" href="#Composing-Operations">Composing Operations</a><a id="Composing-Operations-1"></a><a class="docs-heading-anchor-permalink" href="#Composing-Operations" title="Permalink"></a></h2><p>The categorical framework ensures operations compose cleanly. Using ContACT.jl&#39;s Unicode operators, the full pipeline reads algebraically:</p><pre><code class="language-julia hljs"># Start with fine-grained POLYMOD data
+data_dir = joinpath(dirname(dirname(pathof(ContACT))), &quot;data&quot;)
+participants = CSV.read(joinpath(data_dir, &quot;polymod_uk_participants.csv&quot;), DataFrame)
+contacts_df = CSV.read(joinpath(data_dir, &quot;polymod_uk_contacts.csv&quot;), DataFrame)
+
+parse_age(x::AbstractString) = x == &quot;NA&quot; ? missing : parse(Float64, x)
+parse_age(x::Real) = Float64(x)
+parse_age(::Missing) = missing
+
+rename!(participants, :part_age_exact =&gt; :part_age)
+participants.part_age = Float64.(participants.part_age)
+
+cnt_exact = parse_age.(contacts_df.cnt_age_exact)
+cnt_min = parse_age.(contacts_df.cnt_age_est_min)
+cnt_max = parse_age.(contacts_df.cnt_age_est_max)
+contacts_df.cnt_age = coalesce.(cnt_exact, (cnt_min .+ cnt_max) ./ 2)
+select!(contacts_df, [:part_id, :cnt_age])
+dropmissing!(contacts_df, :cnt_age)
+
+survey = ContactSurvey(participants, contacts_df)
+
+# ─── The algebraic pipeline ─────────────────────────────────────────────
+# Each line uses a Unicode operator:
+#   ▷  functor application (survey → matrix)
+#   ↓  coarsening (left Kan extension)
+#   ⊗  stratification (Kronecker product)
+#   ρ  spectral radius
+
+fine_part = AgePartition([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75])
+cm_fine = survey ▷ fine_part                    # F(survey)
+cm_4grp = cm_fine ↓ AgePartition([0, 15, 45, 65])   # left Kan extension
+cm_sym  = ↔(cm_4grp)                            # reciprocity projection
+cm_3reg = cm_sym ⊗ coupling                     # Kronecker stratification
+
+println(&quot;Pipeline: Survey ▷ Partition ↓ Coarse ↔ ⊗ Coupling&quot;)
+println(&quot;  $(n_groups(cm_fine)) → $(n_groups(cm_4grp)) → $(n_groups(cm_3reg)) groups&quot;)
+println(&quot;  ρ(M_fine)   = $(round(ρ(cm_fine); digits=2))&quot;)
+println(&quot;  ρ(M_coarse) = $(round(ρ(cm_4grp); digits=2))&quot;)
+println(&quot;  ρ(M_sym)    = $(round(ρ(cm_sym); digits=2))&quot;)
+println(&quot;  ρ(M_3reg)   = $(round(ρ(cm_3reg); digits=2))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Pipeline: Survey ▷ Partition ↓ Coarse ↔ ⊗ Coupling
+  16 → 4 → 12 groups
+  ρ(M_fine)   = 12.24
+  ρ(M_coarse) = 11.92
+  ρ(M_sym)    = 11.98
+  ρ(M_3reg)   = 11.98</code></pre><h2 id="What&#39;s-Next?"><a class="docs-heading-anchor" href="#What&#39;s-Next?">What&#39;s Next?</a><a id="What&#39;s-Next?-1"></a><a class="docs-heading-anchor-permalink" href="#What&#39;s-Next?" title="Permalink"></a></h2><ul><li><strong>Vignette 3</strong>: The categorical framework — ACSets, schemas, functorial data migration, and undirected wiring diagrams for declarative composition</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../01-introduction/">« Introduction</a><a class="docs-footer-nextpage" href="../03-categorical-framework/">Categorical Framework »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 4 May 2026 20:13">Monday 4 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

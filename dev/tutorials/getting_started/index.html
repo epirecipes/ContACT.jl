@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Getting Started · ContACT.jl</title><meta name="title" content="Getting Started · ContACT.jl"/><meta property="og:title" content="Getting Started · ContACT.jl"/><meta property="twitter:title" content="Getting Started · ContACT.jl"/><meta name="description" content="Documentation for ContACT.jl."/><meta property="og:description" content="Documentation for ContACT.jl."/><meta property="twitter:description" content="Documentation for ContACT.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">ContACT.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li class="is-active"><a class="tocitem" href>Getting Started</a><ul class="internal"><li><a class="tocitem" href="#Loading-Survey-Data"><span>Loading Survey Data</span></a></li><li><a class="tocitem" href="#Preparing-the-Survey"><span>Preparing the Survey</span></a></li><li><a class="tocitem" href="#Computing-a-Contact-Matrix"><span>Computing a Contact Matrix</span></a></li><li><a class="tocitem" href="#Non-age-partitions"><span>Non-age partitions</span></a></li><li><a class="tocitem" href="#Symmetrisation"><span>Symmetrisation</span></a></li><li><a class="tocitem" href="#Coarsening"><span>Coarsening</span></a></li></ul></li><li><a class="tocitem" href="../composition/">Composition &amp; Stratification</a></li><li><a class="tocitem" href="../categorical/">Categorical Framework</a></li></ul></li><li><span class="tocitem">Vignettes</span><ul><li><a class="tocitem" href="../../vignettes/01-introduction/">Introduction</a></li><li><a class="tocitem" href="../../vignettes/02-composition/">Composition</a></li><li><a class="tocitem" href="../../vignettes/03-categorical-framework/">Categorical Framework</a></li><li><a class="tocitem" href="../../vignettes/04-generalized-contact-matrices/">Generalized Contact Matrices</a></li><li><a class="tocitem" href="../../vignettes/05-comix-sep-reconstruction/">CoMix/SEP Reconstruction</a></li><li><a class="tocitem" href="../../vignettes/06-polymod-reconstruction/">POLYMOD Real-Data Reconstruction</a></li><li><a class="tocitem" href="../../vignettes/07-epidemic-bounds/">Epidemic Bounds</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../api/types/">Types</a></li><li><a class="tocitem" href="../../api/survey/">Survey Operations</a></li><li><a class="tocitem" href="../../api/operations/">Matrix Operations</a></li><li><a class="tocitem" href="../../api/schemas/">ACSet Schemas</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Getting Started</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Getting Started</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/epirecipes/ContACT.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/epirecipes/ContACT.jl/blob/main/docs/src/tutorials/getting_started.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Getting-Started"><a class="docs-heading-anchor" href="#Getting-Started">Getting Started</a><a id="Getting-Started-1"></a><a class="docs-heading-anchor-permalink" href="#Getting-Started" title="Permalink"></a></h1><p>This tutorial introduces ContACT.jl using the POLYMOD study — a multi-country social contact survey that is the gold standard for parameterising infectious disease models.</p><h2 id="Loading-Survey-Data"><a class="docs-heading-anchor" href="#Loading-Survey-Data">Loading Survey Data</a><a id="Loading-Survey-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Loading-Survey-Data" title="Permalink"></a></h2><p>ContACT.jl works with <code>ContactSurvey</code> objects containing participant and contact DataFrames. The survey itself only requires a participant identifier; the partition you choose specifies which participant/contact columns define groups.</p><pre><code class="language-julia hljs">using ContACT
+using CSV
+using DataFrames
+
+# Load POLYMOD UK data bundled with the package
+data_dir = joinpath(dirname(dirname(pathof(ContACT))), &quot;data&quot;)
+participants = CSV.read(joinpath(data_dir, &quot;polymod_uk_participants.csv&quot;), DataFrame)
+contacts = CSV.read(joinpath(data_dir, &quot;polymod_uk_contacts.csv&quot;), DataFrame)
+
+println(&quot;Participants: $(nrow(participants))&quot;)
+println(&quot;Contacts: $(nrow(contacts))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Participants: 1012
+Contacts: 11876</code></pre><h2 id="Preparing-the-Survey"><a class="docs-heading-anchor" href="#Preparing-the-Survey">Preparing the Survey</a><a id="Preparing-the-Survey-1"></a><a class="docs-heading-anchor-permalink" href="#Preparing-the-Survey" title="Permalink"></a></h2><p>POLYMOD stores contact ages as strings (with &quot;NA&quot; for missing). We parse and harmonise:</p><pre><code class="language-julia hljs"># Parse string ages to Float64
+parse_age(x::AbstractString) = x == &quot;NA&quot; ? missing : parse(Float64, x)
+parse_age(x::Real) = Float64(x)
+parse_age(::Missing) = missing
+
+rename!(participants, :part_age_exact =&gt; :part_age)
+participants.part_age = Float64.(participants.part_age)
+
+cnt_exact = parse_age.(contacts.cnt_age_exact)
+cnt_min = parse_age.(contacts.cnt_age_est_min)
+cnt_max = parse_age.(contacts.cnt_age_est_max)
+contacts.cnt_age = coalesce.(cnt_exact, (cnt_min .+ cnt_max) ./ 2)
+select!(contacts, [:part_id, :cnt_age])
+dropmissing!(contacts, :cnt_age)
+
+survey = ContactSurvey(participants, contacts)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ContactSurvey(1012×4 DataFrame
+  Row │ part_id  part_age  country         dayofweek 
+      │ Int64    Float64   String15        String3   
+──────┼──────────────────────────────────────────────
+    1 │    4517       5.0  United Kingdom  4
+    2 │    4518       5.0  United Kingdom  4
+    3 │    4519       6.0  United Kingdom  4
+    4 │    4520       3.0  United Kingdom  6
+    5 │    4521       2.0  United Kingdom  6
+    6 │    4522       4.0  United Kingdom  6
+    7 │    4523       6.0  United Kingdom  6
+    8 │    4524       7.0  United Kingdom  6
+  ⋮   │    ⋮        ⋮            ⋮             ⋮
+ 1006 │    5516      63.0  United Kingdom  5
+ 1007 │    5517      59.0  United Kingdom  5
+ 1008 │    5518      50.0  United Kingdom  5
+ 1009 │    5519      57.0  United Kingdom  5
+ 1010 │    5520      52.0  United Kingdom  5
+ 1011 │    5521      34.0  United Kingdom  5
+ 1012 │    5522      39.0  United Kingdom  5
+                                     997 rows omitted, 11873×2 DataFrame
+   Row │ part_id  cnt_age 
+       │ Int64    Float64 
+───────┼──────────────────
+     1 │    4517      4.0
+     2 │    4517     40.0
+     3 │    4517     31.0
+     4 │    4517     52.5
+     5 │    4517     29.0
+     6 │    4517     59.0
+     7 │    4517     57.0
+     8 │    4517      4.0
+   ⋮   │    ⋮        ⋮
+ 11867 │    5521      0.0
+ 11868 │    5521     40.0
+ 11869 │    5522     15.0
+ 11870 │    5522     35.0
+ 11871 │    5522     50.0
+ 11872 │    5522     35.0
+ 11873 │    5522     45.0
+        11858 rows omitted, Dict{Symbol, Any}())</code></pre><h2 id="Computing-a-Contact-Matrix"><a class="docs-heading-anchor" href="#Computing-a-Contact-Matrix">Computing a Contact Matrix</a><a id="Computing-a-Contact-Matrix-1"></a><a class="docs-heading-anchor-permalink" href="#Computing-a-Contact-Matrix" title="Permalink"></a></h2><p>The central operation is the <strong>restricted functor</strong> from surveys to contact matrices. We fix a partition to make the operation deterministic; age is the default interval-valued partition:</p><pre><code class="language-julia hljs"># Standard 5-year age bands
+partition = AgePartition(
+    [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75]
+)
+
+# UK 2005 population (thousands, approximate)
+uk_pop = [3433.0, 3554.0, 3824.0, 3956.0, 3757.0, 3520.0, 4009.0,
+           4405.0, 4548.0, 4187.0, 3883.0, 3589.0, 3117.0, 2765.0,
+           2425.0, 3752.0]
+
+# Apply the survey→matrix functor using ▷ (type \triangleright&lt;TAB&gt;)
+cm = survey ▷ partition
+println(&quot;Contact matrix: $(n_groups(cm)) age groups&quot;)
+println(&quot;ρ(M) ∝ R₀: $(round(ρ(cm); digits=2))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Contact matrix: 16 age groups
+ρ(M) ∝ R₀: 12.24</code></pre><p>The result bundles the matrix with its partition, population, and semantics:</p><pre><code class="language-julia hljs">println(&quot;Semantics: $(cm.semantics)&quot;)
+println(&quot;Age groups: $(age_labels(cm))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Semantics: MeanContacts()
+Age groups: [&quot;[0,5)&quot;, &quot;[5,10)&quot;, &quot;[10,15)&quot;, &quot;[15,20)&quot;, &quot;[20,25)&quot;, &quot;[25,30)&quot;, &quot;[30,35)&quot;, &quot;[35,40)&quot;, &quot;[40,45)&quot;, &quot;[45,50)&quot;, &quot;[50,55)&quot;, &quot;[55,60)&quot;, &quot;[60,65)&quot;, &quot;[65,70)&quot;, &quot;[70,75)&quot;, &quot;75+&quot;]</code></pre><h2 id="Non-age-partitions"><a class="docs-heading-anchor" href="#Non-age-partitions">Non-age partitions</a><a id="Non-age-partitions-1"></a><a class="docs-heading-anchor-permalink" href="#Non-age-partitions" title="Permalink"></a></h2><p>The same functor works for categorical survey variables such as sex, region, occupation, or products of those variables. The partition carries the semantic dimension (<code>:sex</code>) and the column names used in the participant and contact tables:</p><pre><code class="language-julia hljs">participants_sex = DataFrame(part_id=[1, 2, 3], part_sex=[&quot;F&quot;, &quot;M&quot;, &quot;F&quot;])
+contacts_sex = DataFrame(
+    part_id=[1, 1, 2, 3],
+    cnt_sex=[&quot;M&quot;, &quot;F&quot;, &quot;F&quot;, &quot;F&quot;],
+)
+survey_sex = ContactSurvey(participants_sex, contacts_sex)
+
+sex = CategoricalPartition(:sex;
+    participant_col=:part_sex,
+    contact_col=:cnt_sex,
+    levels=[&quot;F&quot;, &quot;M&quot;],
+    labels=[&quot;female&quot;, &quot;male&quot;],
+)
+
+cm_sex = survey_sex ▷ sex
+println(group_labels(cm_sex))
+matrix(cm_sex)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2×2 Matrix{Float64}:
+ 1.0  1.0
+ 0.5  0.0</code></pre><p>Product partitions combine grouping variables without inventing artificial numeric labels:</p><pre><code class="language-julia hljs">region = CategoricalPartition(:region;
+    participant_col=:part_region,
+    contact_col=:cnt_region,
+    levels=[&quot;north&quot;, &quot;south&quot;],
+)
+sex_region = sex × region
+group_labels(sex_region)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4-element Vector{String}:
+ &quot;female:north&quot;
+ &quot;female:south&quot;
+ &quot;male:north&quot;
+ &quot;male:south&quot;</code></pre><h2 id="Symmetrisation"><a class="docs-heading-anchor" href="#Symmetrisation">Symmetrisation</a><a id="Symmetrisation-1"></a><a class="docs-heading-anchor-permalink" href="#Symmetrisation" title="Permalink"></a></h2><p>Raw survey matrices are asymmetric. Symmetrisation enforces reciprocity (<span>$M_{ij} N_j = M_{ji} N_i$</span>) and is <strong>idempotent</strong>. Use <code>↔</code> (<code>\leftrightarrow&lt;TAB&gt;</code>) as the reciprocity projection:</p><pre><code class="language-julia hljs">cm_sym = ↔(cm)
+
+# Check idempotence
+cm_sym2 = ↔(cm_sym)
+println(&quot;Idempotent: $(matrix(cm_sym2) ≈ matrix(cm_sym))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Idempotent: true</code></pre><pre><code class="language-julia hljs"># Verify reciprocity
+M = matrix(cm_sym)
+N = population(cm_sym)
+max_violation = maximum(
+    abs(M[i,j] * N[j] - M[j,i] * N[i])
+    for i in 1:n_groups(cm_sym), j in 1:n_groups(cm_sym)
+)
+println(&quot;Max reciprocity violation: $(max_violation)&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Max reciprocity violation: 1.4210854715202004e-14</code></pre><h2 id="Coarsening"><a class="docs-heading-anchor" href="#Coarsening">Coarsening</a><a id="Coarsening-1"></a><a class="docs-heading-anchor-permalink" href="#Coarsening" title="Permalink"></a></h2><p>Coarsening is the left Kan extension along a surjective partition map. For interval partitions such as age, the coarse limits must be a subset of the fine limits:</p><pre><code class="language-julia hljs">coarse = AgePartition([0, 15, 45, 65])
+cm_coarse = cm ↓ coarse
+
+println(&quot;Coarsened: $(n_groups(cm_coarse)) groups&quot;)
+println(&quot;Labels: $(age_labels(cm_coarse))&quot;)
+round.(matrix(cm_coarse); digits=2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 Matrix{Float64}:
+ 6.85  2.2   0.98  0.89
+ 4.39  7.6   4.77  3.25
+ 1.33  2.27  3.18  2.42
+ 0.27  0.46  0.85  1.72</code></pre><h3 id="Functoriality"><a class="docs-heading-anchor" href="#Functoriality">Functoriality</a><a id="Functoriality-1"></a><a class="docs-heading-anchor-permalink" href="#Functoriality" title="Permalink"></a></h3><p>Coarsening in two steps gives the same result as one step — the defining property verified in our Lean proofs. Express with <code>∘</code> (map composition):</p><pre><code class="language-julia hljs">mid = AgePartition([0, 15, 45, 65])
+final_part = AgePartition([0, 45])
+
+# Compose maps with ∘ (type \circ&lt;TAB&gt;)
+f = AgeMap(partition, mid)
+g = AgeMap(mid, final_part)
+h = g ∘ f
+
+via_mid = (cm ↓ f) ↓ g
+direct = cm ↓ h
+
+println(&quot;cm ↓ (g ∘ f) ≈ (cm ↓ f) ↓ g: $(matrix(via_mid) ≈ matrix(direct))&quot;)
+round.(matrix(direct); digits=2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2×2 Matrix{Float64}:
+ 10.41  5.44
+  2.26  4.05</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><a class="docs-footer-nextpage" href="../composition/">Composition &amp; Stratification »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 4 May 2026 20:13">Monday 4 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
