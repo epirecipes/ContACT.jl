@@ -13,7 +13,8 @@ for dir in readdir(vignette_src; join=true)
     startswith(name, "0") || continue
     dst_dir = joinpath(vignette_dst, name)
     mkpath(dst_dir)
-    md_src = joinpath(dir, "index.md")
+    # Rendered markdown is <name>.md (matching <name>.qmd)
+    md_src = joinpath(dir, name * ".md")
     if isfile(md_src)
         cp(md_src, joinpath(dst_dir, "index.md"); force=true)
     end
