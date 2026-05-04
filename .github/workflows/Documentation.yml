@@ -6,7 +6,6 @@ on:
     paths:
       - 'src/**'
       - 'docs/**'
-      - 'vignettes/**'
       - 'Project.toml'
       - '.github/workflows/Documentation.yml'
     tags: ['*']
@@ -14,7 +13,6 @@ on:
     paths:
       - 'src/**'
       - 'docs/**'
-      - 'vignettes/**'
       - '.github/workflows/Documentation.yml'
 
 concurrency:
@@ -34,24 +32,12 @@ jobs:
         with:
           version: '1'
       - uses: julia-actions/cache@v2
-      - uses: quarto-dev/quarto-actions/setup@v2
-        with:
-          tinytex: true
-      - name: Install PDF fonts
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y fonts-stix fonts-firacode
       - name: Install dependencies
         run: |
           julia --project=docs -e '
             using Pkg
             Pkg.develop(PackageSpec(path=pwd()))
             Pkg.instantiate()'
-          julia --project=vignettes -e '
-            using Pkg
-            Pkg.instantiate()'
-      - name: Render vignettes
-        run: quarto render vignettes
       - name: Build and deploy docs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
