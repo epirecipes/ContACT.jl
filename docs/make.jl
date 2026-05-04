@@ -41,6 +41,7 @@ makedocs(;
             "Generalized Contact Matrices" => "vignettes/04-generalized-contact-matrices/index.md",
             "CoMix/SEP Reconstruction" => "vignettes/05-comix-sep-reconstruction/index.md",
             "POLYMOD Real-Data Reconstruction" => "vignettes/06-polymod-reconstruction/index.md",
+            "Epidemic Bounds" => "vignettes/07-epidemic-bounds/index.md",
         ],
         "API Reference" => [
             "Types" => "api/types.md",
