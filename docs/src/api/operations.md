@@ -96,6 +96,10 @@ BlockAssortativityParams
 ParameterizedConstrainedLift
 is_feasible
 sample_constrained_lifts
+QParameterSpace
+sample_perblock_lifts
+mcmc_constrained_lifts
+MCMCResult
 ```
 
 ## Composition

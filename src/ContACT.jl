@@ -35,7 +35,9 @@ export GeneralizedLift, GeneralizedMixingKernel,
 export ConstrainedGeneralizedLift, full_partition, intermediate_matrix,
        source_map, structural_zeros, constrained_generalize,
        BlockAssortativityParams, ParameterizedConstrainedLift,
-       is_feasible, sample_constrained_lifts
+       is_feasible, sample_constrained_lifts,
+       QParameterSpace, sample_perblock_lifts,
+       mcmc_constrained_lifts, MCMCResult
 
 # Composition
 export compose_matrices

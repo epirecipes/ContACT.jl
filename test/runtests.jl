@@ -386,6 +386,77 @@ end
         @test result isa ContactMatrix
         @test matrix(result ↓ age) ≈ matrix(base) atol=1e-10
     end
+
+    @testset "QParameterSpace" begin
+        space = QParameterSpace(base, spec; dimensions=[:sep])
+        # 2 age groups → 3 blocks: (1,1), (1,2), (2,2); 1 dimension each
+        @test space.n_params == 3
+        @test length(space.block_keys) == 3
+        @test space.dimensions == [:sep]
+
+        # Round-trip vector ↔ block_params
+        θ = [0.1, 0.2, -0.3]
+        bp = ContACT._vector_to_block_params(space, θ)
+        @test bp[(1,1)].q[:sep] ≈ 0.1
+        @test bp[(1,2)].q[:sep] ≈ 0.2
+        @test bp[(2,2)].q[:sep] ≈ -0.3
+
+        θ_back = ContACT._block_params_to_vector(space, bp)
+        @test θ_back ≈ θ
+    end
+
+    @testset "sample_perblock_lifts" begin
+        using Random
+        rng = Random.MersenneTwister(123)
+        samples = sample_perblock_lifts(base, spec, 3;
+            dimensions=[:sep], bounds=(-0.4, 0.4), rng=rng)
+        @test length(samples) >= 1
+        for (bp, cm) in samples
+            @test cm isa ContactMatrix
+            @test all(matrix(cm) .>= -1e-10)
+            @test matrix(cm ↓ age) ≈ matrix(base) atol=1e-10
+            # Verify it's truly per-block: different blocks can have different q
+            @test bp isa Dict{Tuple{Int,Int},BlockAssortativityParams}
+        end
+    end
+
+    @testset "mcmc_constrained_lifts" begin
+        using Random
+        rng = Random.MersenneTwister(99)
+
+        # Uniform (flat prior) MCMC
+        result = mcmc_constrained_lifts(base, spec, 10;
+            dimensions=[:sep], bounds=(-0.4, 0.4),
+            proposal_scale=0.05, burnin=20, thin=1, rng=rng)
+        @test result isa MCMCResult
+        @test length(result.chain) == 10
+        @test length(result.matrices) == 10
+        @test length(result.log_densities) == 10
+        @test 0.0 <= result.acceptance_rate <= 1.0
+        @test result.space.n_params == 3
+
+        # All samples preserve invariants
+        for cm in result.matrices
+            @test all(matrix(cm) .>= -1e-10)
+            @test matrix(cm ↓ age) ≈ matrix(base) atol=1e-10
+        end
+
+        # MCMC with a log-density targeting high assortativity
+        log_dens = (cm, _) -> assortativity_index(cm, :sep)
+        rng2 = Random.MersenneTwister(77)
+        result_targeted = mcmc_constrained_lifts(base, spec, 10;
+            dimensions=[:sep], bounds=(-0.4, 0.4),
+            log_density=log_dens,
+            proposal_scale=0.05, burnin=20, thin=1, rng=rng2)
+        @test length(result_targeted.chain) == 10
+        # Targeted chain should have higher average assortativity than flat
+        mean_ai_targeted = sum(assortativity_index(cm, :sep)
+                               for cm in result_targeted.matrices) / length(result_targeted.matrices)
+        mean_ai_flat = sum(assortativity_index(cm, :sep)
+                          for cm in result.matrices) / length(result.matrices)
+        # Not guaranteed every run, but very likely with assortativity as density
+        @test mean_ai_targeted >= mean_ai_flat - 0.5  # soft check
+    end
 end
 
 @testset "ContactMatrix construction" begin

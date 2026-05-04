@@ -341,6 +341,256 @@ function sample_constrained_lifts(base::ContactMatrix, spec::ConstrainedGenerali
     results
 end
 
+# ---------------------------------------------------------------------------
+# Per-block per-dimension q-parameter space and MCMC sampling
+# ---------------------------------------------------------------------------
+
+"""
+    QParameterSpace(base, spec; dimensions=Symbol[], bounds=(-1.0, 1.0))
+
+Defines the full per-block × per-dimension q-parameter space for a constrained
+lift. Each non-trivial base block `(i,j)` with `i ≤ j` gets independent
+q-parameters for each specified dimension.
+
+The space is represented as a flat vector of parameters with named indexing.
+"""
+struct QParameterSpace
+    block_keys::Vector{Tuple{Int,Int}}
+    dimensions::Vector{Symbol}
+    bounds::Tuple{Float64,Float64}
+    n_params::Int
+end
+
+function QParameterSpace(base::ContactMatrix, spec::ConstrainedGeneralizedLift;
+    dimensions::AbstractVector{Symbol}=Symbol[],
+    bounds::Tuple{Real,Real}=(-1.0, 1.0))
+    bounds[1] < bounds[2] || throw(ArgumentError("bounds must satisfy lower < upper"))
+
+    dims = if isempty(dimensions)
+        full_part = spec.full_partition
+        full_part isa ProductPartition || throw(ArgumentError(
+            "cannot infer dimensions from non-product partition; specify dimensions explicitly"))
+        base_dim = dimension(spec.source_map.codomain)
+        Symbol[dimension(f) for f in full_part.factors if dimension(f) != base_dim]
+    else
+        Symbol.(collect(dimensions))
+    end
+
+    n_base = n_groups(base.partition)
+    block_keys = Tuple{Int,Int}[]
+    for i in 1:n_base
+        for j in i:n_base
+            push!(block_keys, (i, j))
+        end
+    end
+
+    QParameterSpace(block_keys, dims, (Float64(bounds[1]), Float64(bounds[2])),
+                    length(block_keys) * length(dims))
+end
+
+function _vector_to_block_params(space::QParameterSpace, θ::AbstractVector{Float64})
+    length(θ) == space.n_params || throw(DimensionMismatch(
+        "parameter vector length $(length(θ)) ≠ expected $(space.n_params)"))
+    block_params = Dict{Tuple{Int,Int},BlockAssortativityParams}()
+    idx = 1
+    for block_key in space.block_keys
+        q_vals = Dict{Symbol,Float64}()
+        for dim in space.dimensions
+            q_vals[dim] = θ[idx]
+            idx += 1
+        end
+        block_params[block_key] = BlockAssortativityParams(q=q_vals)
+    end
+    block_params
+end
+
+function _block_params_to_vector(space::QParameterSpace,
+    block_params::Dict{Tuple{Int,Int},BlockAssortativityParams})
+    θ = zeros(Float64, space.n_params)
+    idx = 1
+    for block_key in space.block_keys
+        params = get(block_params, block_key, BlockAssortativityParams())
+        for dim in space.dimensions
+            θ[idx] = get(params.q, dim, 0.0)
+            idx += 1
+        end
+    end
+    θ
+end
+
+"""
+    sample_perblock_lifts(base, spec, n; dimensions=Symbol[], bounds=(-1.0, 1.0), rng=nothing)
+
+Sample `n` feasible parameterized lifts with independent per-block per-dimension
+q-parameters. Uses rejection sampling over the full parameter space.
+
+Returns a vector of `(block_params, matrix)` tuples.
+"""
+function sample_perblock_lifts(base::ContactMatrix, spec::ConstrainedGeneralizedLift, n::Int;
+    dimensions::AbstractVector{Symbol}=Symbol[],
+    bounds::Tuple{Real,Real}=(-1.0, 1.0),
+    rng=nothing)
+    n > 0 || throw(ArgumentError("n must be positive"))
+    space = QParameterSpace(base, spec; dimensions=dimensions, bounds=bounds)
+    _rng = rng === nothing ? Random.default_rng() : rng
+    lo, hi = space.bounds
+
+    results = Vector{Tuple{Dict{Tuple{Int,Int},BlockAssortativityParams},ContactMatrix}}()
+    attempts = 0
+    max_attempts = n * 200
+
+    while length(results) < n && attempts < max_attempts
+        attempts += 1
+        θ = [lo + (hi - lo) * rand(_rng) for _ in 1:space.n_params]
+        block_params = _vector_to_block_params(space, θ)
+        pspec = ParameterizedConstrainedLift(spec; block_params=block_params)
+        if is_feasible(base, pspec)
+            cm = constrained_generalize(base, pspec)
+            push!(results, (block_params, cm))
+        end
+    end
+
+    results
+end
+
+"""
+    MCMCResult
+
+Result of MCMC sampling over the q-parameter space.
+
+Fields:
+- `chain`: Vector of accepted parameter vectors (each a `Dict{Tuple{Int,Int},BlockAssortativityParams}`)
+- `matrices`: Corresponding contact matrices
+- `log_densities`: Log-density at each sample
+- `acceptance_rate`: Fraction of proposals accepted
+- `space`: The `QParameterSpace` defining the parameter layout
+"""
+struct MCMCResult
+    chain::Vector{Dict{Tuple{Int,Int},BlockAssortativityParams}}
+    matrices::Vector{ContactMatrix}
+    log_densities::Vector{Float64}
+    acceptance_rate::Float64
+    space::QParameterSpace
+end
+
+"""
+    mcmc_constrained_lifts(base, spec, n_samples;
+        dimensions=Symbol[], bounds=(-1.0, 1.0),
+        log_density=nothing, proposal_scale=0.1,
+        burnin=100, thin=1, rng=nothing)
+
+Sample from the space of feasible q-parameterized contact matrices using
+Metropolis-Hastings MCMC.
+
+# Arguments
+- `base`: Reciprocal base `ContactMatrix` over the coarse partition.
+- `spec`: `ConstrainedGeneralizedLift` specification.
+- `n_samples`: Number of post-burnin samples to collect.
+- `dimensions`: Which product dimensions get q-parameters (auto-detected if empty).
+- `bounds`: Hard bounds on q-parameters (proposals outside are rejected).
+- `log_density`: Optional function `(ContactMatrix, block_params) -> Float64` giving
+  the log-density to target. If `nothing`, samples uniformly over feasible region.
+- `proposal_scale`: Standard deviation of Gaussian random walk proposals.
+- `burnin`: Number of initial samples to discard.
+- `thin`: Keep every `thin`-th sample after burnin.
+- `rng`: Random number generator.
+
+# Returns
+An `MCMCResult` with the chain, matrices, and diagnostics.
+"""
+function mcmc_constrained_lifts(base::ContactMatrix, spec::ConstrainedGeneralizedLift,
+    n_samples::Int;
+    dimensions::AbstractVector{Symbol}=Symbol[],
+    bounds::Tuple{Real,Real}=(-1.0, 1.0),
+    log_density=nothing,
+    proposal_scale::Real=0.1,
+    burnin::Int=100,
+    thin::Int=1,
+    rng=nothing)
+
+    n_samples > 0 || throw(ArgumentError("n_samples must be positive"))
+    burnin >= 0 || throw(ArgumentError("burnin must be non-negative"))
+    thin >= 1 || throw(ArgumentError("thin must be >= 1"))
+    proposal_scale > 0 || throw(ArgumentError("proposal_scale must be positive"))
+
+    space = QParameterSpace(base, spec; dimensions=dimensions, bounds=bounds)
+    _rng = rng === nothing ? Random.default_rng() : rng
+    lo, hi = space.bounds
+    σ = Float64(proposal_scale)
+
+    # Find a feasible starting point
+    θ_current = _find_feasible_start(base, spec, space, _rng; max_attempts=1000)
+    θ_current === nothing && throw(ArgumentError(
+        "could not find a feasible starting point within bounds"))
+
+    block_params_current = _vector_to_block_params(space, θ_current)
+    pspec_current = ParameterizedConstrainedLift(spec; block_params=block_params_current)
+    cm_current = constrained_generalize(base, pspec_current)
+    ld_current = log_density === nothing ? 0.0 : Float64(log_density(cm_current, block_params_current))
+
+    # MCMC loop
+    total_steps = burnin + n_samples * thin
+    chain = Vector{Dict{Tuple{Int,Int},BlockAssortativityParams}}()
+    matrices = Vector{ContactMatrix}()
+    log_densities = Vector{Float64}()
+    accepted = 0
+
+    for step in 1:total_steps
+        # Propose: Gaussian random walk
+        θ_proposal = θ_current .+ σ .* randn(_rng, space.n_params)
+
+        # Check bounds
+        if all(lo .<= θ_proposal .<= hi)
+            block_params_prop = _vector_to_block_params(space, θ_proposal)
+            pspec_prop = ParameterizedConstrainedLift(spec; block_params=block_params_prop)
+
+            if is_feasible(base, pspec_prop)
+                cm_prop = constrained_generalize(base, pspec_prop)
+                ld_prop = log_density === nothing ? 0.0 :
+                    Float64(log_density(cm_prop, block_params_prop))
+
+                # Metropolis acceptance (symmetric proposal → ratio is just density ratio)
+                log_α = ld_prop - ld_current
+                if log_α >= 0 || log(rand(_rng)) < log_α
+                    θ_current = θ_proposal
+                    block_params_current = block_params_prop
+                    cm_current = cm_prop
+                    ld_current = ld_prop
+                    accepted += 1
+                end
+            end
+        end
+
+        # Collect after burnin, respecting thin
+        if step > burnin && (step - burnin) % thin == 0
+            push!(chain, block_params_current)
+            push!(matrices, cm_current)
+            push!(log_densities, ld_current)
+        end
+    end
+
+    MCMCResult(chain, matrices, log_densities, accepted / total_steps, space)
+end
+
+function _find_feasible_start(base::ContactMatrix, spec::ConstrainedGeneralizedLift,
+    space::QParameterSpace, rng; max_attempts::Int=1000)
+    lo, hi = space.bounds
+    # Try q=0 first (always feasible if proportionate solver works)
+    θ_zero = zeros(Float64, space.n_params)
+    block_params = _vector_to_block_params(space, θ_zero)
+    pspec = ParameterizedConstrainedLift(spec; block_params=block_params)
+    is_feasible(base, pspec) && return θ_zero
+
+    # Random search
+    for _ in 1:max_attempts
+        θ = [lo + (hi - lo) * rand(rng) for _ in 1:space.n_params]
+        block_params = _vector_to_block_params(space, θ)
+        pspec = ParameterizedConstrainedLift(spec; block_params=block_params)
+        is_feasible(base, pspec) && return θ
+    end
+    nothing
+end
+
 function _proportionate_transport(row_marginal::AbstractVector{<:Real},
                                   col_marginal::AbstractVector{<:Real})
     row = Float64.(row_marginal)
