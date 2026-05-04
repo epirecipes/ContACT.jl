@@ -40,6 +40,7 @@ makedocs(;
             "Categorical Framework" => "vignettes/03-categorical-framework/index.md",
             "Generalized Contact Matrices" => "vignettes/04-generalized-contact-matrices/index.md",
             "CoMix/SEP Reconstruction" => "vignettes/05-comix-sep-reconstruction/index.md",
+            "POLYMOD Real-Data Reconstruction" => "vignettes/06-polymod-reconstruction/index.md",
         ],
         "API Reference" => [
             "Types" => "api/types.md",
