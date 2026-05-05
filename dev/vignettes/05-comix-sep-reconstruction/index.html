@@ -60,56 +60,56 @@ for (params, cm) in samples
     R0_val = basic_reproduction_number(cm)
     ai_sep = assortativity_index(cm, :sep)
     println(&quot;q_sep=$(params.q[:sep]) q_edu=$(params.q[:edu]) R0=$R0_val AI_sep=$ai_sep&quot;)
-end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">q_sep=-0.12546222030424126 q_edu=0.3735343642013971 R0=7.106065979274424 AI_sep=0.8959605509611106
-q_sep=-0.20987511333748454 q_edu=-0.16315916694014487 R0=7.014570879350165 AI_sep=0.8230704426852007
-q_sep=0.16227068707169678 q_edu=0.2763361853035142 R0=7.087206507081973 AI_sep=1.1444838353833156
-q_sep=0.0034055294549570903 q_edu=0.2501773674527126 R0=7.075706772520835 AI_sep=1.0072939753690613
-q_sep=0.41033732161858416 q_edu=-0.03593283480029452 R0=7.053439442227079 AI_sep=1.35853772257702
-q_sep=0.19503110694975634 q_edu=-0.10159604972438019 R0=7.030820016144675 AI_sep=1.1727089176463243
-q_sep=-0.11839479516811724 q_edu=0.31669550709041516 R0=7.089799052362644 AI_sep=0.9020712679089038
-q_sep=0.4049989108896017 q_edu=-0.17928977669113477 R0=7.0408799151627335 AI_sep=1.3538824609308233
-q_sep=0.10617443817196515 q_edu=0.11076607099747071 R0=7.05230147208315 AI_sep=1.096031155378018
-q_sep=-0.41227478318724775 q_edu=0.4255696522770671 R0=7.121952424382415 AI_sep=0.6479396449721014
-q_sep=0.09715589633112587 q_edu=0.24610991141923555 R0=7.077604072895103 AI_sep=1.0882564004014097
-q_sep=0.39159594902762906 q_edu=-0.43732790989443426 R0=7.029223646881759 AI_sep=1.3422338108973666
-q_sep=-0.4291019737149666 q_edu=-0.45148091708278737 R0=7.001043915613262 AI_sep=0.6336391443573371
-q_sep=0.15238543147921324 q_edu=0.0808934466939999 R0=7.049657512858625 AI_sep=1.135923712570584
-q_sep=-0.16036870886990462 q_edu=0.14432309029626933 R0=7.05162571403801 AI_sep=0.865815047172917
-q_sep=0.08026526752590857 q_edu=-0.27348820409945285 R0=7.014314317029266 AI_sep=1.0736311771810345
-q_sep=-0.2108711663103966 q_edu=0.13065888424965744 R0=7.048762418871053 AI_sep=0.8221731601451312
-q_sep=-0.023629794389282255 q_edu=-0.21713233294368095 R0=7.014142852176136 AI_sep=0.9839403616034863
-q_sep=0.38662270639749474 q_edu=0.011879322858223684 R0=7.056357946822846 AI_sep=1.3380876733478022
-q_sep=0.0032870107313096586 q_edu=-0.3063779483142117 R0=7.010336935063632 AI_sep=1.0071785290973079
-q_sep=-0.02962860470753892 q_edu=-0.4488373246987989 R0=7.0052412924708864 AI_sep=0.9787599894179534
-q_sep=-0.11162051589886168 q_edu=0.23972907492072082 R0=7.071100277947352 AI_sep=0.9079291091542109
-q_sep=0.42532225969207205 q_edu=-0.10226837708821912 R0=7.048837957900021 AI_sep=1.3714457972386398
-q_sep=-0.021139563029194175 q_edu=-0.20601637918463078 R0=7.0148864410693 AI_sep=0.9860906301867686
-q_sep=-0.3235045984062519 q_edu=0.49909544226396174 R0=7.150237877260651 AI_sep=0.7247249591881577
-q_sep=0.32297532325056744 q_edu=0.000430567877687027 R0=7.049437883063905 AI_sep=1.2831542689529027
-q_sep=0.23604318683478986 q_edu=-0.350319312485863 R0=7.018836058820887 AI_sep=1.2080572197827864
-q_sep=-0.17508274623938402 q_edu=0.3464235631635464 R0=7.097405647400756 AI_sep=0.8530799026825882
-q_sep=0.17251469843757983 q_edu=-0.36234161023149136 R0=7.014870041212444 AI_sep=1.15323713050418
-q_sep=0.32948333088675685 q_edu=0.30170345928335696 R0=7.103390048515999 AI_sep=1.288851710863146
-q_sep=0.14609635418633782 q_edu=0.21516321681796446 R0=7.072857644845421 AI_sep=1.130510868460257
-q_sep=-0.11805637110044187 q_edu=0.2952616883543886 R0=7.084204839879025 AI_sep=0.9023650110445315
-q_sep=0.31153060091180196 q_edu=0.07407837746267143 R0=7.058027134199548 AI_sep=1.2732955178280863
-q_sep=0.22025121871229647 q_edu=0.3658834256169463 R0=7.114099079128172 AI_sep=1.1945594108863813
-q_sep=0.3261709195241451 q_edu=0.06648689351362891 R0=7.058090875687089 AI_sep=1.2859297610700133
-q_sep=-0.3584170112168148 q_edu=0.46267319487629743 R0=7.135542239102494 AI_sep=0.6945312077216234
-q_sep=0.24995039739610303 q_edu=0.08913642558736279 R0=7.056012503272943 AI_sep=1.2201462034585386
-q_sep=-0.20189015046101022 q_edu=0.05739872645879385 R0=7.037580646626745 AI_sep=0.8299437313379712
-q_sep=0.14357432798973635 q_edu=0.14184996444888398 R0=7.0589324387236125 AI_sep=1.1283244766442906
-q_sep=-0.441040001891831 q_edu=-0.3812414412697227 R0=7.002773813358444 AI_sep=0.6232945964390488
-q_sep=0.1834316641732836 q_edu=0.3935286195665866 R0=7.120852079609838 AI_sep=1.1627719608109106
-q_sep=-0.22476596687721062 q_edu=0.4059824756913011 R0=7.115540853692476 AI_sep=0.8101263708161743
-q_sep=-0.36430712736576165 q_edu=-0.15192642017049818 R0=7.014593020160427 AI_sep=0.689585262027313
-q_sep=0.35459618692618133 q_edu=0.47016169848233 R0=7.15849039854295 AI_sep=1.310580387801247
-q_sep=0.37975253437666834 q_edu=-0.04204934410631167 R0=7.049746059834823 AI_sep=1.3321416030459377
-q_sep=-0.25762447568404423 q_edu=0.45217835896850933 R0=7.131742199457031 AI_sep=0.7817099114841413
-q_sep=-0.12001484634062609 q_edu=0.00038778318121246436 R0=7.031243567036138 AI_sep=0.9006909784624193
-q_sep=-0.22523009036039388 q_edu=-0.21281605279964455 R0=7.011075855898502 AI_sep=0.8098091716261695
-q_sep=0.16287026417780837 q_edu=-0.3203427467513762 R0=7.015840546731864 AI_sep=1.1449203189966803
-q_sep=0.41307004567318795 q_edu=-0.09205806044800591 R0=7.048379619840006 AI_sep=1.360876677418315</code></pre><h2 id="Targeted-Control-Analysis"><a class="docs-heading-anchor" href="#Targeted-Control-Analysis">Targeted Control Analysis</a><a id="Targeted-Control-Analysis-1"></a><a class="docs-heading-anchor-permalink" href="#Targeted-Control-Analysis" title="Permalink"></a></h2><p>Compute type-reproduction numbers for targeted interventions:</p><pre><code class="language-julia hljs"># Target high-SEP groups for vaccination
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">q_sep=-0.12546222030424126 q_edu=0.3735343642013971 R0=7.043098573951523 AI_sep=0.8976589155111987
+q_sep=-0.20987511333748454 q_edu=-0.16315916694014487 R0=7.029772501990465 AI_sep=0.8251581977553297
+q_sep=0.16227068707169678 q_edu=0.2763361853035142 R0=7.04165034824976 AI_sep=1.1434264899725948
+q_sep=0.0034055294549570903 q_edu=0.2501773674527126 R0=7.039672423208225 AI_sep=1.0075258760960595
+q_sep=0.41033732161858416 q_edu=-0.03593283480029452 R0=7.037073399861175 AI_sep=1.3557869075123918
+q_sep=0.19503110694975634 q_edu=-0.10159604972438019 R0=7.033396872817585 AI_sep=1.1711086510330757
+q_sep=-0.11839479516811724 q_edu=0.31669550709041516 R0=7.041077866061056 AI_sep=0.9036113146098824
+q_sep=0.4049989108896017 q_edu=-0.17928977669113477 R0=7.034682298111622 AI_sep=1.351075918096552
+q_sep=0.10617443817196515 q_edu=0.11076607099747071 R0=7.036756525438567 AI_sep=1.0952567535661892
+q_sep=-0.41227478318724775 q_edu=0.4255696522770671 R0=7.044018646515231 AI_sep=0.6544175562790084
+q_sep=0.09715589633112587 q_edu=0.24610991141923555 R0=7.040208132953845 AI_sep=1.087680107645833
+q_sep=0.39159594902762906 q_edu=-0.43732790989443426 R0=7.031365604858832 AI_sep=1.3393395735035307
+q_sep=-0.4291019737149666 q_edu=-0.45148091708278737 R0=7.025412711845827 AI_sep=0.6394777222336118
+q_sep=0.15238543147921324 q_edu=0.0808934466939999 R0=7.036462997563666 AI_sep=1.1347737720104687
+q_sep=-0.16036870886990462 q_edu=0.14432309029626933 R0=7.035892356836319 AI_sep=0.8676182126045424
+q_sep=0.08026526752590857 q_edu=-0.27348820409945285 R0=7.0299625679699 AI_sep=1.0727166360287572
+q_sep=-0.2108711663103966 q_edu=0.13065888424965744 R0=7.035321073394433 AI_sep=0.8245974845953907
+q_sep=-0.023629794389282255 q_edu=-0.21713233294368095 R0=7.029998680895567 AI_sep=0.9839468417469208
+q_sep=0.38662270639749474 q_edu=0.011879322858223684 R0=7.037616785639862 AI_sep=1.3354659401636368
+q_sep=0.0032870107313096586 q_edu=-0.3063779483142117 R0=7.029016334718035 AI_sep=1.0068682279271122
+q_sep=-0.02962860470753892 q_edu=-0.4488373246987989 R0=7.027243613654871 AI_sep=0.9786288004373667
+q_sep=-0.11162051589886168 q_edu=0.23972907492072082 R0=7.0386895529743665 AI_sep=0.90929406630919
+q_sep=0.42532225969207205 q_edu=-0.10226837708821912 R0=7.036174116951271 AI_sep=1.3686013190728155
+q_sep=-0.021139563029194175 q_edu=-0.20601637918463078 R0=7.0301686235883105 AI_sep=0.98608447782239
+q_sep=-0.3235045984062519 q_edu=0.49909544226396174 R0=7.047846358406208 AI_sep=0.7294904183364803
+q_sep=0.32297532325056744 q_edu=0.000430567877687027 R0=7.036558040154755 AI_sep=1.280847127253201
+q_sep=0.23604318683478986 q_edu=-0.350319312485863 R0=7.030398145281691 AI_sep=1.2060058825444275
+q_sep=-0.17508274623938402 q_edu=0.3464235631635464 R0=7.041836709272783 AI_sep=0.855333490725287
+q_sep=0.17251469843757983 q_edu=-0.36234161023149136 R0=7.029657043865714 AI_sep=1.1515844300978932
+q_sep=0.32948333088675685 q_edu=0.30170345928335696 R0=7.044172502904791 AI_sep=1.2866793836103583
+q_sep=0.14609635418633782 q_edu=0.21516321681796446 R0=7.039713304998138 AI_sep=1.1295235820515392
+q_sep=-0.11805637110044187 q_edu=0.2952616883543886 R0=7.040366095065813 AI_sep=0.9038727223124117
+q_sep=0.31153060091180196 q_edu=0.07407837746267143 R0=7.037911394057252 AI_sep=1.2710991458441967
+q_sep=0.22025121871229647 q_edu=0.3658834256169463 R0=7.045247828645799 AI_sep=1.1931437083556857
+q_sep=0.3261709195241451 q_edu=0.06648689351362891 R0=7.037925708572331 AI_sep=1.2836464443460796
+q_sep=-0.3584170112168148 q_edu=0.46267319487629743 R0=7.045896661035572 AI_sep=0.699897757599512
+q_sep=0.24995039739610303 q_edu=0.08913642558736279 R0=7.037557943721531 AI_sep=1.2183333497134199
+q_sep=-0.20189015046101022 q_edu=0.05739872645879385 R0=7.03372157378935 AI_sep=0.8321611365410213
+q_sep=0.14357432798973635 q_edu=0.14184996444888398 R0=7.037791111927302 AI_sep=1.1272924216027036
+q_sep=-0.441040001891831 q_edu=-0.3812414412697227 R0=7.026099354255843 AI_sep=0.629491204847293
+q_sep=0.1834316641732836 q_edu=0.3935286195665866 R0=7.045984108858663 AI_sep=1.1616487945678382
+q_sep=-0.22476596687721062 q_edu=0.4059824756913011 R0=7.04391707158625 AI_sep=0.813133883308365
+q_sep=-0.36430712736576165 q_edu=-0.15192642017049818 R0=7.029308669715961 AI_sep=0.6942132629261413
+q_sep=0.35459618692618133 q_edu=0.47016169848233 R0=7.05117655424781 AI_sep=1.3083232306445403
+q_sep=0.37975253437666834 q_edu=-0.04204934410631167 R0=7.03651842210582 AI_sep=1.3295217619920559
+q_sep=-0.25762447568404423 q_edu=0.45217835896850933 R0=7.045800802693167 AI_sep=0.7852802602074036
+q_sep=-0.12001484634062609 q_edu=0.00038778318121246436 R0=7.032984551046473 AI_sep=0.9018689877175132
+q_sep=-0.22523009036039388 q_edu=-0.21281605279964455 R0=7.0289886700715725 AI_sep=0.8120569401558984
+q_sep=0.16287026417780837 q_edu=-0.3203427467513762 R0=7.030055818964801 AI_sep=1.1433648724706567
+q_sep=0.41307004567318795 q_edu=-0.09205806044800591 R0=7.03615039063 AI_sep=1.358085278304943</code></pre><h2 id="Targeted-Control-Analysis"><a class="docs-heading-anchor" href="#Targeted-Control-Analysis">Targeted Control Analysis</a><a id="Targeted-Control-Analysis-1"></a><a class="docs-heading-anchor-permalink" href="#Targeted-Control-Analysis" title="Permalink"></a></h2><p>Compute type-reproduction numbers for targeted interventions:</p><pre><code class="language-julia hljs"># Target high-SEP groups for vaccination
 # In the 12-group product partition, high-SEP groups are those with
 # factor index 2 in the SEP dimension
 Tg = type_reproduction_number(full_assort, [3, 4, 7, 8, 11, 12])
@@ -117,9 +117,9 @@ threshold = control_threshold(Tg)
 effort = control_effort(full_assort, [3, 4, 7, 8, 11, 12], threshold)
 println(&quot;Type reproduction number: $Tg&quot;)
 println(&quot;Control threshold: $threshold&quot;)
-println(&quot;Control effort: $effort&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Type reproduction number: 2.3641070101343535
-Control threshold: 0.5770073030902398
-Control effort: 0.2592351651564846</code></pre><h2 id="Marginal-Matrices"><a class="docs-heading-anchor" href="#Marginal-Matrices">Marginal Matrices</a><a id="Marginal-Matrices-1"></a><a class="docs-heading-anchor-permalink" href="#Marginal-Matrices" title="Permalink"></a></h2><p>Extract dimension-specific marginals from the full reconstruction:</p><pre><code class="language-julia hljs"># SEP-only marginal (2×2)
+println(&quot;Control effort: $effort&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Type reproduction number: 2.401020295751512
+Control threshold: 0.5835103927403483
+Control effort: 0.26215684311522897</code></pre><h2 id="Marginal-Matrices"><a class="docs-heading-anchor" href="#Marginal-Matrices">Marginal Matrices</a><a id="Marginal-Matrices-1"></a><a class="docs-heading-anchor-permalink" href="#Marginal-Matrices" title="Permalink"></a></h2><p>Extract dimension-specific marginals from the full reconstruction:</p><pre><code class="language-julia hljs"># SEP-only marginal (2×2)
 cm_sep = marginal_matrix(full_assort, :sep)
 
 # Education-only marginal (2×2)
@@ -127,4 +127,4 @@ cm_edu = marginal_matrix(full_assort, :edu)
 
 # Age-only (recovers base)
 cm_age = marginal_matrix(full_assort, :age)
-@assert matrix(cm_age) ≈ matrix(base)</code></pre><h2 id="Summary"><a class="docs-heading-anchor" href="#Summary">Summary</a><a id="Summary-1"></a><a class="docs-heading-anchor-permalink" href="#Summary" title="Permalink"></a></h2><p>The CoMix/SEP reconstruction workflow in ContACT.jl:</p><table><tr><th style="text-align: right">Step</th><th style="text-align: right">Function</th><th style="text-align: right">Operator</th></tr><tr><td style="text-align: right">Build intermediate</td><td style="text-align: right"><code>compute_source_stratified_matrix</code></td><td style="text-align: right">—</td></tr><tr><td style="text-align: right">Specify constraints</td><td style="text-align: right"><code>ConstrainedGeneralizedLift</code></td><td style="text-align: right">—</td></tr><tr><td style="text-align: right">Proportionate lift</td><td style="text-align: right"><code>constrained_generalize</code></td><td style="text-align: right"><code>⊠</code></td></tr><tr><td style="text-align: right">Parameterized lift</td><td style="text-align: right"><code>ParameterizedConstrainedLift</code></td><td style="text-align: right"><code>⊠</code></td></tr><tr><td style="text-align: right">Feasibility check</td><td style="text-align: right"><code>is_feasible</code></td><td style="text-align: right">—</td></tr><tr><td style="text-align: right">Sample family</td><td style="text-align: right"><code>sample_constrained_lifts</code></td><td style="text-align: right">—</td></tr><tr><td style="text-align: right">SEP marginal</td><td style="text-align: right"><code>marginal_matrix(cm, :sep)</code></td><td style="text-align: right">—</td></tr><tr><td style="text-align: right">Assortativity</td><td style="text-align: right"><code>assortativity_index(cm, :sep)</code></td><td style="text-align: right">—</td></tr><tr><td style="text-align: right">Type repro. number</td><td style="text-align: right"><code>type_reproduction_number</code></td><td style="text-align: right">—</td></tr><tr><td style="text-align: right">Control threshold</td><td style="text-align: right"><code>control_threshold</code></td><td style="text-align: right">—</td></tr><tr><td style="text-align: right">Control effort</td><td style="text-align: right"><code>control_effort</code></td><td style="text-align: right">—</td></tr></table></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../04-generalized-contact-matrices/">« Generalized Contact Matrices</a><a class="docs-footer-nextpage" href="../06-polymod-reconstruction/">POLYMOD Real-Data Reconstruction »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 4 May 2026 20:13">Monday 4 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+@assert matrix(cm_age) ≈ matrix(base)</code></pre><h2 id="Summary"><a class="docs-heading-anchor" href="#Summary">Summary</a><a id="Summary-1"></a><a class="docs-heading-anchor-permalink" href="#Summary" title="Permalink"></a></h2><p>The CoMix/SEP reconstruction workflow in ContACT.jl:</p><table><tr><th style="text-align: right">Step</th><th style="text-align: right">Function</th><th style="text-align: right">Operator</th></tr><tr><td style="text-align: right">Build intermediate</td><td style="text-align: right"><code>compute_source_stratified_matrix</code></td><td style="text-align: right">—</td></tr><tr><td style="text-align: right">Specify constraints</td><td style="text-align: right"><code>ConstrainedGeneralizedLift</code></td><td style="text-align: right">—</td></tr><tr><td style="text-align: right">Proportionate lift</td><td style="text-align: right"><code>constrained_generalize</code></td><td style="text-align: right"><code>⊠</code></td></tr><tr><td style="text-align: right">Parameterized lift</td><td style="text-align: right"><code>ParameterizedConstrainedLift</code></td><td style="text-align: right"><code>⊠</code></td></tr><tr><td style="text-align: right">Feasibility check</td><td style="text-align: right"><code>is_feasible</code></td><td style="text-align: right">—</td></tr><tr><td style="text-align: right">Sample family</td><td style="text-align: right"><code>sample_constrained_lifts</code></td><td style="text-align: right">—</td></tr><tr><td style="text-align: right">SEP marginal</td><td style="text-align: right"><code>marginal_matrix(cm, :sep)</code></td><td style="text-align: right">—</td></tr><tr><td style="text-align: right">Assortativity</td><td style="text-align: right"><code>assortativity_index(cm, :sep)</code></td><td style="text-align: right">—</td></tr><tr><td style="text-align: right">Type repro. number</td><td style="text-align: right"><code>type_reproduction_number</code></td><td style="text-align: right">—</td></tr><tr><td style="text-align: right">Control threshold</td><td style="text-align: right"><code>control_threshold</code></td><td style="text-align: right">—</td></tr><tr><td style="text-align: right">Control effort</td><td style="text-align: right"><code>control_effort</code></td><td style="text-align: right">—</td></tr></table></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../04-generalized-contact-matrices/">« Generalized Contact Matrices</a><a class="docs-footer-nextpage" href="../06-polymod-reconstruction/">POLYMOD Real-Data Reconstruction »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 5 May 2026 19:48">Tuesday 5 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
