@@ -171,8 +171,17 @@ struct BlockAssortativityParams
     q::Dict{Symbol,Float64}
 end
 
-BlockAssortativityParams(; q::Dict{Symbol,Float64}=Dict{Symbol,Float64}()) =
-    BlockAssortativityParams(q)
+function BlockAssortativityParams(; q::AbstractDict{Symbol,<:Real}=Dict{Symbol,Float64}())
+    vals = Dict{Symbol,Float64}()
+    for (dim, val) in q
+        qval = Float64(val)
+        isfinite(qval) || throw(ArgumentError("q-parameter for $dim must be finite"))
+        abs(qval) <= 1.0 || throw(ArgumentError(
+            "q-parameter for $dim must lie in [-1, 1], got $qval"))
+        vals[dim] = qval
+    end
+    BlockAssortativityParams(vals)
+end
 
 """
     ParameterizedConstrainedLift(spec; block_params=nothing, default_params=BlockAssortativityParams())
@@ -238,7 +247,7 @@ function constrained_generalize(base::ContactMatrix, pspec::ParameterizedConstra
                     full_part, params)
                 # Enforce symmetry for diagonal blocks (reciprocity)
                 block = (block + transpose(block)) / 2
-                block .= max.(block, 0.0)
+                block = _balance_transport(block, marginal, marginal)
                 for (i, tg) in enumerate(target_groups)
                     for (j, sg) in enumerate(target_groups)
                         full_counts[tg, sg] = block[i, j]
@@ -262,6 +271,9 @@ function constrained_generalize(base::ContactMatrix, pspec::ParameterizedConstra
             end
         end
     end
+
+    # Final symmetrization of total contacts (Sinkhorn introduces ~1e-10 rounding)
+    full_counts .= (full_counts .+ full_counts') ./ 2
 
     for group in 1:n_full
         if spec.structural_zeros[group]
@@ -608,10 +620,8 @@ function _proportionate_transport(row_marginal::AbstractVector{<:Real},
     row * transpose(col) ./ row_total
 end
 
-# Apply q-parameter assortativity adjustment to a block.
-# For each dimension with a q parameter, entries where the row and column groups
-# share the same factor value in that dimension receive mass shifted from
-# cross-group entries. The shift preserves row marginals exactly.
+# Apply q-parameter assortativity adjustment to a block, then rebalance the
+# candidate plan so both row and column marginals are preserved.
 function _parameterized_transport(row_marginal::AbstractVector{<:Real},
                                   col_marginal::AbstractVector{<:Real},
                                   row_groups::Vector{Int},
@@ -682,5 +692,68 @@ function _parameterized_transport(row_marginal::AbstractVector{<:Real},
         block .= max.(block, 0.0)
     end
 
-    block
+    _balance_transport(block, row, col)
+end
+
+function _balance_transport(candidate::AbstractMatrix{<:Real},
+                            row_marginal::AbstractVector{<:Real},
+                            col_marginal::AbstractVector{<:Real};
+                            rtol::Real=1e-10,
+                            atol::Real=1e-10,
+                            maxiter::Int=10_000)
+    row = Float64.(row_marginal)
+    col = Float64.(col_marginal)
+    row_total = sum(row)
+    col_total = sum(col)
+    isapprox(row_total, col_total; rtol=1e-8, atol=1e-8) || throw(ArgumentError(
+        "block marginals must have equal totals, got $row_total and $col_total"))
+    row_total == 0 && return zeros(Float64, length(row), length(col))
+
+    block = Float64.(candidate)
+    size(block) == (length(row), length(col)) || throw(DimensionMismatch(
+        "candidate block size $(size(block)) does not match marginals $(length(row)) × $(length(col))"))
+    all(isfinite, block) || throw(ArgumentError("candidate transport entries must be finite"))
+    any(block .< -atol) && throw(ArgumentError("candidate transport has negative entries"))
+    block .= max.(block, 0.0)
+
+    for i in eachindex(row)
+        if row[i] > 0 && sum(block[i, :]) <= 0
+            throw(ArgumentError("cannot balance transport: row $i has positive marginal but zero support"))
+        end
+    end
+    for j in eachindex(col)
+        if col[j] > 0 && sum(block[:, j]) <= 0
+            throw(ArgumentError("cannot balance transport: column $j has positive marginal but zero support"))
+        end
+    end
+
+    scale = max(row_total, 1.0)
+    for _ in 1:maxiter
+        for i in eachindex(row)
+            current = sum(block[i, :])
+            if row[i] == 0
+                block[i, :] .= 0.0
+            else
+                current > 0 || throw(ArgumentError(
+                    "cannot balance transport: row $i has positive marginal but zero support"))
+                block[i, :] .*= row[i] / current
+            end
+        end
+        for j in eachindex(col)
+            current = sum(block[:, j])
+            if col[j] == 0
+                block[:, j] .= 0.0
+            else
+                current > 0 || throw(ArgumentError(
+                    "cannot balance transport: column $j has positive marginal but zero support"))
+                block[:, j] .*= col[j] / current
+            end
+        end
+
+        row_err = maximum(abs.(vec(sum(block; dims=2)) .- row))
+        col_err = maximum(abs.(vec(sum(block; dims=1)) .- col))
+        max(row_err, col_err) <= max(atol, rtol * scale) && return block
+    end
+
+    throw(ArgumentError("could not balance q-parameter transport to requested marginals"))
 end

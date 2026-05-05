@@ -65,16 +65,32 @@ function compute_matrix(survey::ContactSurvey, partition::AbstractPartition;
 
     # Map part_id to row index for O(1) lookup
     part_id_to_idx = Dict(id => i for (i, id) in enumerate(survey.participants.part_id))
+    dropped_missing_contact_group = 0
+    dropped_unknown_participant = 0
+    dropped_missing_participant_group = 0
 
     for (k, cnt_grp) in enumerate(cnt_groups)
-        cnt_grp === nothing && continue  # skip contacts with missing age
+        if cnt_grp === nothing
+            dropped_missing_contact_group += 1
+            continue
+        end
         part_id = survey.contacts.part_id[k]
         idx = get(part_id_to_idx, part_id, nothing)
-        idx === nothing && continue
+        if idx === nothing
+            dropped_unknown_participant += 1
+            continue
+        end
         part_grp = part_groups[idx]
-        part_grp === nothing && continue
+        if part_grp === nothing
+            dropped_missing_participant_group += 1
+            continue
+        end
         contact_counts[cnt_grp, part_grp] += w[idx]
     end
+    _warn_dropped_contacts("compute_matrix";
+        missing_contact_group=dropped_missing_contact_group,
+        unknown_participant=dropped_unknown_participant,
+        missing_participant_group=dropped_missing_participant_group)
 
     # Sum weights per participant group
     for (i, grp) in enumerate(part_groups)
@@ -98,4 +114,23 @@ function compute_matrix(survey::ContactSurvey, partition::AbstractPartition;
     end
 
     ContactMatrix(M, partition, pop, MeanContacts())
+end
+
+function _warn_dropped_contacts(context::AbstractString;
+                                missing_contact_group::Int=0,
+                                unknown_participant::Int=0,
+                                missing_participant_group::Int=0)
+    dropped = missing_contact_group + unknown_participant + missing_participant_group
+    dropped == 0 && return nothing
+
+    reasons = String[]
+    missing_contact_group == 0 || push!(reasons,
+        "$missing_contact_group with missing/unmapped contact group")
+    unknown_participant == 0 || push!(reasons,
+        "$unknown_participant with unknown participant id")
+    missing_participant_group == 0 || push!(reasons,
+        "$missing_participant_group with missing/unmapped participant group")
+    detail = join(reasons, "; ")
+    @warn "$context dropped $dropped contact(s): $detail"
+    nothing
 end

@@ -119,15 +119,31 @@ function compute_source_stratified_matrix(
     contact_counts = zeros(Float64, n_target, n_source)
     participant_weights = zeros(Float64, n_source)
     part_id_to_idx = Dict(id => i for (i, id) in enumerate(survey.participants.part_id))
+    dropped_missing_contact_group = 0
+    dropped_unknown_participant = 0
+    dropped_missing_participant_group = 0
 
     for (k, target_group) in enumerate(target_groups)
-        target_group === nothing && continue
+        if target_group === nothing
+            dropped_missing_contact_group += 1
+            continue
+        end
         participant_idx = get(part_id_to_idx, survey.contacts.part_id[k], nothing)
-        participant_idx === nothing && continue
+        if participant_idx === nothing
+            dropped_unknown_participant += 1
+            continue
+        end
         source_group = source_groups[participant_idx]
-        source_group === nothing && continue
+        if source_group === nothing
+            dropped_missing_participant_group += 1
+            continue
+        end
         contact_counts[target_group, source_group] += w[participant_idx]
     end
+    _warn_dropped_contacts("compute_source_stratified_matrix";
+        missing_contact_group=dropped_missing_contact_group,
+        unknown_participant=dropped_unknown_participant,
+        missing_participant_group=dropped_missing_participant_group)
 
     for (i, source_group) in enumerate(source_groups)
         source_group === nothing && continue

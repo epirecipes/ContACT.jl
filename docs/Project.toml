@@ -4,9 +4,14 @@ Catlab = "134e5e36-593f-5add-ad60-77f754baafbe"
 ContACT = "26035af4-eac7-442e-a6d9-7ff0777c6303"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [sources]
 ContACT = {path = ".."}
 
 [compat]
+Catlab = "0.16, 0.17"
+CSV = "0.10"
+DataFrames = "1"
 Documenter = "1"

@@ -802,11 +802,11 @@ end
         )
         @test_throws ArgumentError ContactSurveyACSet(invalid_age, partition)
 
-        invalid_reporter = ContactSurvey(
+        # Survey with contacts referencing unknown participants is rejected at construction
+        @test_throws ArgumentError ContactSurvey(
             DataFrame(part_id=[1], part_age=[10.0]),
             DataFrame(part_id=[2], cnt_age=[10.0]),
         )
-        @test_throws ArgumentError ContactSurveyACSet(invalid_reporter, partition)
     end
 
     @testset "LabelledContactMatrix ACSet" begin
@@ -1294,6 +1294,93 @@ end
         @test result.final_size.lower ≤ result.final_size.upper
         @test result.r0.lower > 0
         @test result.final_size.lower ≥ 0
+    end
+end
+
+@testset "Review fixes regression" begin
+    @testset "Duplicate ProductPartition dimensions rejected" begin
+        age = AgePartition([0, 18])
+        @test_throws ArgumentError ProductPartition(age, age)
+    end
+
+    @testset "ContactSurvey ID validation" begin
+        # Contacts referencing unknown participant
+        @test_throws ArgumentError ContactSurvey(
+            DataFrame(part_id=[1, 2], part_age=[5.0, 25.0]),
+            DataFrame(part_id=[1, 99], cnt_age=[10.0, 20.0]),
+        )
+        # Duplicate participant IDs
+        @test_throws ArgumentError ContactSurvey(
+            DataFrame(part_id=[1, 1], part_age=[5.0, 25.0]),
+            DataFrame(part_id=[1], cnt_age=[10.0]),
+        )
+        # Missing participant ID
+        @test_throws ArgumentError ContactSurvey(
+            DataFrame(part_id=[1, missing], part_age=[5.0, 25.0]),
+            DataFrame(part_id=[1], cnt_age=[10.0]),
+        )
+    end
+
+    @testset "q-parameter validation" begin
+        @test_throws ArgumentError BlockAssortativityParams(q=Dict(:sep => 1.5))
+        @test_throws ArgumentError BlockAssortativityParams(q=Dict(:sep => -1.1))
+        @test_throws ArgumentError BlockAssortativityParams(q=Dict(:sep => NaN))
+        @test_throws ArgumentError BlockAssortativityParams(q=Dict(:sep => Inf))
+    end
+
+    @testset "q-lift marginal preservation" begin
+        age = AgePartition([0, 18]; labels=["child", "adult"])
+        sep = CategoricalPartition(:sep; participant_col=:part_sep,
+            contact_col=:cnt_sep, levels=["low", "high"])
+        prod = age × sep
+        prod_pop = [100.0, 100.0, 150.0, 150.0]
+        interm_M = [3.0 2.0 1.0 1.5; 1.5 1.0 2.5 2.0]
+        interm = SourceStratifiedContactMatrix(interm_M, age, prod, prod_pop)
+        base_pop = [200.0, 300.0]
+        base_M = [5.0 2.5; 2.5 4.5]
+        base_counts = base_M * Diagonal(base_pop)
+        base_counts_sym = (base_counts + base_counts') / 2
+        base_M_sym = base_counts_sym * Diagonal(1.0 ./ base_pop)
+        base_cm = ContactMatrix(base_M_sym, age, base_pop)
+        source_to_age = PartitionMap(prod, age)
+        spec = ConstrainedGeneralizedLift(interm; source_map=source_to_age)
+
+        for q_val in [0.3, 0.5, -0.3]
+            params = BlockAssortativityParams(q=Dict(:sep => q_val))
+            pspec = ParameterizedConstrainedLift(spec; default_params=params)
+            result = constrained_generalize(base_cm, pspec)
+            C = matrix(result) * Diagonal(population(result))
+            # Total contacts must be symmetric (reciprocity)
+            @test C ≈ C' atol=1e-10
+            # Coarsening back to base must be preserved
+            @test matrix(result ↓ age) ≈ matrix(base_cm) atol=1e-8
+        end
+    end
+
+    @testset "Refinement population mismatch rejected" begin
+        p = AgePartition([0, 18, 65])
+        M = [2.0 1.0 0.5; 1.0 3.0 1.0; 0.5 1.0 1.5]
+        pop = [1000.0, 3000.0, 500.0]
+        cm = ContactMatrix(M, p, pop)
+        fine = AgePartition([0, 5, 18, 30, 65])
+        # 5 fine groups: [0,5), [5,18), [18,30), [30,65), 65+
+        # coarse pop is [1000, 3000, 500] but this doesn't match aggregated fine pop
+        bad_pop = [400.0, 500.0, 1500.0, 1200.0, 600.0]
+        @test_throws ArgumentError refine(cm, fine, bad_pop)
+    end
+
+    @testset "Epidemic bounds π validation" begin
+        K = [2.0 0.5; 0.5 1.5]
+        # π doesn't sum to 1
+        @test_throws ArgumentError solve_final_size_vector(K, [0.3, 0.3])
+        # π has negative values
+        @test_throws ArgumentError solve_final_size_vector(K, [0.6, -0.4])
+        # π has NaN
+        @test_throws ArgumentError solve_final_size_vector(K, [0.5, NaN])
+        # Valid case still works
+        τ = solve_final_size_vector(K, [0.6, 0.4])
+        @test all(τ .>= 0)
+        @test all(τ .<= 1)
     end
 end
 

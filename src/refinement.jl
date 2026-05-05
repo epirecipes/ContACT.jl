@@ -44,6 +44,8 @@ function refine(cm::ContactMatrix, fine::AbstractPartition,
     for i in 1:n_fine
         pop_coarse[fmap[i]] += pop_fine[i]
     end
+    isapprox(pop_coarse, population(cm); rtol=1e-8, atol=1e-8) || throw(ArgumentError(
+        "fine_population must aggregate to the ContactMatrix population under the refinement map"))
 
     # Proportional disaggregation
     M_fine = zeros(Float64, n_fine, n_fine)

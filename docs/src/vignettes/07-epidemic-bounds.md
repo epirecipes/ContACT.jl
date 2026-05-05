@@ -47,11 +47,12 @@ end
 
 ## 2. Multitype Final-Size Equation
 
-For a structured population with NGM `K` and population fractions `π`,
-the final-size equations become coupled:
+For a structured population with NGM `K` (paper convention: `K[i,j]` = infections
+from type `i` to type `j`) and population fractions `π`, the final-size
+equations become coupled:
 
 ```math
-\tau_i = 1 - \exp\!\left(-\sum_j K_{ij}\,\pi_j\,\tau_j\right)
+\tau_j = 1 - \exp\!\left(-\frac{1}{\pi_j}\sum_i \pi_i\,\tau_i\,K_{ij}\right)
 ```
 
 ```@example v07

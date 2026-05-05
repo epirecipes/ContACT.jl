@@ -7,3 +7,8 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [sources]
 ContACT = {path = ".."}
+
+[compat]
+Catlab = "0.16, 0.17"
+CSV = "0.10"
+DataFrames = "1"

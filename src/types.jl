@@ -156,6 +156,8 @@ function ProductPartition(factors::Tuple)
     all(f -> f isa AbstractPartition, factors) ||
         throw(ArgumentError("all product factors must be partitions"))
     dims = Tuple(dimension(f) for f in factors)
+    allunique(dims) || throw(ArgumentError(
+        "product partition dimensions must be unique; got $dims"))
     labels = _product_labels(Tuple(group_labels(f) for f in factors))
     ProductPartition{dims,typeof(factors)}(factors, labels)
 end
@@ -302,8 +304,26 @@ struct ContactSurvey
             throw(ArgumentError("participants must have :part_id column"))
         :part_id in propertynames(contacts) ||
             throw(ArgumentError("contacts must have :part_id column"))
+        _validate_contact_survey_ids(participants, contacts)
         new(participants, contacts, metadata)
     end
+end
+
+function _validate_contact_survey_ids(participants::DataFrame, contacts::DataFrame)
+    participant_ids = participants[!, :part_id]
+    any(ismissing, participant_ids) &&
+        throw(ArgumentError("participants.part_id must not contain missing values"))
+    allunique(participant_ids) ||
+        throw(ArgumentError("participants.part_id values must be unique"))
+
+    contact_ids = contacts[!, :part_id]
+    any(ismissing, contact_ids) &&
+        throw(ArgumentError("contacts.part_id must not contain missing values"))
+    participant_id_set = Set(participant_ids)
+    unknown = count(id -> !(id in participant_id_set), contact_ids)
+    unknown == 0 || throw(ArgumentError(
+        "contacts contain $unknown part_id value(s) not present in participants"))
+    nothing
 end
 
 # ---------------------------------------------------------------------------

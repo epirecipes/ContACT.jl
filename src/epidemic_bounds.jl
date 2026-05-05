@@ -84,28 +84,31 @@ function solve_final_size_ext(α::Real, γ::Real)
 end
 
 """
-    solve_final_size_vector(K, π)
+    solve_final_size_vector(K, π; maxiter=10000, tol=1e-12)
 
-Solve the multitype final-size equation `1 - τⱼ = exp(-Σᵢ πᵢτᵢ Kᵢⱼ/πⱼ)`
+Solve the multitype final-size equation `1 - τⱼ = exp(-(1/πⱼ) Σᵢ πᵢ τᵢ Kᵢⱼ)`
 for the vector τ (paper convention: K[i,j] = infections from i to j-individuals).
 
 Returns the largest non-trivial solution via fixed-point iteration.
 Returns zeros if R₀ ≤ 1.
+
+Throws `ArgumentError` if the iteration does not converge within `maxiter` steps.
 """
-function solve_final_size_vector(K::AbstractMatrix{<:Real}, π::AbstractVector{<:Real})
+function solve_final_size_vector(K::AbstractMatrix{<:Real}, π::AbstractVector{<:Real};
+                                 maxiter::Int=10000, tol::Real=1e-12)
     k = length(π)
     size(K) == (k, k) || throw(DimensionMismatch("K must be $k × $k"))
     all(x -> isfinite(x) && x >= 0, K) || throw(ArgumentError("K must be non-negative"))
-    all(x -> isfinite(x) && x >= 0, π) || throw(ArgumentError("π must be non-negative"))
+    _validate_population_fractions(π)
 
     # Check R₀
     R0 = maximum(abs.(eigvals(K)))
     R0 > 1.0 || return zeros(k)
 
-    # Fixed-point iteration: τⱼ ← 1 - exp(-Σᵢ πᵢτᵢ Kᵢⱼ/πⱼ)
+    # Fixed-point iteration: τⱼ ← 1 - exp(-(1/πⱼ) Σᵢ πᵢ τᵢ Kᵢⱼ)
     # Start near the scalar solution
     τ = fill(solve_final_size_scalar(R0), k)
-    for _ in 1:10000
+    for iter in 1:maxiter
         τ_new = zeros(k)
         for j in 1:k
             if π[j] == 0
@@ -115,12 +118,23 @@ function solve_final_size_vector(K::AbstractMatrix{<:Real}, π::AbstractVector{<
             exponent = sum(π[i] * τ[i] * K[i, j] / π[j] for i in 1:k if π[i] > 0)
             τ_new[j] = 1.0 - exp(-exponent)
         end
-        if maximum(abs.(τ_new .- τ)) < 1e-12
+        if maximum(abs.(τ_new .- τ)) < tol
             return τ_new
         end
         τ = τ_new
     end
+    @warn "solve_final_size_vector did not converge in $maxiter iterations (residual=$(maximum(abs.(τ))))"
     τ
+end
+
+# Validate that π is a valid population fraction vector
+function _validate_population_fractions(π::AbstractVector{<:Real})
+    all(x -> isfinite(x) && x >= 0, π) || throw(ArgumentError("π must be finite and non-negative"))
+    s = sum(π)
+    s > 0 || throw(ArgumentError("π must have positive sum"))
+    isapprox(s, 1.0; atol=1e-6) || throw(ArgumentError(
+        "π must sum to approximately 1.0, got $s"))
+    nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -209,7 +223,7 @@ function r0_bounds_detailed_balance(K::AbstractMatrix{<:Real}, π::AbstractVecto
     k = length(π)
     size(K) == (k, k) || throw(DimensionMismatch("K must be $k × $k"))
     all(x -> isfinite(x) && x >= 0, K) || throw(ArgumentError("K must be non-negative"))
-    all(x -> isfinite(x) && x >= 0, π) || throw(ArgumentError("π must be non-negative"))
+    _validate_population_fractions(π)
 
     # Filter out zero-population groups
     active = findall(x -> x > 0, π)
@@ -291,6 +305,7 @@ function final_size_bounds(K::AbstractMatrix{<:Real}, π::AbstractVector{<:Real}
     info in (:row, :col) || throw(ArgumentError("info must be :row or :col"))
     k = length(π)
     size(K) == (k, k) || throw(DimensionMismatch("K must be $k × $k"))
+    _validate_population_fractions(π)
 
     active = findall(x -> x > 0, π)
     lower = zeros(k)
@@ -369,6 +384,7 @@ function total_final_size_bounds(K::AbstractMatrix{<:Real}, π::AbstractVector{<
     info in (:row, :col) || throw(ArgumentError("info must be :row or :col"))
     k = length(π)
     size(K) == (k, k) || throw(DimensionMismatch("K must be $k × $k"))
+    _validate_population_fractions(π)
 
     active = findall(x -> x > 0, π)
 
