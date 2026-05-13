@@ -25,6 +25,7 @@ makedocs(;
             "CoMix/SEP Reconstruction" => "vignettes/05-comix-sep-reconstruction.md",
             "POLYMOD Real-Data Reconstruction" => "vignettes/06-polymod-reconstruction.md",
             "Epidemic Bounds" => "vignettes/07-epidemic-bounds.md",
+            "Reconnect UK Survey" => "vignettes/08-reconnect-uk.md",
         ],
         "API Reference" => [
             "Types" => "api/types.md",

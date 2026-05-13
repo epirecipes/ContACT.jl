@@ -1384,4 +1384,205 @@ end
     end
 end
 
+# ---------------------------------------------------------------------------
+# Reconnect UK survey: cross-validation against R reference values
+# ---------------------------------------------------------------------------
+# These tests use pre-computed R reference matrices (simple day-weighted mean)
+# committed as CSV fixtures. They validate that ContACT.jl's compute_matrix
+# functor produces identical results when given the same data and weights.
+#
+# Full-data tests require downloading Zenodo data (~13 MB).
+# Run with: CONTACT_RUN_RECONNECT=1 julia --project=. -e 'using Pkg; Pkg.test()'
+
+if get(ENV, "CONTACT_RUN_RECONNECT", "") == "1"
+
+using CSV
+using Downloads: download
+
+@testset "Reconnect UK cross-validation" begin
+    # Load reference matrices from fixtures
+    fixture_dir = joinpath(@__DIR__, "fixtures", "reconnect")
+
+    function load_ref_matrix(filename)
+        df = CSV.read(joinpath(fixture_dir, filename), DataFrame)
+        Matrix{Float64}(df[:, 2:end])
+    end
+
+    ref_age = load_ref_matrix("reconnect_age_matrix_R.csv")
+    ref_eth = load_ref_matrix("reconnect_ethnicity_matrix_R.csv")
+    ref_coarse = load_ref_matrix("reconnect_age_coarse_matrix_R.csv")
+    ref_home = load_ref_matrix("reconnect_age_home_matrix_R.csv")
+    ref_work = load_ref_matrix("reconnect_age_work_matrix_R.csv")
+    ref_school = load_ref_matrix("reconnect_age_school_matrix_R.csv")
+    ref_other = load_ref_matrix("reconnect_age_other_matrix_R.csv")
+
+    # Download Reconnect data from Zenodo
+    zenodo_base = "https://zenodo.org/records/17339866/files"
+    data_dir = mktempdir()
+
+    filenames = [
+        "reconnect_participant_common.csv",
+        "reconnect_participant_extra.csv",
+        "reconnect_contact_common.csv",
+        "reconnect_contact_extra.csv",
+        "reconnect_sday.csv",
+    ]
+    for f in filenames
+        dest = joinpath(data_dir, f)
+        isfile(dest) || download("$zenodo_base/$f", dest)
+    end
+
+    # Load and join data
+    part_common = CSV.read(joinpath(data_dir, "reconnect_participant_common.csv"), DataFrame; missingstring="NA")
+    part_extra = CSV.read(joinpath(data_dir, "reconnect_participant_extra.csv"), DataFrame; missingstring="NA")
+    sday = CSV.read(joinpath(data_dir, "reconnect_sday.csv"), DataFrame; missingstring="NA")
+    cnt_common = CSV.read(joinpath(data_dir, "reconnect_contact_common.csv"), DataFrame; missingstring="NA")
+    cnt_extra = CSV.read(joinpath(data_dir, "reconnect_contact_extra.csv"), DataFrame; missingstring="NA")
+
+    participants = innerjoin(part_common, part_extra, on = :part_id)
+    participants = innerjoin(participants, sday, on = :part_id)
+
+    # Drop participants with missing dayofweek
+    dropmissing!(participants, :dayofweek)
+
+    # Day type & weights (dayofweek: 0=Sunday, 6=Saturday)
+    participants.day_type = ifelse.(
+        participants.dayofweek .∈ Ref([0, 6]),
+        "weekend", "weekday"
+    )
+    day_counts = combine(groupby(participants, :day_type), nrow => :n)
+    total_n = nrow(participants)
+    day_counts.sample_prop = day_counts.n ./ total_n
+    day_counts.target_prop = ifelse.(day_counts.day_type .== "weekday", 5/7, 2/7)
+    day_counts.day_weight = day_counts.target_prop ./ day_counts.sample_prop
+    participants = innerjoin(participants, select(day_counts, :day_type, :day_weight), on = :day_type)
+
+    # Contacts
+    contacts = innerjoin(cnt_common, cnt_extra, on = [:cont_id, :part_id])
+    rename!(participants, :part_age_exact => :part_age)
+    participants.part_age = Float64.(participants.part_age)
+    rename!(contacts, :cnt_age_exact => :cnt_age)
+    dropmissing!(contacts, :cnt_age)
+    contacts.cnt_age = Float64.(collect(contacts.cnt_age))
+    valid_ids = Set(participants.part_id)
+    filter!(row -> row.part_id in valid_ids, contacts)
+
+    survey = ContactSurvey(participants, contacts)
+
+    # -----------------------------------------------------------------------
+    # Age partition (16 groups)
+    # -----------------------------------------------------------------------
+    age_breaks = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75]
+    age_part = AgePartition(age_breaks)
+
+    @testset "Age matrix matches R reference" begin
+        cm = compute_matrix(survey, age_part; weights = :day_weight)
+        # R convention: rows are reporter age → transpose of ContACT (cols = reporter)
+        # R computes M[reporter, contact] while ContACT has M[contact, reporter]
+        # The R CSV has rownames = reporter → ref_age[i,j] = mean contacts of
+        # reporter group i with contact group j
+        # ContACT: matrix(cm)[i,j] = mean contacts of reporter group j with contact group i
+        # So ContACT matrix = transpose(R matrix)
+        M_julia = matrix(cm)
+        @test size(M_julia) == (16, 16)
+        @test isapprox(M_julia, ref_age', atol = 1e-4)
+    end
+
+    @testset "Setting-specific matrices match R reference" begin
+        settings_ref = Dict(
+            "Home" => ref_home,
+            "Work" => ref_work,
+            "School" => ref_school,
+            "Other" => ref_other,
+        )
+        for (setting, ref) in settings_ref
+            cnt_s = filter(row -> row.cnt_location == setting, contacts)
+            survey_s = ContactSurvey(participants, cnt_s)
+            cm_s = compute_matrix(survey_s, age_part; weights = :day_weight)
+            @test isapprox(matrix(cm_s), ref', atol = 1e-4)
+        end
+    end
+
+    @testset "Setting composition holds exactly" begin
+        cms_settings = ContactMatrix[]
+        for setting in ["Home", "Work", "School", "Other"]
+            cnt_s = filter(row -> row.cnt_location == setting, contacts)
+            survey_s = ContactSurvey(participants, cnt_s)
+            push!(cms_settings, compute_matrix(survey_s, age_part; weights = :day_weight))
+        end
+        cm_total = compute_matrix(survey, age_part; weights = :day_weight)
+        cm_composed = cms_settings[1] ⊕ cms_settings[2] ⊕ cms_settings[3] ⊕ cms_settings[4]
+        @test isapprox(matrix(cm_composed), matrix(cm_total), atol = 1e-10)
+    end
+
+    @testset "Ethnicity matrix matches R reference" begin
+        eth_levels = ["Asian", "Black", "Mixed", "Other", "White"]
+        eth_part = CategoricalPartition(
+            :ethnicity, eth_levels;
+            participant_col = :part_ethnicity,
+            contact_col = :cnt_ethnicity,
+        )
+        participants_eth = filter(
+            row -> !ismissing(row.part_ethnicity) && row.part_ethnicity in eth_levels,
+            participants,
+        )
+        valid_eth_ids = Set(participants_eth.part_id)
+        contacts_eth = filter(
+            row -> row.part_id in valid_eth_ids &&
+                   !ismissing(row.cnt_ethnicity) &&
+                   row.cnt_ethnicity in eth_levels,
+            contacts,
+        )
+        survey_eth = ContactSurvey(participants_eth, contacts_eth)
+        cm_eth = compute_matrix(survey_eth, eth_part; weights = :day_weight)
+        @test isapprox(matrix(cm_eth), ref_eth', atol = 1e-4)
+    end
+
+    @testset "Coarse 3×3 matrix matches R reference (direct)" begin
+        coarse_part = AgePartition([0, 18, 65])
+        cm_coarse = compute_matrix(survey, coarse_part; weights = :day_weight)
+        @test isapprox(matrix(cm_coarse), ref_coarse', atol = 1e-4)
+    end
+
+    @testset "Symmetrisation is reciprocal and idempotent" begin
+        cm = compute_matrix(survey, age_part; weights = :day_weight)
+        cm_sym = ↔(cm)
+        M_s = matrix(cm_sym)
+        N = population(cm_sym)
+        n = n_groups(cm_sym)
+        # Reciprocity
+        for i in 1:n, j in 1:n
+            @test isapprox(M_s[i, j] * N[j], M_s[j, i] * N[i], atol = 1e-10)
+        end
+        # Idempotence
+        cm_sym2 = ↔(cm_sym)
+        @test isapprox(matrix(cm_sym2), M_s, atol = 1e-14)
+    end
+
+    @testset "NGM and R₀ are well-defined" begin
+        cm = compute_matrix(survey, age_part; weights = :day_weight)
+        cm_sym = ↔(cm)
+        τ_val = 0.05
+        K = next_generation_matrix(cm_sym; transmissibility = τ_val)
+        R0_val = R₀(cm_sym; transmissibility = τ_val)
+        @test R0_val > 0
+        @test isapprox(R0_val, maximum(abs.(eigvals(K))), rtol = 1e-10)
+        # With only ~3.8 known-age contacts and τ=0.05, R₀ is modest
+        @test 0.01 < R0_val < 5.0
+    end
+
+    @testset "Epidemic bounds bracket true R₀" begin
+        cm = compute_matrix(survey, age_part; weights = :day_weight)
+        cm_sym = ↔(cm)
+        τ_val = 0.05
+        K = next_generation_matrix(cm_sym; transmissibility = τ_val)
+        R0_val = R₀(cm_sym; transmissibility = τ_val)
+        bounds = r0_bounds(K)
+        @test bounds.lower ≤ R0_val + 1e-10
+        @test R0_val ≤ bounds.upper + 1e-10
+    end
+end
+
+end # CONTACT_RUN_RECONNECT
+
 end # top-level testset

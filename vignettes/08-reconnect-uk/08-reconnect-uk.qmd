@@ -1,0 +1,517 @@
+---
+title: "Categorical Analysis of the Reconnect UK Contact Survey"
+subtitle: "From Individual Contacts to Structured Matrices via Applied Category Theory"
+author: "Simon Frost"
+date: today
+format:
+  html:
+    code-fold: false
+    toc: true
+  gfm:
+    toc: true
+  pdf:
+    documentclass: article
+    toc: true
+    mainfont: "STIX Two Text"
+    mathfont: "STIX Two Math"
+    monofont: "Fira Code"
+    pdf-engine: xelatex
+---
+
+## Overview
+
+This vignette demonstrates a **categorical analysis** of the
+[Reconnect UK social contact survey](https://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.1005038)
+(Goodfellow et al., 2026) using ContACT.jl. The Reconnect study collected
+individual-level contact data from 13,238 participants across the UK,
+recording details of 125,671 social contacts including age, setting (home,
+work, school, other), and socio-demographic characteristics.
+
+We show how each step of the analysis corresponds to a morphism or functor in
+the categorical framework:
+
+| Step                        | Categorical Operation                          | Operator |
+|:----------------------------|:-----------------------------------------------|:---------|
+| Survey → contact matrix     | Functor $F\colon \mathbf{Survey}(P) \to \mathbf{Contact}$ | `▷`      |
+| Symmetrisation              | Idempotent endomorphism                        | `↔`      |
+| Setting composition         | Commutative monoid $\oplus$                    | `⊕`      |
+| Age coarsening              | Left Kan extension along `FinFunction`          | `↓`      |
+| NGM construction            | Diagonal scaling by population                 | —        |
+
+::: {.callout-note}
+## Methodological Note
+This vignette computes **simple day-weighted arithmetic mean contacts**
+per participant group. The published Reconnect analysis uses a more
+sophisticated negative binomial MLE bootstrap estimator with
+post-stratification weights and large-group contact allocation.
+Results here reflect only individually reported contacts with known
+contact age (~50,665 of 125,671 contacts).
+:::
+
+## Setup
+
+```{julia}
+using ContACT
+using CSV
+using DataFrames
+using LinearAlgebra
+using Downloads: download
+import ContACT: ×
+```
+
+## 1. Loading the Reconnect Data
+
+The Reconnect survey data are available from
+[Zenodo (DOI: 10.5281/zenodo.17339866)](https://zenodo.org/records/17339866).
+
+```{julia}
+zenodo_base = "https://zenodo.org/records/17339866/files"
+data_dir = mktempdir()
+
+filenames = [
+    "reconnect_participant_common.csv",
+    "reconnect_participant_extra.csv",
+    "reconnect_contact_common.csv",
+    "reconnect_contact_extra.csv",
+    "reconnect_sday.csv",
+]
+
+for f in filenames
+    dest = joinpath(data_dir, f)
+    isfile(dest) || download("$zenodo_base/$f", dest)
+end
+println("Data downloaded to: $data_dir")
+```
+
+```{julia}
+part_common = CSV.read(
+    joinpath(data_dir, "reconnect_participant_common.csv"), DataFrame;
+    missingstring = "NA",
+)
+part_extra = CSV.read(
+    joinpath(data_dir, "reconnect_participant_extra.csv"), DataFrame;
+    missingstring = "NA",
+)
+sday = CSV.read(joinpath(data_dir, "reconnect_sday.csv"), DataFrame;
+    missingstring = "NA",
+)
+cnt_common = CSV.read(
+    joinpath(data_dir, "reconnect_contact_common.csv"), DataFrame;
+    missingstring = "NA",
+)
+cnt_extra = CSV.read(
+    joinpath(data_dir, "reconnect_contact_extra.csv"), DataFrame;
+    missingstring = "NA",
+)
+
+println("Participants (common): $(nrow(part_common))")
+println("Contacts (common):     $(nrow(cnt_common))")
+```
+
+## 2. Data Preparation
+
+Join participant tables and compute day-of-week weights. The `dayofweek`
+column uses 0 = Sunday through 6 = Saturday. We reweight so that the sample
+represents 5/7 weekdays and 2/7 weekends, correcting for any imbalance in
+the survey design.
+
+```{julia}
+participants = innerjoin(part_common, part_extra, on = :part_id)
+participants = innerjoin(participants, sday, on = :part_id)
+
+# Drop any participant with missing day-of-week
+dropmissing!(participants, :dayofweek)
+
+# Day type: dayofweek 0=Sunday, 1=Monday, ..., 6=Saturday
+# Weekend = 0 (Sunday) and 6 (Saturday)
+participants.day_type = ifelse.(
+    participants.dayofweek .∈ Ref([0, 6]),
+    "weekend", "weekday"
+)
+
+# Day weights: reweight to 5/7 weekday, 2/7 weekend
+day_counts = combine(groupby(participants, :day_type), nrow => :n)
+total_n = nrow(participants)
+day_counts.sample_prop = day_counts.n ./ total_n
+day_counts.target_prop = ifelse.(
+    day_counts.day_type .== "weekday", 5 / 7, 2 / 7
+)
+day_counts.day_weight = day_counts.target_prop ./ day_counts.sample_prop
+
+participants = innerjoin(
+    participants,
+    select(day_counts, :day_type, :day_weight),
+    on = :day_type,
+)
+println("Day weight distribution:")
+println(select(day_counts, :day_type, :n, :sample_prop, :day_weight))
+```
+
+Prepare the contact data — join common and extra tables and retain only
+contacts with known exact age.
+
+```{julia}
+contacts = innerjoin(cnt_common, cnt_extra, on = [:cont_id, :part_id])
+
+# Rename age columns to match ContACT conventions
+rename!(participants, :part_age_exact => :part_age)
+participants.part_age = Float64.(participants.part_age)
+rename!(contacts, :cnt_age_exact => :cnt_age)
+
+# Retain only contacts with known exact age
+n_before = nrow(contacts)
+dropmissing!(contacts, :cnt_age)
+contacts.cnt_age = Float64.(collect(contacts.cnt_age))
+
+println(
+    "Contacts with known age: $(nrow(contacts)) of $n_before " *
+    "($(round(100 * nrow(contacts) / n_before, digits=1))%)"
+)
+```
+
+```{julia}
+# Keep only contacts whose participants are in our dataset
+valid_ids = Set(participants.part_id)
+filter!(row -> row.part_id in valid_ids, contacts)
+
+# Build the ContactSurvey
+survey = ContactSurvey(participants, contacts)
+println(
+    "Survey: $(nrow(survey.participants)) participants, " *
+    "$(nrow(survey.contacts)) contacts"
+)
+```
+
+## 3. Age-Stratified Contact Matrix
+
+We apply the **survey-to-matrix functor** $F\colon \mathbf{Survey}(P) \to \mathbf{Contact}$
+with a 16-group age partition matching the Reconnect study's published age
+bands.
+
+```{julia}
+age_breaks = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75]
+age_part = AgePartition(age_breaks)
+
+# The functor maps survey data to a ContactMatrix, weighted by day_weight
+cm_age = compute_matrix(survey, age_part; weights = :day_weight)
+
+println("Contact matrix: $(n_groups(cm_age)) × $(n_groups(cm_age))")
+println(
+    "\nMean contacts with known age, by participant age group (column sums):"
+)
+M = matrix(cm_age)
+for (j, lab) in enumerate(group_labels(cm_age))
+    println("  $lab: $(round(sum(M[:, j]), digits=2))")
+end
+```
+
+::: {.callout-note}
+These column sums represent contacts with **known contact age** only
+(~50,665 of 125,671 total contacts). The paper reports higher mean
+daily contacts (9.1) because it includes large-group contacts and
+contacts with imputed ages.
+:::
+
+The matrix $M_{ij}$ gives the mean number of contacts that a participant in
+age group $j$ (column / source) reports having with someone in age group $i$
+(row / target). This is the ContACT convention: **columns are reporters / sources**.
+
+```{julia}
+println("Contact matrix (rows = contact age, cols = participant age):")
+show(
+    IOContext(stdout, :compact => true, :limit => true),
+    "text/plain",
+    round.(matrix(cm_age), digits = 3),
+)
+println()
+```
+
+## 4. Symmetrisation
+
+The **symmetrisation morphism** `↔` enforces the reciprocity constraint:
+the total contacts from group $i$ to group $j$ equals the total contacts
+from group $j$ to group $i$.
+
+$$M^{\text{sym}}_{ij} = \frac{M_{ij} \cdot N_j + M_{ji} \cdot N_i}{2\,N_j}$$
+
+This is an **idempotent** endomorphism: $\overleftrightarrow{\overleftrightarrow{M}} = \overleftrightarrow{M}$.
+
+```{julia}
+cm_sym = ↔(cm_age)
+
+# Verify reciprocity: M[i,j]*N[j] ≈ M[j,i]*N[i]
+M_s = matrix(cm_sym)
+N = population(cm_sym)
+max_reciprocity_error = maximum(
+    abs(M_s[i, j] * N[j] - M_s[j, i] * N[i]) for i in 1:16 for j in 1:16
+)
+println(
+    "Maximum reciprocity violation: " *
+    "$(round(max_reciprocity_error, sigdigits=3))"
+)
+
+# Verify idempotence
+cm_sym2 = ↔(cm_sym)
+println(
+    "Idempotence check: max|↔(↔(M)) − ↔(M)| = " *
+    "$(maximum(abs.(matrix(cm_sym2) .- M_s)))"
+)
+```
+
+## 5. Setting-Specific Composition
+
+The Reconnect survey records the **setting** (location) of each contact:
+Home, Work, School, or Other. In the categorical framework, the total
+contact matrix is the **additive composition** of setting-specific matrices:
+
+$$M_{\text{total}} = M_{\text{home}} \oplus M_{\text{work}} \oplus M_{\text{school}} \oplus M_{\text{other}}$$
+
+This forms a commutative monoid on contact matrices sharing the same partition.
+
+```{julia}
+# Verify that location categories partition the contact set
+location_counts = combine(
+    groupby(DataFrame(cnt_location = contacts.cnt_location), :cnt_location),
+    nrow => :n,
+)
+println("Contact locations:")
+println(location_counts)
+```
+
+```{julia}
+settings = ["Home", "Work", "School", "Other"]
+cms = Dict{String,ContactMatrix}()
+
+for setting in settings
+    cnt_setting = filter(row -> row.cnt_location == setting, contacts)
+    survey_setting = ContactSurvey(participants, cnt_setting)
+    cms[setting] = compute_matrix(
+        survey_setting, age_part; weights = :day_weight
+    )
+end
+
+# Additive composition: ⊕
+cm_composed = cms["Home"] ⊕ cms["Work"] ⊕ cms["School"] ⊕ cms["Other"]
+
+# Verify the composition property
+composition_error = maximum(abs.(matrix(cm_composed) .- matrix(cm_age)))
+println(
+    "Composition check: max|Home ⊕ Work ⊕ School ⊕ Other − Total| = " *
+    "$(round(composition_error, sigdigits=3))"
+)
+```
+
+```{julia}
+println("Mean known-age contacts per person by setting:")
+for setting in settings
+    total = round(sum(matrix(cms[setting])), digits = 2)
+    println("  $setting: $total")
+end
+total_all = round(sum(matrix(cm_age)), digits = 2)
+println("  Total:  $total_all")
+```
+
+## 6. Ethnicity-Stratified Matrix
+
+The Reconnect survey records ethnicity for both participants and contacts.
+We use a **categorical partition** to construct an ethnicity-stratified
+contact matrix.
+
+We apply **complete-case analysis**: only participants and contacts with
+ethnicity in the five main categories are included. Contacts reported as
+"Prefer not to say" or with missing ethnicity are excluded.
+
+```{julia}
+eth_levels = ["Asian", "Black", "Mixed", "Other", "White"]
+
+eth_part = CategoricalPartition(
+    :ethnicity,
+    eth_levels;
+    participant_col = :part_ethnicity,
+    contact_col = :cnt_ethnicity,
+)
+
+# Complete case: filter participants and contacts
+participants_eth = filter(
+    row ->
+        !ismissing(row.part_ethnicity) && row.part_ethnicity in eth_levels,
+    participants,
+)
+
+valid_eth_ids = Set(participants_eth.part_id)
+contacts_eth = filter(
+    row ->
+        row.part_id in valid_eth_ids &&
+            !ismissing(row.cnt_ethnicity) &&
+            row.cnt_ethnicity in eth_levels,
+    contacts,
+)
+
+survey_eth = ContactSurvey(participants_eth, contacts_eth)
+cm_eth = compute_matrix(survey_eth, eth_part; weights = :day_weight)
+
+println(
+    "Ethnicity matrix ($(nrow(participants_eth)) participants, " *
+    "$(nrow(contacts_eth)) contacts):"
+)
+```
+
+```{julia}
+# Display ethnicity contact matrix
+M_eth = matrix(cm_eth)
+labels_eth = group_labels(cm_eth)
+# Header
+print(lpad("", 8))
+for lab in labels_eth
+    print(rpad(lab, 10))
+end
+println()
+# Rows = reporter (source/column in ContACT), show as M[:, j] for source j
+for (j, lab) in enumerate(labels_eth)
+    print(rpad(lab, 8))
+    for i in eachindex(labels_eth)
+        print(rpad(round(M_eth[i, j], digits = 3), 10))
+    end
+    println()
+end
+```
+
+The diagonal elements show **ethnicity assortativity**: people tend to have
+more contacts with others of the same ethnicity, especially among the White
+majority group (3.24 same-group contacts per person vs ≤ 0.18 cross-group).
+
+## 7. Coarsening: Fine → Coarse Age Groups
+
+In the categorical framework, **coarsening** is a left Kan extension along a
+`FinFunction` that maps fine groups to coarse groups. A `PartitionMap`
+encodes this morphism.
+
+::: {.callout-warning}
+## Partition Compatibility
+Coarsening via `PartitionMap` requires that the fine partition **refines**
+the coarse partition — every coarse boundary must also be a fine boundary.
+The 16-group partition `[0, 5, 10, 15, 20, ...]` does **not** refine
+`[0, 18, 65]` because age 18 falls inside the `[15, 20)` bin.
+:::
+
+We demonstrate two approaches to highlight this categorical constraint.
+
+### Direct computation (exact)
+
+Compute the 3-group matrix directly from the data using `AgePartition([0, 18, 65])`:
+
+```{julia}
+coarse_part = AgePartition([0, 18, 65])
+cm_coarse_direct = compute_matrix(survey, coarse_part; weights = :day_weight)
+
+println("Direct 3×3 age matrix (0-17, 18-64, 65+):")
+println(round.(matrix(cm_coarse_direct), digits = 4))
+```
+
+### Approximate coarsening (from 16 groups)
+
+We assign each 5-year bin to its best-matching coarse group. The `[15, 20)`
+bin is assigned to the child group (0–17), though it actually contains both
+15–17 year olds (children) and 18–19 year olds (adults). This is an
+**approximation**, not an exact coarsening.
+
+```{julia}
+# 16 groups: [0,5), [5,10), ..., [70,75), 75+
+# Coarse:    1 = 0-17, 2 = 18-64, 3 = 65+
+# Bin [15,20) straddles the 18 boundary → assigned to children (majority)
+assignments = [1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3]
+age_map = PartitionMap(age_part, coarse_part, assignments)
+
+cm_coarse_approx = cm_age ↓ age_map
+
+println("Approximate 3×3 (15-19 → children):")
+println(round.(matrix(cm_coarse_approx), digits = 4))
+
+println("\nDifference (approx − direct):")
+println(round.(matrix(cm_coarse_approx) .- matrix(cm_coarse_direct), digits = 4))
+```
+
+The difference quantifies the information lost by the non-nesting
+approximation. In a proper categorical coarsening where the fine partition
+refines the coarse one, this difference would be exactly zero.
+
+## 8. Next-Generation Matrix and R₀
+
+The **next-generation matrix** (NGM) $K$ translates contact patterns into
+transmission potential. For an SIR model with uniform susceptibility:
+
+$$K_{ij} = \tau \cdot C_{ij}$$
+
+where $\tau$ is the per-contact transmission probability and $C$ is the
+symmetrised contact matrix. The basic reproduction number is the spectral
+radius of $K$.
+
+```{julia}
+# Illustrative transmissibility for a respiratory pathogen
+τ = 0.05
+K = next_generation_matrix(cm_sym; transmissibility = τ)
+R0_val = R₀(cm_sym; transmissibility = τ)
+
+println("R₀ = $(round(R0_val, digits=3)) (with τ = $τ)")
+println("Spectral radius via ρ(cm): $(round(ρ(cm_sym) * τ, digits=3))")
+```
+
+```{julia}
+# Per-group epidemic final size (multitype)
+pop_fracs = population(cm_sym) ./ sum(population(cm_sym))
+τ_vec = solve_final_size_vector(K, pop_fracs)
+
+println("Per-group final attack fractions (τ = $τ):")
+for (i, lab) in enumerate(group_labels(cm_sym))
+    println("  $lab: $(round(τ_vec[i] * 100, digits=1))%")
+end
+println(
+    "Overall attack fraction: " *
+    "$(round(sum(τ_vec .* pop_fracs) * 100, digits=1))%"
+)
+```
+
+## 9. Epidemic Bounds from Partial Information
+
+Using the framework from Britton et al. (2025), we can compute **bounds on
+R₀** when the NGM is only partially known — for example, when only the row
+or column sums are available.
+
+```{julia}
+# Bounds on R₀ from only the row/column marginals of the NGM
+bounds = r0_bounds(K)
+println("R₀ bounds from marginals alone:")
+println("  Lower bound: $(round(bounds.lower, digits=3))")
+println("  Upper bound: $(round(bounds.upper, digits=3))")
+println("  True R₀:     $(round(R0_val, digits=3))")
+```
+
+## 10. Summary
+
+This vignette demonstrated how the Reconnect UK contact survey data maps
+naturally onto ContACT.jl's categorical framework:
+
+| Section | Operation | Key Result |
+|:--------|:----------|:-----------|
+| §3 | Functor `▷` | Survey → 16×16 age contact matrix |
+| §4 | Symmetrisation `↔` | Reciprocity enforced; idempotent |
+| §5 | Composition `⊕` | Home ⊕ Work ⊕ School ⊕ Other = Total (exact) |
+| §6 | Categorical partition | 5×5 ethnicity matrix; assortativity visible |
+| §7 | Coarsening `↓` | Requires compatible partitions; quantified approximation error |
+| §8 | NGM + R₀ | Spectral radius of $\tau C$ via `ρ` |
+| §9 | Epidemic bounds | R₀ bracketed from marginals alone |
+
+The categorical perspective makes each operation's properties explicit and
+compositionally verifiable, rather than relying on ad-hoc post-processing.
+
+## References
+
+- Goodfellow I, et al. (2026). "Social contact patterns in the UK from the
+  Reconnect study: implications for the transmission of respiratory
+  infections." *PLOS Medicine*.
+  [DOI: 10.1371/journal.pmed.1005038](https://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.1005038)
+- Mossong J, et al. (2008). "Social contacts and mixing patterns relevant to
+  the spread of infectious diseases." *PLOS Medicine*, 5(3), e74.
+- Britton T, Poletti P, Scarpa B, Pellis L (2025). "Bounds on the basic
+  reproduction ratio and the final epidemic size when the next generation
+  matrix M is only partially known." arXiv:2602.23885v2.
