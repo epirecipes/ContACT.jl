@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Reconnect UK Survey · ContACT.jl</title><meta name="title" content="Reconnect UK Survey · ContACT.jl"/><meta property="og:title" content="Reconnect UK Survey · ContACT.jl"/><meta property="twitter:title" content="Reconnect UK Survey · ContACT.jl"/><meta name="description" content="Documentation for ContACT.jl."/><meta property="og:description" content="Documentation for ContACT.jl."/><meta property="twitter:description" content="Documentation for ContACT.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">ContACT.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../tutorials/getting_started/">Getting Started</a></li><li><a class="tocitem" href="../../tutorials/composition/">Composition &amp; Stratification</a></li><li><a class="tocitem" href="../../tutorials/categorical/">Categorical Framework</a></li></ul></li><li><span class="tocitem">Vignettes</span><ul><li><a class="tocitem" href="../01-introduction/">Introduction</a></li><li><a class="tocitem" href="../02-composition/">Composition</a></li><li><a class="tocitem" href="../03-categorical-framework/">Categorical Framework</a></li><li><a class="tocitem" href="../04-generalized-contact-matrices/">Generalized Contact Matrices</a></li><li><a class="tocitem" href="../05-comix-sep-reconstruction/">CoMix/SEP Reconstruction</a></li><li><a class="tocitem" href="../06-polymod-reconstruction/">POLYMOD Real-Data Reconstruction</a></li><li><a class="tocitem" href="../07-epidemic-bounds/">Epidemic Bounds</a></li><li class="is-active"><a class="tocitem" href>Reconnect UK Survey</a><ul class="internal"><li><a class="tocitem" href="#Overview"><span>Overview</span></a></li><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#1.-Loading-the-Reconnect-Data"><span>1. Loading the Reconnect Data</span></a></li><li><a class="tocitem" href="#2.-Data-Preparation"><span>2. Data Preparation</span></a></li><li><a class="tocitem" href="#3.-Age-Stratified-Contact-Matrix"><span>3. Age-Stratified Contact Matrix</span></a></li><li><a class="tocitem" href="#4.-Symmetrisation"><span>4. Symmetrisation</span></a></li><li><a class="tocitem" href="#5.-Setting-Specific-Composition"><span>5. Setting-Specific Composition</span></a></li><li><a class="tocitem" href="#6.-Ethnicity-Stratified-Matrix"><span>6. Ethnicity-Stratified Matrix</span></a></li><li><a class="tocitem" href="#7.-Coarsening:-Fine-Coarse-Age-Groups"><span>7. Coarsening: Fine → Coarse Age Groups</span></a></li><li><a class="tocitem" href="#8.-Next-Generation-Matrix-and-R"><span>8. Next-Generation Matrix and R₀</span></a></li><li><a class="tocitem" href="#9.-Epidemic-Bounds-from-Partial-Information"><span>9. Epidemic Bounds from Partial Information</span></a></li><li><a class="tocitem" href="#10.-Summary"><span>10. Summary</span></a></li><li><a class="tocitem" href="#References"><span>References</span></a></li></ul></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../api/types/">Types</a></li><li><a class="tocitem" href="../../api/survey/">Survey Operations</a></li><li><a class="tocitem" href="../../api/operations/">Matrix Operations</a></li><li><a class="tocitem" href="../../api/schemas/">ACSet Schemas</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Vignettes</a></li><li class="is-active"><a href>Reconnect UK Survey</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Reconnect UK Survey</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/epirecipes/ContACT.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/epirecipes/ContACT.jl/blob/main/docs/src/vignettes/08-reconnect-uk.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Categorical-Analysis-of-the-Reconnect-UK-Contact-Survey"><a class="docs-heading-anchor" href="#Categorical-Analysis-of-the-Reconnect-UK-Contact-Survey">Categorical Analysis of the Reconnect UK Contact Survey</a><a id="Categorical-Analysis-of-the-Reconnect-UK-Contact-Survey-1"></a><a class="docs-heading-anchor-permalink" href="#Categorical-Analysis-of-the-Reconnect-UK-Contact-Survey" title="Permalink"></a></h1><h2 id="Overview"><a class="docs-heading-anchor" href="#Overview">Overview</a><a id="Overview-1"></a><a class="docs-heading-anchor-permalink" href="#Overview" title="Permalink"></a></h2><p>This vignette demonstrates a <strong>categorical analysis</strong> of the <a href="https://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.1005038">Reconnect UK social contact survey</a> (Goodfellow et al., 2026) using ContACT.jl. The Reconnect study collected individual-level contact data from 13,238 participants across the UK, recording details of 125,671 social contacts including age, setting (home, work, school, other), and socio-demographic characteristics.</p><p>We show how each step of the analysis corresponds to a morphism or functor in the categorical framework:</p><table><tr><th style="text-align: left">Step</th><th style="text-align: left">Categorical Operation</th><th style="text-align: left">Operator</th></tr><tr><td style="text-align: left">Survey → contact matrix</td><td style="text-align: left">Functor <code>F: Survey(P) → Contact</code></td><td style="text-align: left"><code>▷</code></td></tr><tr><td style="text-align: left">Symmetrisation</td><td style="text-align: left">Idempotent endomorphism</td><td style="text-align: left"><code>↔</code></td></tr><tr><td style="text-align: left">Setting composition</td><td style="text-align: left">Commutative monoid <code>⊕</code></td><td style="text-align: left"><code>⊕</code></td></tr><tr><td style="text-align: left">Age coarsening</td><td style="text-align: left">Left Kan extension along <code>FinFunction</code></td><td style="text-align: left"><code>↓</code></td></tr><tr><td style="text-align: left">NGM construction</td><td style="text-align: left">Diagonal scaling by population</td><td style="text-align: left">—</td></tr></table><div class="admonition is-info" id="Methodological-Note-40fe893845aa64aa"><header class="admonition-header">Methodological Note<a class="admonition-anchor" href="#Methodological-Note-40fe893845aa64aa" title="Permalink"></a></header><div class="admonition-body"><p>This vignette computes <strong>simple day-weighted arithmetic mean contacts</strong> per participant group. The published Reconnect analysis uses a more sophisticated negative binomial MLE bootstrap estimator with post-stratification weights and large-group contact allocation. Results here reflect only individually reported contacts with known contact age (~50,665 of 125,671 contacts).</p></div></div><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><pre><code class="language-julia hljs">using ContACT
+using CSV
+using DataFrames
+using LinearAlgebra
+using Downloads: download
+import ContACT: ×</code></pre><h2 id="1.-Loading-the-Reconnect-Data"><a class="docs-heading-anchor" href="#1.-Loading-the-Reconnect-Data">1. Loading the Reconnect Data</a><a id="1.-Loading-the-Reconnect-Data-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Loading-the-Reconnect-Data" title="Permalink"></a></h2><p>The Reconnect survey data are available from <a href="https://zenodo.org/records/17339866">Zenodo (DOI: 10.5281/zenodo.17339866)</a>.</p><pre><code class="language-julia hljs">zenodo_base = &quot;https://zenodo.org/records/17339866/files&quot;
+data_dir = mktempdir()
+
+filenames = [
+    &quot;reconnect_participant_common.csv&quot;,
+    &quot;reconnect_participant_extra.csv&quot;,
+    &quot;reconnect_contact_common.csv&quot;,
+    &quot;reconnect_contact_extra.csv&quot;,
+    &quot;reconnect_sday.csv&quot;,
+]
+
+for f in filenames
+    dest = joinpath(data_dir, f)
+    isfile(dest) || download(&quot;$zenodo_base/$f&quot;, dest)
+end
+println(&quot;Data downloaded to: $data_dir&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Data downloaded to: /tmp/jl_DMEAku</code></pre><pre><code class="language-julia hljs">part_common = CSV.read(
+    joinpath(data_dir, &quot;reconnect_participant_common.csv&quot;), DataFrame;
+    missingstring = &quot;NA&quot;,
+)
+part_extra = CSV.read(
+    joinpath(data_dir, &quot;reconnect_participant_extra.csv&quot;), DataFrame;
+    missingstring = &quot;NA&quot;,
+)
+sday = CSV.read(joinpath(data_dir, &quot;reconnect_sday.csv&quot;), DataFrame;
+    missingstring = &quot;NA&quot;,
+)
+cnt_common = CSV.read(
+    joinpath(data_dir, &quot;reconnect_contact_common.csv&quot;), DataFrame;
+    missingstring = &quot;NA&quot;,
+)
+cnt_extra = CSV.read(
+    joinpath(data_dir, &quot;reconnect_contact_extra.csv&quot;), DataFrame;
+    missingstring = &quot;NA&quot;,
+)
+
+println(&quot;Participants (common): $(nrow(part_common))&quot;)
+println(&quot;Contacts (common):     $(nrow(cnt_common))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Participants (common): 13238
+Contacts (common):     125671</code></pre><h2 id="2.-Data-Preparation"><a class="docs-heading-anchor" href="#2.-Data-Preparation">2. Data Preparation</a><a id="2.-Data-Preparation-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Data-Preparation" title="Permalink"></a></h2><p>Join participant tables and compute day-of-week weights.</p><pre><code class="language-julia hljs">participants = innerjoin(part_common, part_extra, on = :part_id)
+participants = innerjoin(participants, sday, on = :part_id)
+
+# Drop any participant with missing day-of-week
+dropmissing!(participants, :dayofweek)
+
+# Day type: dayofweek 0=Sunday, 1=Monday, ..., 6=Saturday
+# Weekend = 0 (Sunday) and 6 (Saturday)
+participants.day_type = ifelse.(
+    participants.dayofweek .∈ Ref([0, 6]),
+    &quot;weekend&quot;, &quot;weekday&quot;
+)
+
+# Day weights: reweight to 5/7 weekday, 2/7 weekend
+day_counts = combine(groupby(participants, :day_type), nrow =&gt; :n)
+total_n = nrow(participants)
+day_counts.sample_prop = day_counts.n ./ total_n
+day_counts.target_prop = ifelse.(
+    day_counts.day_type .== &quot;weekday&quot;, 5 / 7, 2 / 7
+)
+day_counts.day_weight = day_counts.target_prop ./ day_counts.sample_prop
+
+participants = innerjoin(
+    participants,
+    select(day_counts, :day_type, :day_weight),
+    on = :day_type,
+)
+println(&quot;Day weight distribution:&quot;)
+println(select(day_counts, :day_type, :n, :sample_prop, :day_weight))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Day weight distribution:
+2×4 DataFrame
+ Row │ day_type  n      sample_prop  day_weight
+     │ String    Int64  Float64      Float64
+─────┼──────────────────────────────────────────
+   1 │ weekday    9616     0.726449    0.983257
+   2 │ weekend    3621     0.273551    1.04446</code></pre><p>Prepare the contact data.</p><pre><code class="language-julia hljs">contacts = innerjoin(cnt_common, cnt_extra, on = [:cont_id, :part_id])
+
+# Rename age columns to match ContACT conventions
+rename!(participants, :part_age_exact =&gt; :part_age)
+participants.part_age = Float64.(participants.part_age)
+rename!(contacts, :cnt_age_exact =&gt; :cnt_age)
+
+# Retain only contacts with known exact age
+n_before = nrow(contacts)
+dropmissing!(contacts, :cnt_age)
+contacts.cnt_age = Float64.(collect(contacts.cnt_age))
+
+println(
+    &quot;Contacts with known age: $(nrow(contacts)) of $n_before &quot; *
+    &quot;($(round(100 * nrow(contacts) / n_before, digits=1))%)&quot;
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Contacts with known age: 50665 of 125671 (40.3%)</code></pre><pre><code class="language-julia hljs"># Keep only contacts whose participants are in our dataset
+valid_ids = Set(participants.part_id)
+filter!(row -&gt; row.part_id in valid_ids, contacts)
+
+# Build the ContactSurvey
+survey = ContactSurvey(participants, contacts)
+println(
+    &quot;Survey: $(nrow(survey.participants)) participants, &quot; *
+    &quot;$(nrow(survey.contacts)) contacts&quot;
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Survey: 13237 participants, 50663 contacts</code></pre><h2 id="3.-Age-Stratified-Contact-Matrix"><a class="docs-heading-anchor" href="#3.-Age-Stratified-Contact-Matrix">3. Age-Stratified Contact Matrix</a><a id="3.-Age-Stratified-Contact-Matrix-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Age-Stratified-Contact-Matrix" title="Permalink"></a></h2><p>We apply the <strong>survey-to-matrix functor</strong> with a 16-group age partition matching the Reconnect study&#39;s published age bands.</p><pre><code class="language-julia hljs">age_breaks = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75]
+age_part = AgePartition(age_breaks)
+
+# The functor maps survey data to a ContactMatrix, weighted by day_weight
+cm_age = compute_matrix(survey, age_part; weights = :day_weight)
+
+println(&quot;Contact matrix: $(n_groups(cm_age)) × $(n_groups(cm_age))&quot;)
+println(
+    &quot;\nMean contacts with known age, by participant age group (column sums):&quot;
+)
+M = matrix(cm_age)
+for (j, lab) in enumerate(group_labels(cm_age))
+    println(&quot;  $lab: $(round(sum(M[:, j]), digits=2))&quot;)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Contact matrix: 16 × 16
+
+Mean contacts with known age, by participant age group (column sums):
+  [0,5): 4.92
+  [5,10): 5.48
+  [10,15): 4.93
+  [15,20): 4.11
+  [20,25): 3.3
+  [25,30): 3.56
+  [30,35): 3.92
+  [35,40): 3.63
+  [40,45): 3.7
+  [45,50): 3.65
+  [50,55): 3.41
+  [55,60): 3.21
+  [60,65): 3.28
+  [65,70): 3.13
+  [70,75): 3.24
+  75+: 3.31</code></pre><div class="admonition is-info" id="Note-fe2954a759755246"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-fe2954a759755246" title="Permalink"></a></header><div class="admonition-body"><p>These column sums represent contacts with <strong>known contact age</strong> only (~50,665 of 125,671 total contacts). The paper reports higher mean daily contacts (9.1) because it includes large-group contacts and contacts with imputed ages.</p></div></div><pre><code class="language-julia hljs"># Display as a compact rounded matrix
+println(&quot;Contact matrix (rows=contact age, cols=participant age):&quot;)
+show(
+    IOContext(stdout, :compact =&gt; true, :limit =&gt; true),
+    &quot;text/plain&quot;,
+    round.(matrix(cm_age), digits = 3),
+)
+println()</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Contact matrix (rows=contact age, cols=participant age):
+16×16 Matrix{Float64}:
+ 1.076  0.62   0.206  0.172  0.131  …  0.062  0.059  0.064  0.066  0.047
+ 0.388  1.773  0.525  0.235  0.142     0.045  0.065  0.073  0.05   0.046
+ 0.191  0.259  1.286  0.319  0.116     0.063  0.043  0.066  0.058  0.044
+ 0.13   0.142  0.287  0.944  0.286     0.124  0.102  0.055  0.072  0.045
+ 0.301  0.321  0.178  0.306  0.723     0.199  0.192  0.135  0.172  0.095
+ 0.639  0.509  0.3    0.268  0.484  …  0.267  0.242  0.213  0.186  0.158
+ 0.684  0.523  0.4    0.314  0.301     0.294  0.296  0.29   0.255  0.171
+ 0.498  0.47   0.449  0.303  0.206     0.224  0.269  0.264  0.238  0.229
+ 0.347  0.341  0.487  0.32   0.232     0.261  0.283  0.324  0.308  0.243
+ 0.168  0.175  0.269  0.294  0.185     0.219  0.191  0.186  0.227  0.272
+ 0.152  0.116  0.201  0.249  0.216  …  0.329  0.283  0.19   0.249  0.27
+ 0.105  0.07   0.106  0.146  0.109     0.396  0.316  0.195  0.184  0.222
+ 0.113  0.068  0.089  0.093  0.097     0.37   0.401  0.302  0.196  0.227
+ 0.066  0.048  0.059  0.05   0.022     0.108  0.229  0.361  0.268  0.224
+ 0.036  0.026  0.048  0.041  0.023     0.078  0.126  0.216  0.392  0.294
+ 0.028  0.019  0.045  0.053  0.031  …  0.171  0.18   0.197  0.315  0.719</code></pre><h2 id="4.-Symmetrisation"><a class="docs-heading-anchor" href="#4.-Symmetrisation">4. Symmetrisation</a><a id="4.-Symmetrisation-1"></a><a class="docs-heading-anchor-permalink" href="#4.-Symmetrisation" title="Permalink"></a></h2><p>The <strong>symmetrisation morphism</strong> <code>↔</code> enforces the reciprocity constraint.</p><p class="math-container">\[M^{\text{sym}}_{ij} = \frac{M_{ij} \cdot N_j + M_{ji} \cdot N_i}{2\,N_j}\]</p><p>This is an <strong>idempotent</strong> endomorphism: <code>↔(↔(M)) = ↔(M)</code>.</p><pre><code class="language-julia hljs">cm_sym = ↔(cm_age)
+
+# Verify reciprocity: M[i,j]*N[j] ≈ M[j,i]*N[i]
+M_s = matrix(cm_sym)
+N = population(cm_sym)
+max_reciprocity_error = maximum(
+    abs(M_s[i, j] * N[j] - M_s[j, i] * N[i]) for i in 1:16 for j in 1:16
+)
+println(
+    &quot;Maximum reciprocity violation: &quot; *
+    &quot;$(round(max_reciprocity_error, sigdigits=3))&quot;
+)
+
+# Verify idempotence
+cm_sym2 = ↔(cm_sym)
+println(
+    &quot;Idempotence check: max|↔(↔(M)) − ↔(M)| = &quot; *
+    &quot;$(maximum(abs.(matrix(cm_sym2) .- M_s)))&quot;
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Maximum reciprocity violation: 5.68e-14
+Idempotence check: max|↔(↔(M)) − ↔(M)| = 5.551115123125783e-17</code></pre><h2 id="5.-Setting-Specific-Composition"><a class="docs-heading-anchor" href="#5.-Setting-Specific-Composition">5. Setting-Specific Composition</a><a id="5.-Setting-Specific-Composition-1"></a><a class="docs-heading-anchor-permalink" href="#5.-Setting-Specific-Composition" title="Permalink"></a></h2><p>The total contact matrix is the <strong>additive composition</strong> of setting-specific matrices: <code>M_total = M_home ⊕ M_work ⊕ M_school ⊕ M_other</code>.</p><pre><code class="language-julia hljs"># Verify that location categories partition the contact set
+location_counts = combine(
+    groupby(DataFrame(cnt_location = contacts.cnt_location), :cnt_location),
+    nrow =&gt; :n,
+)
+println(&quot;Contact locations:&quot;)
+println(location_counts)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Contact locations:
+4×2 DataFrame
+ Row │ cnt_location  n
+     │ String7?      Int64
+─────┼─────────────────────
+   1 │ Home          17754
+   2 │ Other         20888
+   3 │ Work           6340
+   4 │ School         5681</code></pre><pre><code class="language-julia hljs">settings = [&quot;Home&quot;, &quot;Work&quot;, &quot;School&quot;, &quot;Other&quot;]
+cms = Dict{String,ContactMatrix}()
+
+for setting in settings
+    cnt_setting = filter(row -&gt; row.cnt_location == setting, contacts)
+    survey_setting = ContactSurvey(participants, cnt_setting)
+    cms[setting] = compute_matrix(
+        survey_setting, age_part; weights = :day_weight
+    )
+end
+
+# Additive composition: ⊕
+cm_composed = cms[&quot;Home&quot;] ⊕ cms[&quot;Work&quot;] ⊕ cms[&quot;School&quot;] ⊕ cms[&quot;Other&quot;]
+
+# Verify the composition property
+composition_error = maximum(abs.(matrix(cm_composed) .- matrix(cm_age)))
+println(
+    &quot;Composition check: max|Home ⊕ Work ⊕ School ⊕ Other − Total| = &quot; *
+    &quot;$(round(composition_error, sigdigits=3))&quot;
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Composition check: max|Home ⊕ Work ⊕ School ⊕ Other − Total| = 6.44e-14</code></pre><pre><code class="language-julia hljs">println(&quot;Mean known-age contacts per person by setting:&quot;)
+for setting in settings
+    total = round(sum(matrix(cms[setting])), digits = 2)
+    println(&quot;  $setting: $total&quot;)
+end
+total_all = round(sum(matrix(cm_age)), digits = 2)
+println(&quot;  Total:  $total_all&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Mean known-age contacts per person by setting:
+  Home: 21.22
+  Work: 6.97
+  School: 6.62
+  Other: 25.97
+  Total:  60.78</code></pre><h2 id="6.-Ethnicity-Stratified-Matrix"><a class="docs-heading-anchor" href="#6.-Ethnicity-Stratified-Matrix">6. Ethnicity-Stratified Matrix</a><a id="6.-Ethnicity-Stratified-Matrix-1"></a><a class="docs-heading-anchor-permalink" href="#6.-Ethnicity-Stratified-Matrix" title="Permalink"></a></h2><p>We use a <strong>categorical partition</strong> with complete-case analysis: only participants and contacts with ethnicity in the five main categories are included.</p><pre><code class="language-julia hljs">eth_levels = [&quot;Asian&quot;, &quot;Black&quot;, &quot;Mixed&quot;, &quot;Other&quot;, &quot;White&quot;]
+
+eth_part = CategoricalPartition(
+    :ethnicity,
+    eth_levels;
+    participant_col = :part_ethnicity,
+    contact_col = :cnt_ethnicity,
+)
+
+# Complete case: filter participants and contacts
+participants_eth = filter(
+    row -&gt;
+        !ismissing(row.part_ethnicity) &amp;&amp; row.part_ethnicity in eth_levels,
+    participants,
+)
+
+valid_eth_ids = Set(participants_eth.part_id)
+contacts_eth = filter(
+    row -&gt;
+        row.part_id in valid_eth_ids &amp;&amp;
+            !ismissing(row.cnt_ethnicity) &amp;&amp;
+            row.cnt_ethnicity in eth_levels,
+    contacts,
+)
+
+survey_eth = ContactSurvey(participants_eth, contacts_eth)
+cm_eth = compute_matrix(survey_eth, eth_part; weights = :day_weight)
+
+println(
+    &quot;Ethnicity matrix ($(nrow(participants_eth)) participants, &quot; *
+    &quot;$(nrow(contacts_eth)) contacts):&quot;
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Ethnicity matrix (13216 participants, 50149 contacts):</code></pre><pre><code class="language-julia hljs">M_eth = matrix(cm_eth)
+labels_eth = group_labels(cm_eth)
+print(lpad(&quot;&quot;, 8))
+for lab in labels_eth
+    print(rpad(lab, 10))
+end
+println()
+for (j, lab) in enumerate(labels_eth)
+    print(rpad(lab, 8))
+    for i in eachindex(labels_eth)
+        print(rpad(round(M_eth[i, j], digits = 3), 10))
+    end
+    println()
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">        Asian     Black     Mixed     Other     White
+Asian   1.719     0.208     0.225     0.058     1.115
+Black   0.339     2.356     0.413     0.046     1.704
+Mixed   0.411     0.48      1.079     0.093     2.204
+Other   0.411     0.052     0.36      0.997     1.009
+White   0.182     0.146     0.115     0.028     3.235</code></pre><h2 id="7.-Coarsening:-Fine-Coarse-Age-Groups"><a class="docs-heading-anchor" href="#7.-Coarsening:-Fine-Coarse-Age-Groups">7. Coarsening: Fine → Coarse Age Groups</a><a id="7.-Coarsening:-Fine-Coarse-Age-Groups-1"></a><a class="docs-heading-anchor-permalink" href="#7.-Coarsening:-Fine-Coarse-Age-Groups" title="Permalink"></a></h2><p>Coarsening is a left Kan extension along a <code>FinFunction</code> that maps fine groups to coarse groups.</p><div class="admonition is-warning" id="Partition-Compatibility-409358f0439c6339"><header class="admonition-header">Partition Compatibility<a class="admonition-anchor" href="#Partition-Compatibility-409358f0439c6339" title="Permalink"></a></header><div class="admonition-body"><p>The 16-group partition <code>[0, 5, 10, 15, 20, ...]</code> does <strong>not</strong> refine <code>[0, 18, 65]</code> because age 18 falls inside the <code>[15, 20)</code> bin.</p></div></div><h3 id="Direct-computation-(exact)"><a class="docs-heading-anchor" href="#Direct-computation-(exact)">Direct computation (exact)</a><a id="Direct-computation-(exact)-1"></a><a class="docs-heading-anchor-permalink" href="#Direct-computation-(exact)" title="Permalink"></a></h3><pre><code class="language-julia hljs">coarse_part = AgePartition([0, 18, 65])
+cm_coarse_direct = compute_matrix(survey, coarse_part; weights = :day_weight)
+
+println(&quot;Direct 3×3 age matrix (0-17, 18-64, 65+):&quot;)
+println(round.(matrix(cm_coarse_direct), digits = 4))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Direct 3×3 age matrix (0-17, 18-64, 65+):
+[2.1657 0.5464 0.2047; 2.6899 2.7527 2.0356; 0.1318 0.2346 0.9793]</code></pre><h3 id="Approximate-coarsening-(from-16-groups)"><a class="docs-heading-anchor" href="#Approximate-coarsening-(from-16-groups)">Approximate coarsening (from 16 groups)</a><a id="Approximate-coarsening-(from-16-groups)-1"></a><a class="docs-heading-anchor-permalink" href="#Approximate-coarsening-(from-16-groups)" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Bin [15,20) straddles the 18 boundary → assigned to children (majority)
+assignments = [1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3]
+age_map = PartitionMap(age_part, coarse_part, assignments)
+
+cm_coarse_approx = cm_age ↓ age_map
+
+println(&quot;Approximate 3×3 (15-19 → children):&quot;)
+println(round.(matrix(cm_coarse_approx), digits = 4))
+
+println(&quot;\nDifference (approx − direct):&quot;)
+println(round.(matrix(cm_coarse_approx) .- matrix(cm_coarse_direct), digits = 4))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Approximate 3×3 (15-19 → children):
+[2.1981 0.6152 0.2317; 2.5436 2.6832 2.0086; 0.1298 0.2384 0.9793]
+
+Difference (approx − direct):
+[0.0323 0.0688 0.027; -0.1464 -0.0695 -0.027; -0.0019 0.0038 -0.0]</code></pre><h2 id="8.-Next-Generation-Matrix-and-R"><a class="docs-heading-anchor" href="#8.-Next-Generation-Matrix-and-R">8. Next-Generation Matrix and R₀</a><a id="8.-Next-Generation-Matrix-and-R-1"></a><a class="docs-heading-anchor-permalink" href="#8.-Next-Generation-Matrix-and-R" title="Permalink"></a></h2><pre><code class="language-julia hljs">τ = 0.05
+K = next_generation_matrix(cm_sym; transmissibility = τ)
+R0_val = R₀(cm_sym; transmissibility = τ)
+
+println(&quot;R₀ = $(round(R0_val, digits=3)) (with τ = $τ)&quot;)
+println(&quot;Spectral radius via ρ(cm): $(round(ρ(cm_sym) * τ, digits=3))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">R₀ = 0.202 (with τ = 0.05)
+Spectral radius via ρ(cm): 0.202</code></pre><pre><code class="language-julia hljs">pop_fracs = population(cm_sym) ./ sum(population(cm_sym))
+τ_vec = solve_final_size_vector(K, pop_fracs)
+
+println(&quot;Per-group final attack fractions (τ = $τ):&quot;)
+for (i, lab) in enumerate(group_labels(cm_sym))
+    println(&quot;  $lab: $(round(τ_vec[i] * 100, digits=1))%&quot;)
+end
+println(
+    &quot;Overall attack fraction: &quot; *
+    &quot;$(round(sum(τ_vec .* pop_fracs) * 100, digits=1))%&quot;
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Per-group final attack fractions (τ = 0.05):
+  [0,5): 0.0%
+  [5,10): 0.0%
+  [10,15): 0.0%
+  [15,20): 0.0%
+  [20,25): 0.0%
+  [25,30): 0.0%
+  [30,35): 0.0%
+  [35,40): 0.0%
+  [40,45): 0.0%
+  [45,50): 0.0%
+  [50,55): 0.0%
+  [55,60): 0.0%
+  [60,65): 0.0%
+  [65,70): 0.0%
+  [70,75): 0.0%
+  75+: 0.0%
+Overall attack fraction: 0.0%</code></pre><h2 id="9.-Epidemic-Bounds-from-Partial-Information"><a class="docs-heading-anchor" href="#9.-Epidemic-Bounds-from-Partial-Information">9. Epidemic Bounds from Partial Information</a><a id="9.-Epidemic-Bounds-from-Partial-Information-1"></a><a class="docs-heading-anchor-permalink" href="#9.-Epidemic-Bounds-from-Partial-Information" title="Permalink"></a></h2><pre><code class="language-julia hljs"># Bounds on R₀ from only the row/column marginals of the NGM
+bounds = r0_bounds(K)
+println(&quot;R₀ bounds from marginals alone:&quot;)
+println(&quot;  Lower bound: $(round(bounds.lower, digits=3))&quot;)
+println(&quot;  Upper bound: $(round(bounds.upper, digits=3))&quot;)
+println(&quot;  True R₀:     $(round(R0_val, digits=3))&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">R₀ bounds from marginals alone:
+  Lower bound: 0.085
+  Upper bound: 0.334
+  True R₀:     0.202</code></pre><h2 id="10.-Summary"><a class="docs-heading-anchor" href="#10.-Summary">10. Summary</a><a id="10.-Summary-1"></a><a class="docs-heading-anchor-permalink" href="#10.-Summary" title="Permalink"></a></h2><table><tr><th style="text-align: left">Section</th><th style="text-align: left">Operation</th><th style="text-align: left">Key Result</th></tr><tr><td style="text-align: left">§3</td><td style="text-align: left">Functor <code>▷</code></td><td style="text-align: left">Survey → 16×16 age contact matrix</td></tr><tr><td style="text-align: left">§4</td><td style="text-align: left">Symmetrisation <code>↔</code></td><td style="text-align: left">Reciprocity enforced; idempotent</td></tr><tr><td style="text-align: left">§5</td><td style="text-align: left">Composition <code>⊕</code></td><td style="text-align: left">Home ⊕ Work ⊕ School ⊕ Other = Total (exact)</td></tr><tr><td style="text-align: left">§6</td><td style="text-align: left">Categorical partition</td><td style="text-align: left">5×5 ethnicity matrix; assortativity visible</td></tr><tr><td style="text-align: left">§7</td><td style="text-align: left">Coarsening <code>↓</code></td><td style="text-align: left">Requires compatible partitions</td></tr><tr><td style="text-align: left">§8</td><td style="text-align: left">NGM + R₀</td><td style="text-align: left">Spectral radius of τC</td></tr><tr><td style="text-align: left">§9</td><td style="text-align: left">Epidemic bounds</td><td style="text-align: left">R₀ bracketed from marginals alone</td></tr></table><h2 id="References"><a class="docs-heading-anchor" href="#References">References</a><a id="References-1"></a><a class="docs-heading-anchor-permalink" href="#References" title="Permalink"></a></h2><ul><li>Goodfellow I, et al. (2026). &quot;Social contact patterns in the UK from the Reconnect study.&quot; <em>PLOS Medicine</em>.</li><li>Mossong J, et al. (2008). &quot;Social contacts and mixing patterns relevant to the spread of infectious diseases.&quot; <em>PLOS Medicine</em>, 5(3), e74.</li><li>Britton T, et al. (2025). &quot;Bounds on R₀ and final epidemic size.&quot; arXiv:2602.23885v2.</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../07-epidemic-bounds/">« Epidemic Bounds</a><a class="docs-footer-nextpage" href="../../api/types/">Types »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Wednesday 13 May 2026 19:21">Wednesday 13 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
