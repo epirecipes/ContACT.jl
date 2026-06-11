@@ -172,13 +172,15 @@ All epidemic bounds functions have convenience wrappers for `ContactMatrix`
 inputs. These automatically compute the NGM and handle the transpose convention:
 
 ```@example v07
-# Build a realistic 3-age-group contact matrix (POLYMOD-like)
+# Build a realistic 3-age-group contact matrix (POLYMOD-like).
+# Symmetrise so total contacts are reciprocal — the detailed-balance bound
+# (Theorem 3.2) is only valid when the NGM satisfies detailed balance.
 part = AgePartition([0, 18, 65])
 pop = [11_000.0, 33_000.0, 9_500.0]
 M = [7.0 2.5 1.0;
      2.0 8.0 2.0;
      0.5 2.0 4.0]
-cm = ContactMatrix(M, part, pop)
+cm = ↔(ContactMatrix(M, part, pop))
 
 println("Contact matrix (per-capita rates):")
 display(matrix(cm))
