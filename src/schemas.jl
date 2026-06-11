@@ -229,12 +229,20 @@ function migrate_coarsen(acs::ContactSurveyACSet, f::PartitionMap)
     coarsened = ContactSurveyACSet()
     add_parts!(coarsened, :G, n_coarse)
 
+    n_fine = length(fmap)
+    _checked_group(grp, kind, idx) = begin
+        (grp isa Integer && 1 <= grp <= n_fine) || throw(ArgumentError(
+            "migrate_coarsen: $kind $idx has unset or out-of-range group $grp; " *
+            "rebuild the ACSet without skip_invalid before coarsening"))
+        fmap[grp]
+    end
+
     # Copy participants with coarsened groups
     n_p = nparts(acs, :P)
     add_parts!(coarsened, :P, n_p)
     for i in 1:n_p
         fine_grp = subpart(acs, i, :part_group)
-        set_subpart!(coarsened, i, :part_group, fmap[fine_grp])
+        set_subpart!(coarsened, i, :part_group, _checked_group(fine_grp, "participant", i))
     end
 
     # Copy contacts with coarsened groups and same reporter links
@@ -243,7 +251,7 @@ function migrate_coarsen(acs::ContactSurveyACSet, f::PartitionMap)
     for k in 1:n_c
         set_subpart!(coarsened, k, :reporter, subpart(acs, k, :reporter))
         fine_grp = subpart(acs, k, :cnt_group)
-        set_subpart!(coarsened, k, :cnt_group, fmap[fine_grp])
+        set_subpart!(coarsened, k, :cnt_group, _checked_group(fine_grp, "contact", k))
     end
 
     return coarsened
@@ -269,8 +277,17 @@ end
 
 Compose contact matrices according to an undirected wiring diagram.
 
-Each box in the UWD represents a contact setting (home, work, school, etc.).
-Composition is additive: matrices at shared junctions sum.
+Each box in the UWD represents a contact setting (home, work, school, etc.)
+whose interface is the shared age partition. Boxes are glued along the junctions
+they share with the outer boundary; gluing contact matrices over a common age
+junction is additive, so the composite is the sum of the boxes' matrices over
+that boundary.
+
+The diagram is checked for consistency with this additive semantics: every box
+must expose exactly the boundary junctions (so all boxes share one interface),
+no box may be wired to an internal junction, and every box must have a sharer of
+matching size. Diagrams that violate these conditions (e.g. a box wired to an
+internal junction, which denotes a contraction rather than a sum) are rejected.
 
 # Example
 ```julia
@@ -286,13 +303,32 @@ total_matrix = compose_uwd(diagram, sharers)
 """
 function compose_uwd(diagram::AbstractUWD, sharers::Dict{Symbol, ContactSharer{T}}) where {T}
     n_boxes = nparts(diagram, :Box)
-    names = Symbol.(subpart(diagram, :name))
+    n_boxes > 0 || throw(ArgumentError("compose_uwd: diagram has no boxes"))
 
+    # Junctions exposed at the outer boundary; the composite lives over these.
+    boundary = Set(subpart(diagram, :outer_junction))
+    isempty(boundary) && throw(ArgumentError(
+        "compose_uwd: diagram has no outer junctions to compose over"))
+
+    box_names = subpart(diagram, :name)
     n = first(values(sharers)).n_groups
     K = zeros(T, n, n)
-    for nm in names
+
+    for b in 1:n_boxes
+        nm = Symbol(box_names[b])
         haskey(sharers, nm) || error("No sharer for box :$nm")
-        K .+= sharers[nm].matrix
+        sharer = sharers[nm]
+        sharer.n_groups == n || throw(DimensionMismatch(
+            "compose_uwd: box :$nm has $(sharer.n_groups) groups but expected $n"))
+
+        ports = incident(diagram, b, :box)
+        box_junctions = Set(subpart(diagram, p, :junction) for p in ports)
+        box_junctions == boundary || throw(ArgumentError(
+            "compose_uwd: box :$nm must expose exactly the boundary junctions for " *
+            "additive composition; got junctions $(sort(collect(box_junctions))) " *
+            "vs boundary $(sort(collect(boundary)))"))
+
+        K .+= sharer.matrix
     end
     return K
 end

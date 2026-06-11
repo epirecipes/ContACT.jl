@@ -164,6 +164,10 @@ end
 Lift `cm` from partition `P` to `P × partition` using a blockwise mixing
 assumption. The result coarsens exactly back to `cm` along the product
 projection.
+
+`cm` must be reciprocal in total-contact space (`M[i,j]·N_j == M[j,i]·N_i`);
+this is what makes the lifted product matrix reciprocal as well. Apply `↔(cm)`
+first when starting from a raw survey estimate.
 """
 function generalize(cm::ContactMatrix, spec::GeneralizedLift)
     cm.semantics isa MeanContacts || throw(ArgumentError(
@@ -181,6 +185,8 @@ function generalize(cm::ContactMatrix, spec::GeneralizedLift)
         _mixing_blocks(spec.mixing, n_base, n_added, refined_pop)
 
     base_counts = _total_contacts(cm)
+    isapprox(base_counts, transpose(base_counts); rtol=1e-8, atol=1e-8) || throw(ArgumentError(
+        "generalized lift requires reciprocal total contacts (M[i,j]·N_j == M[j,i]·N_i); apply ↔(cm) first"))
     refined_counts = zeros(Float64, n_base * n_added, n_base * n_added)
 
     for target_base in 1:n_base
@@ -381,7 +387,10 @@ function _assortative_diagonal_block(activity::Vector{Float64}, r::Vector{Float6
         residual = (1 .- r) .* activity
         isapprox(residual[1], residual[2]; rtol=1e-8, atol=1e-10) ||
             throw(ArgumentError(
-                "two-group assortative diagonal block requires equal residual activity; use BlockMixing for a custom kernel"))
+                "two-group assortative diagonal block requires equal cross-group mass " *
+                "(1-r₁)·a₁ == (1-r₂)·a₂ so the symmetric block can preserve reciprocity; " *
+                "got $(residual[1]) and $(residual[2]). Adjust activity/assortativity or " *
+                "use BlockMixing for a custom (possibly asymmetric off-diagonal) kernel."))
         M[1, 1] = r[1] * activity[1]
         M[2, 2] = r[2] * activity[2]
         M[1, 2] = residual[1]

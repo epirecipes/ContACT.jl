@@ -1,6 +1,8 @@
 import Mathlib.Data.Matrix.Basic
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.Fintype.BigOperators
+import Mathlib.LinearAlgebra.Matrix.Kronecker
+import Mathlib.Logic.Equiv.Fin.Basic
 import ContACTProofs.ContactCat
 
 /-!
@@ -85,3 +87,51 @@ theorem symmetrise_additive_strat {n : ℕ}
   have h2j_ne : (2 : ℝ) * pop j ≠ 0 := mul_ne_zero two_ne_zero hj_ne
   field_simp
   ring
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Stratification IS the Kronecker product, and its linear index layout
+-- ═══════════════════════════════════════════════════════════════════════════
+
+/-!
+The Julia `stratify` builds a block matrix `A_strat[(s₁,i),(s₂,j)] = C[s₁,s₂]·A[i,j]`
+stored with the *linearised* index `(stratum-1)·n_local + local`. We show the
+`Fin s × Fin a` model used above coincides with Mathlib's Kronecker product
+`C ⊗ₖ A` (so "stratification = Kronecker product" is literal), and that the
+product index corresponds to the Julia linear layout via `finProdFinEquiv`.
+-/
+
+/-- Stratification is exactly the Kronecker product of the coupling and local
+    matrices. -/
+theorem stratify_eq_kronecker {s a : ℕ}
+    (C : Matrix (Fin s) (Fin s) ℝ) (A : Matrix (Fin a) (Fin a) ℝ) :
+    stratifyMatrix C A = Matrix.kroneckerMap (· * ·) C A := by
+  ext p q
+  simp [stratifyMatrix, Matrix.kroneckerMap_apply]
+
+/-- The `Fin s × Fin a` product index equals the Julia linear block index
+    (0-based `local + a · stratum`), via `finProdFinEquiv`. -/
+theorem stratify_linear_index {s a : ℕ} (stratum : Fin s) (loc : Fin a) :
+    ((finProdFinEquiv (stratum, loc) : Fin (s * a)) : ℕ)
+      = (loc : ℕ) + a * (stratum : ℕ) := by
+  simp [finProdFinEquiv]
+
+/-- **Forward commutation**: when the coupling matrix `C` is symmetric,
+    symmetrisation commutes with stratification on every entry. The left side is
+    the symmetrised stratified entry at `(s₁,i)-(s₂,j)` (using the local
+    population on the age index, as in `symmetrise_stratify_comm_iff`); the right
+    side is `C[s₁,s₂]` times the symmetrised local entry. The converse — that
+    symmetry of `C` is also necessary — is `symmetrise_stratify_comm_iff`. -/
+theorem symmetrise_stratify_comm {s a : ℕ}
+    (C : Matrix (Fin s) (Fin s) ℝ)
+    (A : Matrix (Fin a) (Fin a) ℝ)
+    (pop : Fin a → ℝ)
+    (hpop : ∀ i, pop i > 0)
+    (hC : ∀ s₁ s₂, C s₁ s₂ = C s₂ s₁)
+    (s₁ s₂ : Fin s) (i j : Fin a) :
+    (stratifyMatrix C A (s₁, i) (s₂, j) * pop j +
+        stratifyMatrix C A (s₂, j) (s₁, i) * pop i) / (2 * pop j) =
+    C s₁ s₂ * ((A i j * pop j + A j i * pop i) / (2 * pop j)) := by
+  simp only [stratifyMatrix]
+  rw [hC s₂ s₁]
+  have hj : pop j ≠ 0 := ne_of_gt (hpop j)
+  field_simp

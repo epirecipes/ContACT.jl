@@ -60,8 +60,9 @@ If `cutpoints` is omitted, participants are split within each base partition
 group into `n` equal-frequency activity strata by total contact count (or by
 `score_col`, if supplied). Boundary participants are split fractionally, matching
 the high/low convention in Britton and Ball for odd group sizes. If `cutpoints`
-is supplied, participants are assigned deterministically to the intervals
-`(-Inf, c₁]`, `(c₁, c₂]`, ..., `(cₖ, Inf)`.
+is supplied, participants are assigned deterministically to the left-closed,
+right-open intervals `(-Inf, c₁)`, `[c₁, c₂)`, ..., `[cₖ, Inf)`; a score equal
+to a cutpoint `cₖ` falls in the interval starting at `cₖ`.
 """
 struct ActivityRefinement{K<:ActivityMixingKernel}
     survey::ContactSurvey

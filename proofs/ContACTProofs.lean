@@ -5,3 +5,4 @@ import ContACTProofs.Symmetrisation
 import ContACTProofs.Composition
 import ContACTProofs.Stratification
 import ContACTProofs.Commutativity
+import ContACTProofs.ConstrainedLift

@@ -743,7 +743,7 @@ end
     @test n_groups(g_joint ↓ ses) == 3
 
     K = next_generation_matrix(base; transmissibility=0.5, recovery_rate=0.25)
-    @test K ≈ 2.0 .* [matrix(base)[i, j] * pop[i] / pop[j] for i in 1:2, j in 1:2]
+    @test K ≈ 2.0 .* matrix(base)
     @test R₀(base; transmissibility=0.5, recovery_rate=0.25) ≈ 2.0 * ρ(base)
     beta = calibrate_transmissibility(base, 2.7; recovery_rate=0.25)
     @test R0(base; transmissibility=beta, recovery_rate=0.25) ≈ 2.7
@@ -1326,6 +1326,92 @@ end
         @test_throws ArgumentError BlockAssortativityParams(q=Dict(:sep => -1.1))
         @test_throws ArgumentError BlockAssortativityParams(q=Dict(:sep => NaN))
         @test_throws ArgumentError BlockAssortativityParams(q=Dict(:sep => Inf))
+    end
+
+    @testset "NGM has no population rescaling; bounds bracket true R₀" begin
+        part = AgePartition([0, 18, 65])
+        pop = [11000.0, 33000.0, 9500.0]
+        totals = [3.0e4 2.0e4 5.0e3; 2.0e4 5.0e4 1.5e4; 5.0e3 1.5e4 2.0e4]
+        M = [totals[i, j] / pop[j] for i in 1:3, j in 1:3]
+        cm = ContactMatrix(M, part, pop)
+        # Reciprocal by construction (symmetric total contacts)
+        @test M * Diagonal(pop) ≈ (M * Diagonal(pop))'
+        # NGM is just scaled mean contacts — no N[i]/N[j] factor
+        K = next_generation_matrix(cm; transmissibility=0.4, recovery_rate=0.5)
+        @test K ≈ (0.4 / 0.5) .* M
+        R0_true = R₀(cm; transmissibility=0.4, recovery_rate=0.5)
+        # Detailed-balance bounds must bracket R₀ for a reciprocal matrix
+        db = r0_bounds_detailed_balance(cm; info=:row, transmissibility=0.4, recovery_rate=0.5)
+        @test db.lower ≤ R0_true + 1e-8
+        @test db.upper ≥ R0_true - 1e-8
+        # General row/col/both bounds also bracket
+        for s in (:row, :col, :both)
+            b = r0_bounds(cm; info=s, transmissibility=0.4, recovery_rate=0.5)
+            @test b.lower ≤ R0_true + 1e-8
+            @test b.upper ≥ R0_true - 1e-8
+        end
+    end
+
+    @testset "q-parameter sampler bounds restricted to [-1,1]" begin
+        using Random
+        age = AgePartition([0, 18]; labels=["child", "adult"])
+        sep = CategoricalPartition(:sep; participant_col=:part_sep,
+            contact_col=:cnt_sep, levels=["low", "high"])
+        prod = age × sep
+        interm = SourceStratifiedContactMatrix(
+            [3.0 2.0 1.0 1.5; 1.5 1.0 2.5 2.0], age, prod, [100.0, 100.0, 150.0, 150.0])
+        base_pop = [200.0, 300.0]
+        base_counts = [5.0 2.5; 2.5 4.5] * Diagonal(base_pop)
+        base_M = ((base_counts + base_counts') / 2) * Diagonal(1.0 ./ base_pop)
+        base_cm = ContactMatrix(base_M, age, base_pop)
+        spec = ConstrainedGeneralizedLift(interm; source_map=PartitionMap(prod, age))
+        rng = Random.MersenneTwister(1)
+        @test_throws ArgumentError sample_constrained_lifts(base_cm, spec, 1; bounds=(-2.0, 2.0), rng=rng)
+        @test_throws ArgumentError QParameterSpace(base_cm, spec; bounds=(-2.0, 2.0))
+        @test_throws ArgumentError sample_perblock_lifts(base_cm, spec, 1; bounds=(0.0, 1.5), rng=rng)
+        @test_throws ArgumentError mcmc_constrained_lifts(base_cm, spec, 1; bounds=(-1.5, 1.5), rng=rng)
+        # In-range bounds still work
+        @test QParameterSpace(base_cm, spec; bounds=(-1.0, 1.0)) isa QParameterSpace
+    end
+
+    @testset "Generalized lift requires reciprocal base" begin
+        age = AgePartition([0, 18])
+        ses = CategoricalPartition(:ses; levels=["a", "b"])
+        nonrecip = ContactMatrix([2.0 0.5; 0.9 1.5], age, [100.0, 200.0])
+        spec = GeneralizedLift(ses; distribution=[0.5, 0.5])
+        @test_throws ArgumentError generalize(nonrecip, spec)
+        # Reciprocal base succeeds
+        recip = ContactMatrix([2.0 0.5; 1.0 1.5], age, [100.0, 200.0])
+        @test generalize(recip, spec) isa ContactMatrix
+    end
+
+    @testset "migrate_coarsen rejects skip_invalid surveys with unset groups" begin
+        survey = ContactSurvey(
+            DataFrame(part_id=[1, 2], part_age=[5.0, missing]),
+            DataFrame(part_id=[1], cnt_age=[10.0]),
+        )
+        fine = AgePartition([0, 18, 65])
+        coarse = AgePartition([0, 65])
+        acs = ContactSurveyACSet(survey, fine; skip_invalid=true)
+        @test_throws ArgumentError migrate_coarsen(acs, PartitionMap(fine, coarse))
+    end
+
+    @testset "compose_uwd validates wiring" begin
+        sharers = Dict(
+            :home => ContactSharer([1.0 0.0; 0.0 1.0]),
+            :work => ContactSharer([0.5 0.5; 0.5 0.5]),
+        )
+        good = @relation (age,) begin
+            home(age)
+            work(age)
+        end
+        @test compose_uwd(good, sharers) ≈ [1.5 0.5; 0.5 1.5]
+        # A box wired to an internal junction is not additive composition
+        internal = @relation (age,) begin
+            home(age)
+            work(other)
+        end
+        @test_throws ArgumentError compose_uwd(internal, sharers)
     end
 
     @testset "q-lift marginal preservation" begin
