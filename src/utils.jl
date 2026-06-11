@@ -61,9 +61,19 @@ Return the next-generation matrix associated with a contact matrix under
 frequency-dependent transmission.
 
 For a `MeanContacts` matrix `M`, entry `(i, j)` is
-`transmissibility / recovery_rate * M[i, j] * N[i] / N[j]`, the expected new
-infections in target group `i` caused by one infectious individual in source
-group `j` in an otherwise susceptible population.
+`transmissibility / recovery_rate * M[i, j]`, the expected new infections in
+target group `i` caused by one infectious individual in source group `j` in an
+otherwise susceptible population. With ContACT's column-contactor convention
+`M[i, j]` is already the mean number of group-`i` contacts a group-`j`
+individual makes, so no population rescaling is needed: each such contact
+transmits over an infectious period of `1 / recovery_rate`.
+
+The spectral radius of this matrix is the basic reproduction number, and equals
+`transmissibility / recovery_rate * ρ(M)`. Earlier releases multiplied entries
+by `N[i] / N[j]`; that diagonal similarity transform left `R₀` and the
+type-reproduction number unchanged but broke the row/column-sum and
+detailed-balance quantities used by the epidemic-bounds module, so it has been
+removed.
 """
 function next_generation_matrix(cm::ContactMatrix;
                                 transmissibility::Real=1,
@@ -87,7 +97,7 @@ function next_generation_matrix(cm::ContactMatrix;
             continue
         end
         for target in 1:n
-            K[target, source] = scale * M[target, source] * pop[target] / pop[source]
+            K[target, source] = scale * M[target, source]
         end
     end
     K

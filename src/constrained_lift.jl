@@ -171,6 +171,18 @@ struct BlockAssortativityParams
     q::Dict{Symbol,Float64}
 end
 
+# q-parameters are constrained to [-1, 1] (see `BlockAssortativityParams`), so any
+# sampling/MCMC bounds must lie within that interval or every constructed parameter
+# set would throw mid-run. Validate the requested bounds up front.
+function _validate_q_bounds(bounds::Tuple{Real,Real})
+    lo, hi = Float64(bounds[1]), Float64(bounds[2])
+    (isfinite(lo) && isfinite(hi)) || throw(ArgumentError("q-parameter bounds must be finite"))
+    lo < hi || throw(ArgumentError("bounds must satisfy lower < upper"))
+    (-1.0 <= lo && hi <= 1.0) || throw(ArgumentError(
+        "q-parameter bounds must lie within [-1, 1], got ($lo, $hi)"))
+    (lo, hi)
+end
+
 function BlockAssortativityParams(; q::AbstractDict{Symbol,<:Real}=Dict{Symbol,Float64}())
     vals = Dict{Symbol,Float64}()
     for (dim, val) in q
@@ -320,7 +332,7 @@ function sample_constrained_lifts(base::ContactMatrix, spec::ConstrainedGenerali
     bounds::Tuple{Real,Real}=(-1.0, 1.0),
     rng=nothing)
     n > 0 || throw(ArgumentError("n must be positive"))
-    bounds[1] < bounds[2] || throw(ArgumentError("bounds must satisfy lower < upper"))
+    lo, hi = _validate_q_bounds(bounds)
 
     dims = if isempty(dimensions)
         full_part = spec.full_partition
@@ -333,7 +345,6 @@ function sample_constrained_lifts(base::ContactMatrix, spec::ConstrainedGenerali
     end
 
     _rng = rng === nothing ? Random.default_rng() : rng
-    lo, hi = Float64(bounds[1]), Float64(bounds[2])
     results = Vector{Tuple{BlockAssortativityParams,ContactMatrix}}()
 
     attempts = 0
@@ -376,7 +387,7 @@ end
 function QParameterSpace(base::ContactMatrix, spec::ConstrainedGeneralizedLift;
     dimensions::AbstractVector{Symbol}=Symbol[],
     bounds::Tuple{Real,Real}=(-1.0, 1.0))
-    bounds[1] < bounds[2] || throw(ArgumentError("bounds must satisfy lower < upper"))
+    lo, hi = _validate_q_bounds(bounds)
 
     dims = if isempty(dimensions)
         full_part = spec.full_partition
@@ -396,7 +407,7 @@ function QParameterSpace(base::ContactMatrix, spec::ConstrainedGeneralizedLift;
         end
     end
 
-    QParameterSpace(block_keys, dims, (Float64(bounds[1]), Float64(bounds[2])),
+    QParameterSpace(block_keys, dims, (lo, hi),
                     length(block_keys) * length(dims))
 end
 
@@ -474,7 +485,7 @@ Fields:
 - `chain`: Vector of accepted parameter vectors (each a `Dict{Tuple{Int,Int},BlockAssortativityParams}`)
 - `matrices`: Corresponding contact matrices
 - `log_densities`: Log-density at each sample
-- `acceptance_rate`: Fraction of proposals accepted
+- `acceptance_rate`: Fraction of post-burn-in proposals accepted
 - `space`: The `QParameterSpace` defining the parameter layout
 """
 struct MCMCResult
@@ -545,11 +556,14 @@ function mcmc_constrained_lifts(base::ContactMatrix, spec::ConstrainedGeneralize
     chain = Vector{Dict{Tuple{Int,Int},BlockAssortativityParams}}()
     matrices = Vector{ContactMatrix}()
     log_densities = Vector{Float64}()
-    accepted = 0
+    accepted = 0          # post-burn-in acceptances (diagnostic)
+    sampling_steps = 0    # post-burn-in proposals
 
     for step in 1:total_steps
         # Propose: Gaussian random walk
         θ_proposal = θ_current .+ σ .* randn(_rng, space.n_params)
+        post_burnin = step > burnin
+        post_burnin && (sampling_steps += 1)
 
         # Check bounds
         if all(lo .<= θ_proposal .<= hi)
@@ -568,20 +582,21 @@ function mcmc_constrained_lifts(base::ContactMatrix, spec::ConstrainedGeneralize
                     block_params_current = block_params_prop
                     cm_current = cm_prop
                     ld_current = ld_prop
-                    accepted += 1
+                    post_burnin && (accepted += 1)
                 end
             end
         end
 
         # Collect after burnin, respecting thin
-        if step > burnin && (step - burnin) % thin == 0
+        if post_burnin && (step - burnin) % thin == 0
             push!(chain, block_params_current)
             push!(matrices, cm_current)
             push!(log_densities, ld_current)
         end
     end
 
-    MCMCResult(chain, matrices, log_densities, accepted / total_steps, space)
+    acceptance_rate = sampling_steps > 0 ? accepted / sampling_steps : 0.0
+    MCMCResult(chain, matrices, log_densities, acceptance_rate, space)
 end
 
 function _find_feasible_start(base::ContactMatrix, spec::ConstrainedGeneralizedLift,

@@ -99,6 +99,14 @@ The `source_partition` is applied to participant rows and the `target_partition`
 is applied to contact rows. This allows participant/source columns to include
 richer covariates than are available for contacts, e.g. columns indexed by
 `age × SEP × education` and rows indexed by age only.
+
+Mean contacts are always normalised by the number of *surveyed* participants in
+each source group. The stored `source_population`, however, is the supplied
+`population` vector when given (otherwise the surveyed counts). When a census
+`population` is passed, `source_total_contacts` therefore reports post-stratified
+totals (mean contacts × census population), which differ from the raw observed
+totals; a source group with surveyed participants but zero supplied population
+contributes zero total contacts.
 """
 function compute_source_stratified_matrix(
     survey::ContactSurvey,

@@ -116,3 +116,134 @@ theorem coarsen_functorial {l m n : ℕ}
   -- LHS now: ∑ i ∈ fib(f, I), ∑ J ∈ fib(g, L), ∑ j ∈ fib(f, J), C i j
   -- Swap i and J
   exact Finset.sum_comm
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Population-weighted coarsening (the operation actually implemented in
+-- `coarsen` in `src/coarsening.jl`)
+-- ═══════════════════════════════════════════════════════════════════════════
+
+/-!
+The Julia `coarsen` operates on a *mean-contacts* matrix `M` with a population
+vector `N`:
+
+    M_c[I,J] = (∑_{j∈f⁻¹J} N_j · ∑_{i∈f⁻¹I} M[i,j]) / (∑_{j∈f⁻¹J} N_j).
+
+This is the population-weighted average — not the plain fiber sum `coarsenTotal`.
+We model it here and prove that it is functorial and preserves total contacts,
+so the README claims hold for the operation the code ships, not only for the
+simplified count model. The bridge is that coarsening total contacts
+`Counts[i,j] = M[i,j]·N_j` over fibers is exactly `coarsenTotal Counts`, and the
+mean-coarsening is that divided by the coarse population.
+-/
+
+/-- Population of a coarse group: the sum of fine populations in its fiber. -/
+noncomputable def coarsenPop {m n : ℕ} (N : Fin m → ℝ) (f : Fin m → Fin n) :
+    Fin n → ℝ :=
+  fun J => ∑ j ∈ Finset.univ.filter (fun j => f j = J), N j
+
+/-- Population-weighted coarsening of a mean-contacts matrix, matching
+    `coarsen` in `src/coarsening.jl`. -/
+noncomputable def weightedCoarsen {m n : ℕ}
+    (M : Matrix (Fin m) (Fin m) ℝ) (N : Fin m → ℝ) (f : Fin m → Fin n) :
+    Matrix (Fin n) (Fin n) ℝ :=
+  fun I J => coarsenTotal (fun i j => M i j * N j) f I J / coarsenPop N f J
+
+theorem weightedCoarsen_apply {m n : ℕ}
+    (M : Matrix (Fin m) (Fin m) ℝ) (N : Fin m → ℝ) (f : Fin m → Fin n) (I J : Fin n) :
+    weightedCoarsen M N f I J =
+    coarsenTotal (fun i j => M i j * N j) f I J / coarsenPop N f J := rfl
+
+/-- Coarse total contacts equal the summed fine total contacts over the fiber:
+    `M_c[I,J] · N_J = ∑_{i∈f⁻¹I, j∈f⁻¹J} M[i,j]·N_j`.
+    Non-negativity of populations means an empty coarse group (`N_J = 0`) carries
+    no contacts, so the identity also holds there. -/
+theorem weightedCoarsen_mul_pop {m n : ℕ}
+    (M : Matrix (Fin m) (Fin m) ℝ) (N : Fin m → ℝ) (f : Fin m → Fin n)
+    (hN : ∀ j, 0 ≤ N j) (I J : Fin n) :
+    weightedCoarsen M N f I J * coarsenPop N f J =
+    coarsenTotal (fun i j => M i j * N j) f I J := by
+  unfold weightedCoarsen
+  rcases eq_or_ne (coarsenPop N f J) 0 with hz | hz
+  · rw [hz, mul_zero]
+    symm
+    simp only [coarsenTotal]
+    have hzero : ∀ j ∈ Finset.univ.filter (fun j => f j = J), N j = 0 :=
+      (Finset.sum_eq_zero_iff_of_nonneg (fun j _ => hN j)).mp (by simpa [coarsenPop] using hz)
+    apply Finset.sum_eq_zero
+    intro i _
+    apply Finset.sum_eq_zero
+    intro j hj
+    rw [hzero j hj, mul_zero]
+  · field_simp
+
+/-- **Total contacts are preserved** by the population-weighted coarsening:
+    `∑_{I,J} M_c[I,J]·N_J = ∑_{i,j} M[i,j]·N_j`. This is the README's
+    "coarsening preserves total contacts" for the shipped `coarsen`. -/
+theorem weightedCoarsen_preserves_total {m n : ℕ}
+    (M : Matrix (Fin m) (Fin m) ℝ) (N : Fin m → ℝ) (f : Fin m → Fin n)
+    (hN : ∀ j, 0 ≤ N j) :
+    (∑ I : Fin n, ∑ J : Fin n, weightedCoarsen M N f I J * coarsenPop N f J) =
+    ∑ i : Fin m, ∑ j : Fin m, M i j * N j := by
+  have h : ∀ I J : Fin n,
+      weightedCoarsen M N f I J * coarsenPop N f J =
+      coarsenTotal (fun i j => M i j * N j) f I J :=
+    fun I J => weightedCoarsen_mul_pop M N f hN I J
+  simp_rw [h]
+  exact coarsen_preserves_total (fun i j => M i j * N j) f
+
+/-- Coarse populations telescope along a composition: aggregating fine
+    populations to the intermediate then the coarse level equals aggregating
+    directly. -/
+theorem coarsenPop_comp {l m n : ℕ}
+    (N : Fin l → ℝ) (f : Fin l → Fin m) (g : Fin m → Fin n) (K : Fin n) :
+    coarsenPop (coarsenPop N f) g K = coarsenPop N (g ∘ f) K := by
+  simp only [coarsenPop, Function.comp_apply]
+  exact (sum_fiber_comp f g K N).symm
+
+/-- **Functoriality of the population-weighted coarsening**:
+    `weightedCoarsen M N (g ∘ f) = weightedCoarsen (weightedCoarsen M N f) (coarsenPop N f) g`.
+    The intermediate population is the aggregated `coarsenPop N f`. This is the
+    README's coarsening functoriality for the operation the code ships. -/
+theorem weightedCoarsen_functorial {l m n : ℕ}
+    (M : Matrix (Fin l) (Fin l) ℝ) (N : Fin l → ℝ)
+    (f : Fin l → Fin m) (g : Fin m → Fin n)
+    (hN : ∀ j, 0 ≤ N j) :
+    weightedCoarsen M N (g ∘ f) =
+    weightedCoarsen (weightedCoarsen M N f) (coarsenPop N f) g := by
+  ext K L
+  rw [weightedCoarsen_apply, weightedCoarsen_apply, coarsenPop_comp]
+  have hpt : (fun (I J : Fin m) => weightedCoarsen M N f I J * coarsenPop N f J)
+      = coarsenTotal (fun i j => M i j * N j) f := by
+    funext I J
+    exact weightedCoarsen_mul_pop M N f hN I J
+  rw [hpt, ← coarsen_functorial]
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- The coarsening action of category morphisms (links `ContactCat` to coarsening)
+-- ═══════════════════════════════════════════════════════════════════════════
+
+/-- A contact-matrix morphism acts on the (count-space) contact matrix of its
+    domain by coarsening along the underlying age-group map. This gives the
+    morphisms of `ContactCat` a genuine action on contact-matrix data, beyond the
+    bare `Fin`-map. -/
+noncomputable def ContactMatHom.coarsenAction {A B : ContactMatObj}
+    (φ : ContactMatHom A B) (C : Matrix (Fin A.n) (Fin A.n) ℝ) :
+    Matrix (Fin B.n) (Fin B.n) ℝ :=
+  coarsenTotal C φ.map
+
+/-- The identity morphism acts as the identity on contact data. -/
+theorem ContactMatHom.coarsenAction_id {A : ContactMatObj}
+    (C : Matrix (Fin A.n) (Fin A.n) ℝ) :
+    (ContactMatHom.id A).coarsenAction C = C :=
+  coarsen_id C
+
+/-- The action respects composition: coarsening along `g ∘ f` equals coarsening
+    along `f` then `g`. Together with `coarsenAction_id` this makes the action a
+    functor on **Contact**, so "contact matrices form a category" carries
+    contact-structure content rather than just `Fin`-map composition. -/
+theorem ContactMatHom.coarsenAction_comp {A B C : ContactMatObj}
+    (g : ContactMatHom B C) (f : ContactMatHom A B)
+    (M : Matrix (Fin A.n) (Fin A.n) ℝ) :
+    (g.comp f).coarsenAction M = g.coarsenAction (f.coarsenAction M) := by
+  simp only [ContactMatHom.coarsenAction, ContactMatHom.comp]
+  exact coarsen_functorial M f.map g.map

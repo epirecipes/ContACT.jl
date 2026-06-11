@@ -104,14 +104,26 @@ The `proofs/` directory contains machine-checked proofs of:
 | Property | File | Status |
 |----------|------|--------|
 | Contact matrices form a category | `ContactCat.lean` | ✅ |
-| Coarsening functoriality | `Coarsening.lean` | ✅ |
-| Coarsening preserves total contacts | `Coarsening.lean` | ✅ |
-| Symmetrisation idempotence | `Symmetrisation.lean` | ✅ |
-| Symmetrisation reciprocity | `Symmetrisation.lean` | ✅ |
+| Category morphisms act functorially on contact data (`coarsenAction`) | `Coarsening.lean` | ✅ |
+| Coarsening functoriality (unweighted count model) | `Coarsening.lean` | ✅ |
+| Coarsening preserves total contacts (unweighted count model) | `Coarsening.lean` | ✅ |
+| **Population-weighted** coarsening functoriality (matches `coarsen`) | `Coarsening.lean` | ✅ |
+| **Population-weighted** coarsening preserves total contacts | `Coarsening.lean` | ✅ |
+| Symmetrisation idempotence (positive populations) | `Symmetrisation.lean` | ✅ |
+| Symmetrisation reciprocity (positive populations) | `Symmetrisation.lean` | ✅ |
+| Symmetrisation idempotence & reciprocity with empty groups (matches `symmetrise`) | `Symmetrisation.lean` | ✅ |
 | Additive composition associativity | `Composition.lean` | ✅ |
 | Additive composition commutativity | `Composition.lean` | ✅ |
-| Stratification well-typedness | `Stratification.lean` | ✅ |
+| Stratification = Kronecker product, with Julia linear-index layout | `Stratification.lean` | ✅ |
+| Stratification distributes over composition | `Stratification.lean` | ✅ |
 | Symmetrisation–composition commutativity | `Commutativity.lean` | ✅ |
+| Symmetrisation–stratification commutativity (iff coupling symmetric) | `Stratification.lean` | ✅ |
+| Constrained-lift coarsening recovery, symmetry & structural zeros | `ConstrainedLift.lean` | ✅ |
+
+The weighted-coarsening and empty-group theorems model the exact arithmetic the
+Julia code runs (population-weighted averaging and the zero-population branch),
+not only the simplified count-space model; the count-space theorems are retained
+because the weighted results are built on top of them.
 
 Build proofs with:
 ```bash
