@@ -18,13 +18,13 @@ Abstract type for the semantic interpretation of contact matrix entries.
 """
 abstract type UnitSemantics end
 
-"""Mean number of contacts reported by participants in row group with contacts in column group."""
+"""Mean number of contacts reported by participants in column group with contacts in row group."""
 struct MeanContacts <: UnitSemantics end
 
 """Raw count of contacts between age groups (not normalised by participants)."""
 struct ContactCounts <: UnitSemantics end
 
-"""Per-capita contact rate: mean contacts divided by population of contact group."""
+"""Per-capita contact rate: mean contacts divided by population of the contactor (column) group."""
 struct PerCapitaRate <: UnitSemantics end
 
 # ---------------------------------------------------------------------------
