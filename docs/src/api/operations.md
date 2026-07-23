@@ -57,6 +57,7 @@ ProportionateMixing
 activity_partition
 activity_mixing_plan
 activity_refine
+proportionate_mixing
 ```
 
 ## Generalized Contact Matrices
