@@ -187,6 +187,57 @@ function _ordered_activity_transport(row::Vector{Float64}, col::Vector{Float64},
 end
 
 """
+    proportionate_mixing(a, N, partition)
+
+Build a `ContactMatrix` directly from a per-capita activity vector `a` and
+population `N`, using the reciprocal proportionate/unconstrained-mixing
+construction:
+
+    M[i,j] = a_i · N_i · a_j / D,   D = Σ_k a_k · N_k
+
+This is the proportionate member of the same mixing-kernel family as
+`activity_mixing_plan`'s `:assortative`/`:disassortative` kernels, but built
+directly from population and activity rather than splitting an existing pair
+of marginals. Unlike the naive `a_i·a_j/D` form, it satisfies ContACT's
+MeanContacts reciprocity invariant (`M[i,j]·N_j == M[j,i]·N_i`) by construction
+— no `↔` needed — because ContACT's row/column convention requires column =
+participant (per-capita) and row = contactee (extensive); the `N_i` factor
+supplies that missing extensive weight on the row side.
+
+It is also the only member of the family proven to commute with coarsening
+unconditionally, for *any* fibre map, contiguous or not
+(`weightedCoarsen_proportionate` in `proofs/ContACTProofs/Coarsening.lean`).
+The assortative/disassortative kernels only commute with coarsening when the
+fibre map is order-preserving — see the regression test in `test/runtests.jl`.
+
+# Example
+```julia
+a = [0.5, 1.5, 2.0, 1.0]
+N = [100.0, 30.0, 60.0, 200.0]
+partition = CategoricalPartition(:activity, ["q1", "q2", "q3", "q4"])
+cm = proportionate_mixing(a, N, partition)
+```
+"""
+function proportionate_mixing(a::AbstractVector{<:Real}, N::AbstractVector{<:Real},
+                              partition::AbstractPartition)
+    n = n_groups(partition)
+    length(a) == n || throw(DimensionMismatch(
+        "activity vector length $(length(a)) does not match partition with $n groups"))
+    length(N) == n || throw(DimensionMismatch(
+        "population length $(length(N)) does not match partition with $n groups"))
+    all(x -> isfinite(x) && x >= 0, a) ||
+        throw(ArgumentError("activity vector entries must be finite and non-negative"))
+
+    av = Float64.(a)
+    Nv = Float64.(N)
+    D = sum(av .* Nv)
+    D > 0 || throw(ArgumentError(
+        "total activity Σ a_k·N_k must be positive"))
+    M = (av .* Nv) * transpose(av) ./ D
+    ContactMatrix(M, partition, Nv, MeanContacts())
+end
+
+"""
     activity_refine(survey, cm; kwargs...)
     activity_refine(cm, spec::ActivityRefinement)
 

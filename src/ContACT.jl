@@ -28,7 +28,8 @@ export compute_matrix, compute_source_stratified_matrix,
 export coarsen, refine, PartitionMap, AgeMap
 export ActivityRefinement, ActivityMixingKernel,
        AssortativeMixing, DisassortativeMixing, ProportionateMixing,
-       activity_partition, activity_mixing_plan, activity_refine
+       activity_partition, activity_mixing_plan, activity_refine,
+       proportionate_mixing
 export GeneralizedLift, GeneralizedMixingKernel,
        RandomMixing, BlockMixing, AssortativeDimensionMixing,
        product_population, generalize, generalized_lift

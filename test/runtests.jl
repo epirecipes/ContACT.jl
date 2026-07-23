@@ -1471,6 +1471,130 @@ end
 end
 
 # ---------------------------------------------------------------------------
+# Build/coarsen equivariance for activity-vector lifts.
+#
+# An activity vector `a` (mean contacts per person, per group) can be turned
+# into a ContactMatrix, and a ContactMatrix can be coarsened along a fibre map
+# that merges fine groups into coarse ones. These two operations should commute:
+# coarsening the activity vector and then building should give the same matrix
+# as building and then coarsening. If they don't, a model fitted at one spatial
+# or demographic resolution can't be interpreted at another.
+#
+# This is distinct from the coarsen-functoriality test above ("∘ (AgeMap
+# composition)"), which composes two coarsenings of the *same* matrix. Here we
+# relate two different operations — build and coarsen — so the result depends
+# on which lift is used, not just on coarsening itself.
+#
+# Three findings pinned here:
+#   1. The reciprocal lift M[i,j] = a_i*N_i*a_j/D  (D = Σ_k a_k*N_k) commutes
+#      unconditionally — any surjective fibre map, contiguous or not, any
+#      populations. Both paths reduce to S_I*S_J/(D*N_J) with S_I = Σ_{i∈I} a_i*N_i.
+#   2. The naive lift M[i,j] = a_i*a_j/D (missing the N_i factor) is not a valid
+#      MeanContacts ContactMatrix: MeanContacts reciprocity requires symmetry of
+#      *total* contacts, M[i,j]*N_j == M[j,i]*N_i, which fails whenever group
+#      populations differ. So it is a trap under MeanContacts, not a
+#      counterexample to (1). The N_i factor is required by ContACT's
+#      convention that column = participant (per-capita) and row = contactee
+#      (extensive).
+#   3. The Britton-Ball assortative/disassortative kernels allocate contacts by
+#      walking activity strata in order, so they commute with coarsening only
+#      when the fibre map is order-preserving (each coarse group is a contiguous
+#      run of fine strata). Merging non-adjacent strata changes the order the
+#      algorithm depends on and the mismatch is O(1) in mean-contacts units, not
+#      floating-point noise. Normal usage merges adjacent strata, so this is a
+#      documented gap rather than a blocker.
+#
+# ---------------------------------------------------------------------------
+@testset "activity lift: build/coarsen equivariance" begin
+    function pop_weighted_mean_pushforward(a, N, assignments, n_coarse)
+        num = zeros(n_coarse); pop_c = zeros(n_coarse)
+        for i in eachindex(a)
+            I = assignments[i]
+            num[I] += N[i] * a[i]
+            pop_c[I] += N[i]
+        end
+        num ./ pop_c, pop_c
+    end
+
+    a = [0.5, 1.5, 2.0, 1.0]
+    N = [100.0, 30.0, 60.0, 200.0]
+    fine = CategoricalPartition{:activity,Int}(collect(1:4))
+    coarse = CategoricalPartition{:activity,Int}(collect(1:2))
+
+    @testset "reciprocal lift commutes for any fibre map" begin
+        for assignments in ([1, 1, 2, 2], [1, 2, 1, 2])   # contiguous, non-contiguous
+            f = PartitionMap(fine, coarse, assignments)
+            cm_fine = proportionate_mixing(a, N, fine)
+
+            # sanity: this construction is already reciprocal (symmetrise is a no-op)
+            @test matrix(↔(cm_fine)) ≈ matrix(cm_fine)
+
+            cm_coarse_build_then_coarsen = coarsen(cm_fine, f)
+
+            a_c, N_c = pop_weighted_mean_pushforward(a, N, assignments, 2)
+            cm_coarse_coarsen_then_build = proportionate_mixing(a_c, N_c, coarse)
+
+            @test matrix(cm_coarse_build_then_coarsen) ≈
+                  matrix(cm_coarse_coarsen_then_build) atol=1e-10
+            @test population(cm_coarse_build_then_coarsen) ≈ N_c
+        end
+    end
+
+    @testset "naive lift without N_i factor is not valid MeanContacts" begin
+        # Same D = Σ a_k*N_k as the reciprocal lift, so the N_i factor in the
+        # numerator is the only thing that differs between the two.
+        D = sum(a .* N)
+        M_naive = (a * transpose(a)) ./ D
+        cm_naive = ContactMatrix(M_naive, fine, N, MeanContacts())
+        # MeanContacts reciprocity requires M[i,j]*N_j == M[j,i]*N_i; fails
+        # whenever populations differ, so this is not a valid MeanContacts lift.
+        recip_err = maximum(abs.(M_naive .* transpose(N) .- transpose(M_naive .* transpose(N))))
+        @test recip_err > 0.5   # measured ≈0.67 on this case — not a rounding artifact
+    end
+
+    @testset "assortative/disassortative kernels need an order-preserving fibre map" begin
+        row = [5.0, 15.0, 20.0, 10.0]
+        col = [8.0, 12.0, 18.0, 12.0]
+        contiguous = [1, 1, 2, 2]
+        noncontig = [1, 2, 1, 2]
+
+        fiber_sum(M, assignments, n_coarse) = begin
+            out = zeros(n_coarse, n_coarse)
+            for i in eachindex(assignments), j in eachindex(assignments)
+                out[assignments[i], assignments[j]] += M[i, j]
+            end
+            out
+        end
+        coarsen_marginal(v, assignments, n_coarse) = begin
+            out = zeros(n_coarse)
+            for i in eachindex(assignments)
+                out[assignments[i]] += v[i]
+            end
+            out
+        end
+
+        for kernel in (:assortative, :disassortative)
+            plan_fine = activity_mixing_plan(row, col, kernel)
+
+            # Contiguous fibre map: coarsen-then-build == build-then-coarsen.
+            row_c = coarsen_marginal(row, contiguous, 2)
+            col_c = coarsen_marginal(col, contiguous, 2)
+            @test activity_mixing_plan(row_c, col_c, kernel) ≈
+                  fiber_sum(plan_fine, contiguous, 2)
+
+            # Non-contiguous fibre map: genuine counterexample, not noise —
+            # order-based transport doesn't commute with reordering the strata.
+            row_nc = coarsen_marginal(row, noncontig, 2)
+            col_nc = coarsen_marginal(col, noncontig, 2)
+            mismatch = maximum(abs.(
+                activity_mixing_plan(row_nc, col_nc, kernel) .-
+                fiber_sum(plan_fine, noncontig, 2)))
+            @test mismatch > 1e-6
+        end
+    end
+end
+
+# ---------------------------------------------------------------------------
 # Reconnect UK survey: cross-validation against R reference values
 # ---------------------------------------------------------------------------
 # These tests use pre-computed R reference matrices (simple day-weighted mean)
