@@ -24,6 +24,10 @@ basic sum manipulations.
 | 1 | Coarsening along identity = identity | ✅ |
 | 2 | Coarsening preserves total contacts | ✅ |
 | 3 | Coarsening is functorial | ✅ |
+| 4 | Population-weighted coarsening (`weightedCoarsen`, matching the shipped `coarsen`) preserves total contacts | ✅ |
+| 5 | Population-weighted coarsening is functorial | ✅ |
+| 6 | `ContactCat` morphisms act on contact data via coarsening, functorially | ✅ |
+| 7 | Activity-vector build/coarsen equivariance: the reciprocal proportionate-mixing lift `a_i·N_i·a_j/D` commutes with coarsening for any fibre map, no side condition (`weightedCoarsen_proportionate`) | ✅ |
 
 -/
 
@@ -247,3 +251,143 @@ theorem ContactMatHom.coarsenAction_comp {A B C : ContactMatObj}
     (g.comp f).coarsenAction M = g.coarsenAction (f.coarsenAction M) := by
   simp only [ContactMatHom.coarsenAction, ContactMatHom.comp]
   exact coarsen_functorial M f.map g.map
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Build/coarsen equivariance for activity-vector lifts
+-- ═══════════════════════════════════════════════════════════════════════════
+
+/-!
+An activity vector `a` (mean contacts per person, per group) can be turned
+into a ContactMatrix, and a ContactMatrix can be coarsened along a fibre map
+that merges fine groups into coarse ones. These two operations should commute:
+coarsening the activity vector and then building should give the same matrix
+as building and then coarsening. If they don't, a model fitted at one spatial
+or demographic resolution can't be interpreted at another.
+
+Three findings pinned here:
+  1. The reciprocal lift `M[i,j] = a_i·N_i·a_j / D` (`D = Σ_k a_k·N_k`) commutes
+     unconditionally — any surjective fibre map, contiguous or not, any
+     populations. Both paths reduce to `S_I·S_J/(D·N_J)` with `S_I = Σ_{i∈I} a_i·N_i`.
+     This is `weightedCoarsen_proportionate` below.
+  2. The naive lift `M[i,j] = a_i·a_j/D` (missing the `N_i` factor) is not a
+     valid MeanContacts ContactMatrix: MeanContacts reciprocity requires
+     symmetry of *total* contacts, `M[i,j]·N_j == M[j,i]·N_i`, which fails
+     whenever group populations differ. So it is a trap under MeanContacts,
+     not a counterexample to (1). The factor is required by ContACT's
+     convention that column = participant (per-capita) and row = contactee
+     (extensive).
+  3. The Britton-Ball assortative/disassortative kernels allocate contacts by
+     walking activity strata in order, so they commute with coarsening only
+     when the fibre map is order-preserving (each coarse group is a contiguous
+     run of fine strata). Merging non-adjacent strata changes the order the
+     algorithm depends on and the mismatch is O(1) in mean-contacts units, not
+     floating-point noise. Normal usage merges adjacent strata, so this is a
+     documented gap rather than a blocker — see the Julia regression test in
+     `test/runtests.jl` for (2) and (3); only (1) is formalised here.
+-/
+
+/-- Total (population-weighted) activity `D = Σ_k a_k·N_k`, the normaliser of
+    proportionate mixing. -/
+noncomputable def totalActivity {n : ℕ} (a N : Fin n → ℝ) : ℝ :=
+  ∑ k, a k * N k
+
+/-- The reciprocal proportionate-mixing lift of a per-capita activity vector:
+    `M[i,j] = a_i·N_i·a_j / D`. -/
+noncomputable def proportionateMatrix {n : ℕ} (a N : Fin n → ℝ) :
+    Matrix (Fin n) (Fin n) ℝ :=
+  fun i j => a i * N i * a j / totalActivity a N
+
+/-- Population-weighted activity mass in a fibre: `S_I = Σ_{i∈f⁻¹I} a_i·N_i`. -/
+noncomputable def coarsenActivityMass {m n : ℕ} (a N : Fin m → ℝ) (f : Fin m → Fin n) :
+    Fin n → ℝ :=
+  fun I => ∑ i ∈ Finset.univ.filter (fun i => f i = I), a i * N i
+
+/-- Population-weighted mean pushforward of a per-capita activity vector along a
+    fibre map: `a_I = S_I / N_I`. This is the natural pushforward of an
+    *intensive* quantity, as opposed to `coarsenPop`, which sums the *extensive*
+    population. -/
+noncomputable def coarsenActivity {m n : ℕ} (a N : Fin m → ℝ) (f : Fin m → Fin n) :
+    Fin n → ℝ :=
+  fun I => coarsenActivityMass a N f I / coarsenPop N f I
+
+theorem coarsenActivity_apply {m n : ℕ} (a N : Fin m → ℝ) (f : Fin m → Fin n) (I : Fin n) :
+    coarsenActivity a N f I = coarsenActivityMass a N f I / coarsenPop N f I := rfl
+
+/-- `coarsenTotal` distributes over division by a constant. -/
+theorem coarsenTotal_div_const {m n : ℕ} (C : Matrix (Fin m) (Fin m) ℝ) (D : ℝ)
+    (f : Fin m → Fin n) (I J : Fin n) :
+    coarsenTotal (fun i j => C i j / D) f I J = coarsenTotal C f I J / D := by
+  simp only [coarsenTotal, div_eq_mul_inv, ← Finset.sum_mul]
+
+/-- `coarsenTotal` of an outer product factors into the product of the two
+    fibre sums. -/
+theorem coarsenTotal_outer {m n : ℕ} (u v : Fin m → ℝ) (f : Fin m → Fin n) (I J : Fin n) :
+    coarsenTotal (fun i j => u i * v j) f I J =
+    (∑ i ∈ Finset.univ.filter (fun i => f i = I), u i) *
+    (∑ j ∈ Finset.univ.filter (fun j => f j = J), v j) := by
+  show (∑ i ∈ Finset.univ.filter (fun i => f i = I),
+          ∑ j ∈ Finset.univ.filter (fun j => f j = J), u i * v j) = _
+  rw [Finset.sum_mul]
+  refine Finset.sum_congr rfl (fun i _ => ?_)
+  rw [Finset.mul_sum]
+
+/-- Combined form used by the main theorem. -/
+theorem coarsenTotal_outer_div {m n : ℕ} (u v : Fin m → ℝ) (D : ℝ) (f : Fin m → Fin n) (I J : Fin n) :
+    coarsenTotal (fun i j => u i * v j / D) f I J =
+    (∑ i ∈ Finset.univ.filter (fun i => f i = I), u i) *
+    (∑ j ∈ Finset.univ.filter (fun j => f j = J), v j) / D := by
+  rw [coarsenTotal_div_const (fun i j => u i * v j) D f I J, coarsenTotal_outer]
+
+/-- Total activity is preserved by the population-weighted pushforward:
+    `D` computed from the coarse `(coarsenActivity a N f, coarsenPop N f)`
+    equals `D` computed from the fine `(a, N)`. -/
+theorem totalActivity_coarsen {m n : ℕ} (a N : Fin m → ℝ) (f : Fin m → Fin n)
+    (hNJ : ∀ J : Fin n, coarsenPop N f J ≠ 0) :
+    totalActivity (coarsenActivity a N f) (coarsenPop N f) = totalActivity a N := by
+  have hcancel : ∀ I : Fin n,
+      coarsenActivity a N f I * coarsenPop N f I = coarsenActivityMass a N f I := by
+    intro I
+    rw [coarsenActivity_apply, div_mul_cancel₀ _ (hNJ I)]
+  show ∑ I : Fin n, coarsenActivity a N f I * coarsenPop N f I = ∑ i : Fin m, a i * N i
+  simp_rw [hcancel]
+  exact Finset.sum_fiberwise Finset.univ f (fun i => a i * N i)
+
+/-- Coarsening commutes with the reciprocal proportionate-mixing lift:
+    coarsening an activity vector and then building a matrix agrees with
+    building and then coarsening. Holds for *any* surjective fibre map,
+    contiguous or not, with no side condition.
+
+    Distinct from `coarsenAction_comp`, which is functoriality of coarsening
+    alone and holds for *any* matrix. This theorem relates two different
+    operations — `build` and `coarsen` — and therefore depends on the specific
+    lift used. It fails for the naive `a_i*a_j/D` form, which is not valid
+    MeanContacts when populations differ, and it also fails for the assortative/
+    disassortative Britton-Ball kernels (`src/activity_refinement.jl`) unless
+    the fibre map is order-preserving — see the Julia regression test in
+    `test/runtests.jl` for both counterexamples.
+
+    Consequence: matrices generated from a parameter vector stay consistent
+    across resolutions, so parameter-level edits (e.g. an intervention scaling
+    one group's activity) can be defined at one partition and interpreted at a
+    coarser one. -/
+theorem weightedCoarsen_proportionate {m n : ℕ}
+    (a N : Fin m → ℝ) (f : Fin m → Fin n)
+    (hNJ : ∀ J : Fin n, coarsenPop N f J ≠ 0) :
+    weightedCoarsen (proportionateMatrix a N) N f =
+    proportionateMatrix (coarsenActivity a N f) (coarsenPop N f) := by
+  have hD := totalActivity_coarsen a N f hNJ
+  ext I J
+  have hfun : (fun i j => proportionateMatrix a N i j * N j)
+      = (fun i j => (a i * N i) * (a j * N j) / totalActivity a N) := by
+    funext i j
+    unfold proportionateMatrix
+    ring
+  show coarsenTotal (fun i j => proportionateMatrix a N i j * N j) f I J / coarsenPop N f J
+     = proportionateMatrix (coarsenActivity a N f) (coarsenPop N f) I J
+  rw [hfun, coarsenTotal_outer_div]
+  show coarsenActivityMass a N f I * coarsenActivityMass a N f J / totalActivity a N
+       / coarsenPop N f J
+     = coarsenActivity a N f I * coarsenPop N f I * coarsenActivity a N f J
+       / totalActivity (coarsenActivity a N f) (coarsenPop N f)
+  rw [hD, coarsenActivity_apply, coarsenActivity_apply,
+      div_mul_cancel₀ _ (hNJ I)]
+  ring
