@@ -24,7 +24,12 @@ struct MeanContacts <: UnitSemantics end
 """Raw count of contacts between age groups (not normalised by participants)."""
 struct ContactCounts <: UnitSemantics end
 
-"""Per-capita contact rate: mean contacts divided by population of the contactor (column) group."""
+"""
+Per-capita contact rate: mean contacts divided by the population of the contactee
+(row) group, so entries are per participant *and* per contactee. Symmetric whenever
+the matrix is reciprocal. Matches `socialmixr::per_capita` and the `β_ij` of
+Wallinga et al. (2006) and Lomas et al. (2025).
+"""
 struct PerCapitaRate <: UnitSemantics end
 
 # ---------------------------------------------------------------------------
@@ -339,6 +344,15 @@ unit semantics. This is the object type in the category **Contact**.
 The matrix entry `M[i,j]` represents interactions from group `j`
 (column = "contactor") to group `i` (row = "contacted"), with
 interpretation given by `S`.
+
+!!! warning "Row/column convention"
+    ContACT uses **row = contactee, column = participant**. socialmixr, Arregui et
+    al. (2018), Prem et al. (2017), Hamilton et al. (2024) and most published
+    contact matrices use the *transpose* of this. Matrices built here from a survey
+    — via [`compute_matrix`](@ref) or `▷` — carry ContACT's convention by
+    construction; a matrix from any of those sources must be transposed first.
+    Nothing about a transposed matrix is detectable from its shape, so the error is
+    silent.
 
 # Fields
 - `matrix`: n×n contact matrix
