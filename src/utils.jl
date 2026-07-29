@@ -138,11 +138,18 @@ Compute the trace of the row-normalized marginal matrix.
 
 For a two-group SEP or education marginal this matches the CoMix/SEP summary:
 the fraction of contacts made within each group, summed across groups.
+
+Requires `MeanContacts`. Row normalisation cancels a row rescaling but not a
+column one, so the index is unchanged by `to_per_capita` and changed by
+`to_counts`; it is defined here in one representation rather than being
+transported into all three.
 """
 assortativity_index(cm::ContactMatrix, partition_or_dimension) =
     assortativity_index(marginal_matrix(cm, partition_or_dimension))
 
 function assortativity_index(cm::ContactMatrix)
+    cm.semantics isa MeanContacts || throw(ArgumentError(
+        "assortativity_index requires MeanContacts semantics"))
     M = matrix(cm)
     total = 0.0
     for i in 1:n_groups(cm)

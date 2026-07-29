@@ -1031,6 +1031,39 @@ end
     end
 end
 
+# Scalars leave the category, so transport does not apply to them. Each must
+# either agree across representations or reject the ones it is not defined on.
+@testset "Representation-dependent scalars" begin
+    p = AgePartition([0, 18, 65])
+    N = [1000.0, 3000.0, 500.0]
+    M = [2.0 1.0 0.5; 1.0 3.0 1.0; 0.5 1.0 1.5]
+    cm = ↔(ContactMatrix(M, p, N))
+
+    @testset "assortativity_index requires MeanContacts" begin
+        @test assortativity_index(cm) > 0
+        @test_throws ArgumentError assortativity_index(to_counts(cm))
+        @test_throws ArgumentError assortativity_index(to_per_capita(cm))
+        # Guarded because it is not invariant: the counts reading differs.
+        Mc = matrix(to_counts(cm))
+        @test sum(Mc[i, i] / sum(Mc[i, :]) for i in 1:3) ≉ assortativity_index(cm)
+    end
+
+    @testset "next-generation quantities require MeanContacts" begin
+        for f in (next_generation_matrix, basic_reproduction_number, R0, R₀)
+            @test_throws ArgumentError f(to_counts(cm))
+            @test_throws ArgumentError f(to_per_capita(cm))
+        end
+        @test_throws ArgumentError r0_bounds(to_counts(cm))
+        @test_throws ArgumentError calibrate_transmissibility(to_per_capita(cm), 2.0)
+    end
+
+    @testset "spectral_radius is raw and representation-dependent" begin
+        @test spectral_radius(cm) ≈ R0(cm)
+        @test spectral_radius(to_counts(cm)) ≉ spectral_radius(cm)
+        @test spectral_radius(to_per_capita(cm)) ≉ spectral_radius(cm)
+    end
+end
+
 @testset "ACSet schemas" begin
     @testset "ContactSurveyACSet" begin
         survey = make_test_survey()
