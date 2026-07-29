@@ -12,8 +12,11 @@ This is NOT claimed to be an inverse of coarsening.
 Refine a coarse contact matrix to a finer partition using proportional
 disaggregation based on population distribution within each coarse group.
 
-Each coarse entry M[I, J] is distributed to fine entries proportionally:
-    M_fine[i, j] = M_coarse[I, J]  (contacts per participant unchanged)
+Each coarse entry `M[I, J]` is distributed to fine entries proportionally:
+
+    M_fine[i, j] = M_coarse[I, J]
+
+leaving contacts per participant unchanged.
 
 The fine population determines how participants are distributed among
 sub-groups within each coarse bin.
