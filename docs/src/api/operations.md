@@ -121,11 +121,25 @@ stratify
 symmetrise
 ```
 
+## Unit semantics
+
+`ContactCounts`, `MeanContacts` and `PerCapitaRate` are three representations of one
+underlying object — total contacts `T[i,j] = M[i,j]·N_j`, rescaled by populations
+along the contactee (row) and participant (column) indices. Conversions dispatch on
+the semantics the matrix actually carries, and `symmetrise` is natural with respect
+to them.
+
+```@docs
+population_exponents
+reinterpret_units
+to_mean_contacts
+to_per_capita
+to_counts
+```
+
 ## Utilities
 
 ```@docs
-to_per_capita
-to_counts
 spectral_radius
 next_generation_matrix
 basic_reproduction_number

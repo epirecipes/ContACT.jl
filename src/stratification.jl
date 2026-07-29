@@ -28,8 +28,17 @@ Every stratum shares the same local contact pattern.
 
 # Returns
 A `ContactMatrix` with expanded age partition (strata × age groups).
+
+Written in `MeanContacts` — replicating an entry across strata leaves mean contacts
+per participant unchanged, while the stratum populations are split, so the counts and
+per-capita readings do change — and carried to the other representations by the
+representation isomorphisms, so that
+`reinterpret_units(stratify(cm, D), s) == stratify(reinterpret_units(cm, s), D)`.
 """
-function stratify(cm::ContactMatrix, coupling::AbstractMatrix{<:Real};
+stratify(cm::ContactMatrix, coupling::AbstractMatrix{<:Real}; kwargs...) =
+    _via(MeanContacts(), c -> _stratify_mean(c, coupling; kwargs...), cm)
+
+function _stratify_mean(cm::ContactMatrix, coupling::AbstractMatrix{<:Real};
                   stratum_populations::Union{Nothing, AbstractVector{<:Real}, AbstractMatrix{<:Real}}=nothing,
                   stratum_labels::Union{Nothing, Vector{String}}=nothing)
     M = matrix(cm)
@@ -83,10 +92,22 @@ end
 
 Heterogeneous stratification: each stratum has its own local contact matrix,
 connected by a coupling matrix. The source stratum's matrix is used.
+
+All inputs must share a representation; the result is returned in it, transported
+from `MeanContacts` as in the single-matrix method.
 """
 function stratify(cms::AbstractVector{<:ContactMatrix}, coupling::AbstractMatrix{<:Real})
-    n_strata = length(cms)
     isempty(cms) && throw(ArgumentError("cannot stratify an empty collection"))
+    all(cm -> typeof(cm.semantics) == typeof(cms[1].semantics), cms) || throw(ArgumentError(
+        "all contact matrices must have the same unit semantics"))
+    home = MeanContacts()
+    cms[1].semantics isa MeanContacts && return _stratify_mean(cms, coupling)
+    converted = [reinterpret_units(cm, home) for cm in cms]
+    reinterpret_units(_stratify_mean(converted, coupling), cms[1].semantics)
+end
+
+function _stratify_mean(cms::AbstractVector{<:ContactMatrix}, coupling::AbstractMatrix{<:Real})
+    n_strata = length(cms)
     size(coupling) == (n_strata, n_strata) || throw(DimensionMismatch(
         "coupling must be $n_strata × $n_strata, got $(size(coupling))"))
     all(x -> isfinite(x) && x >= 0, coupling) ||

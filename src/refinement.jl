@@ -25,9 +25,19 @@ sub-groups within each coarse bin.
 - `cm`: coarse contact matrix
 - `fine`: target fine partition (must be a refinement of `cm.partition`)
 - `fine_population`: population per fine age group (the distributional prior)
+
+Written in `MeanContacts` — "contacts per participant is uniform within a coarse
+bin" is a statement about mean contacts, not about counts — and carried to the other
+representations by the representation isomorphisms, so that
+`reinterpret_units(refine(cm, fine, p), s) == refine(reinterpret_units(cm, s), fine, p)`.
 """
-function refine(cm::ContactMatrix, fine::AbstractPartition,
-                fine_population::AbstractVector{<:Real})
+refine(cm::ContactMatrix, fine::AbstractPartition,
+       fine_population::AbstractVector{<:Real}) =
+    _via(MeanContacts(), c -> _refine_mean(c, fine, fine_population), cm)
+
+# Refinement in its home representation, `MeanContacts`.
+function _refine_mean(cm::ContactMatrix, fine::AbstractPartition,
+                      fine_population::AbstractVector{<:Real})
     coarse = cm.partition
     n_fine = n_groups(fine)
     n_coarse = n_groups(coarse)
