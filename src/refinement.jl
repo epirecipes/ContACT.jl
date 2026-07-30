@@ -12,8 +12,11 @@ This is NOT claimed to be an inverse of coarsening.
 Refine a coarse contact matrix to a finer partition using proportional
 disaggregation based on population distribution within each coarse group.
 
-Each coarse entry M[I, J] is distributed to fine entries proportionally:
-    M_fine[i, j] = M_coarse[I, J]  (contacts per participant unchanged)
+Each coarse entry `M[I, J]` is distributed to fine entries proportionally:
+
+    M_fine[i, j] = M_coarse[I, J]
+
+leaving contacts per participant unchanged.
 
 The fine population determines how participants are distributed among
 sub-groups within each coarse bin.
@@ -22,9 +25,19 @@ sub-groups within each coarse bin.
 - `cm`: coarse contact matrix
 - `fine`: target fine partition (must be a refinement of `cm.partition`)
 - `fine_population`: population per fine age group (the distributional prior)
+
+Written in `MeanContacts` — "contacts per participant is uniform within a coarse
+bin" is a statement about mean contacts, not about counts — and carried to the other
+representations by the representation isomorphisms, so that
+`reinterpret_units(refine(cm, fine, p), s) == refine(reinterpret_units(cm, s), fine, p)`.
 """
-function refine(cm::ContactMatrix, fine::AbstractPartition,
-                fine_population::AbstractVector{<:Real})
+refine(cm::ContactMatrix, fine::AbstractPartition,
+       fine_population::AbstractVector{<:Real}) =
+    _via(MeanContacts(), c -> _refine_mean(c, fine, fine_population), cm)
+
+# Refinement in its home representation, `MeanContacts`.
+function _refine_mean(cm::ContactMatrix, fine::AbstractPartition,
+                      fine_population::AbstractVector{<:Real})
     coarse = cm.partition
     n_fine = n_groups(fine)
     n_coarse = n_groups(coarse)

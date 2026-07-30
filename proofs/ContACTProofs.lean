@@ -2,6 +2,7 @@
 import ContACTProofs.ContactCat
 import ContACTProofs.Coarsening
 import ContACTProofs.Symmetrisation
+import ContACTProofs.UnitSemantics
 import ContACTProofs.Composition
 import ContACTProofs.Stratification
 import ContACTProofs.Commutativity

@@ -1,31 +1,45 @@
 """
 Symmetrisation morphism.
 
-Makes a contact matrix reciprocal so that c_ij · N_j = c_ji · N_i,
-preserving the reciprocity constraint (total contacts from group i to j
-equals total contacts from j to i).
+Makes a contact matrix reciprocal, so that the total contacts group `i` reports
+with group `j` equal the total group `j` reports with group `i`.
 
-Key property (proven in Lean): symmetrise is idempotent.
-    symmetrise(symmetrise(M)) = symmetrise(M)
+Key properties (proven in Lean): symmetrisation establishes reciprocity, is
+idempotent, and is **natural** with respect to the unit-semantics isomorphisms.
+Naturality is not re-derived per representation — the morphism is defined once in
+its home representation and conjugated by the isomorphisms.
 """
 
 """
     symmetrise(cm::ContactMatrix)
 
-Symmetrise a contact matrix preserving the reciprocity constraint.
+Symmetrise a contact matrix, making total contacts reciprocal.
 
-For each pair (i, j), the symmetrised entry is:
-    M_sym[i, j] = (M[i, j] · N_j + M[j, i] · N_i) / (2 · N_j)
+Written in `MeanContacts`, where the formula is
 
-This ensures c_ij · N_j = c_ji · N_i in the result.
+    M_sym[i, j] = (M[i,j]·N_j + M[j,i]·N_i) / (2·N_j)
+
+and carried to the other representations by the representation isomorphisms, so that
+
+    reinterpret_units(symmetrise(cm), s) == symmetrise(reinterpret_units(cm, s))
+
+for every representation `s`. Reciprocity itself is representation-dependent —
+`M[i,j]·N_j == M[j,i]·N_i` under `MeanContacts`, plain matrix symmetry under
+`ContactCounts` and `PerCapitaRate` — and transport is what reconciles the two
+facts: one formula, the right answer everywhere.
 
 If a group has zero population, reciprocal finite rates only exist when the
 corresponding total contacts are also zero; otherwise an `ArgumentError` is thrown.
 
 # Returns
-A new `ContactMatrix` with a symmetric contact pattern.
+A new `ContactMatrix` in the same representation, with a reciprocal contact pattern.
 """
-function symmetrise(cm::ContactMatrix)
+symmetrise(cm::ContactMatrix) = _via(MeanContacts(), _symmetrise_mean, cm)
+
+# Symmetrisation in its home representation, `MeanContacts`. Call `symmetrise`
+# rather than this: applying it directly to another representation is the error
+# `_via` exists to prevent.
+function _symmetrise_mean(cm::ContactMatrix)
     M = matrix(cm)
     pop = population(cm)
     n = n_groups(cm)

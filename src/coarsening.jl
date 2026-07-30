@@ -186,8 +186,18 @@ Specifically:
     M_coarse[I, J] = Σ_{j∈f⁻¹(J)} (N_j / N_J) * Σ_{i∈f⁻¹(I)} M_fine[i, j]
 
 where N_j is the population of fine group j and N_J = Σ_{j∈f⁻¹(J)} N_j.
+
+Written in `MeanContacts` and carried to the other representations by the
+representation isomorphisms, so that
+`reinterpret_units(coarsen(cm, f), s) == coarsen(reinterpret_units(cm, s), f)`.
+The population-weighted average above is the `MeanContacts` form of a plain sum of
+total contacts over the fibres; those weights are not valid in the other
+representations, so the formula is not applied to them directly.
 """
-function coarsen(cm::ContactMatrix, f::PartitionMap)
+coarsen(cm::ContactMatrix, f::PartitionMap) =
+    _via(MeanContacts(), c -> _coarsen_mean(c, f), cm)
+
+function _coarsen_mean(cm::ContactMatrix, f::PartitionMap)
     same_partition(cm.partition, f.domain) || throw(ArgumentError(
         "ContactMatrix partition does not match PartitionMap domain"))
 

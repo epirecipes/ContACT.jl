@@ -52,6 +52,9 @@ export symmetrise
 # Operators (type \name<TAB> in REPL)
 export ⊕, ⊗, ↓, ↑, ⤊, ⊠, ▷, ↔, ρ, ×, RefinementPrior
 
+# Unit semantics (groupoid of representations)
+export population_exponents, reinterpret_units, to_mean_contacts
+
 # Utilities
 export to_per_capita, to_counts, spectral_radius,
        next_generation_matrix, basic_reproduction_number,
@@ -73,6 +76,7 @@ export SchContactSurvey, ContactSurveyACSet,
        ContactSharer, compose_uwd
 
 include("types.jl")
+include("unit_semantics.jl")
 include("survey.jl")
 include("functor.jl")
 include("coarsening.jl")

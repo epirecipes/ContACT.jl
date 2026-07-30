@@ -180,7 +180,7 @@ M = [7.0 2.5 1.0;
      0.5 2.0 4.0]
 cm = ContactMatrix(M, part, pop)
 
-println("Contact matrix (per-capita rates):")
+println("Contact matrix (mean contacts per participant):")
 display(matrix(cm))
 
 # R₀ bounds

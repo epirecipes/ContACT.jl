@@ -759,25 +759,309 @@ end
     M = [2.0 1.0 0.5; 1.0 3.0 1.0; 0.5 1.0 1.5]
     cm = ContactMatrix(M, p, pop)
 
-    # Per capita conversion
+    # Per capita conversion divides by the *contactee* (row) population, matching
+    # socialmixr's `per_capita` once the row/column conventions are aligned.
     cm_pc = to_per_capita(cm)
     @test cm_pc.semantics isa PerCapitaRate
-    @test matrix(cm_pc) ≈ [M[i, j] / pop[j] for i in 1:3, j in 1:3]
+    @test matrix(cm_pc) ≈ [M[i, j] / pop[i] for i in 1:3, j in 1:3]
 
     # Counts conversion
     cm_counts = to_counts(cm)
     @test cm_counts.semantics isa ContactCounts
     @test matrix(cm_counts) ≈ [M[i, j] * pop[j] for i in 1:3, j in 1:3]
-    @test matrix(to_per_capita(cm_counts)) ≈ M
 
-    @test_throws ArgumentError to_per_capita(
+    # Conversions dispatch on the semantics of their input, so counts → means is
+    # `to_mean_contacts`, and counts → per-capita divides by both populations.
+    @test matrix(to_mean_contacts(cm_counts)) ≈ M
+    @test matrix(to_per_capita(cm_counts)) ≈ [M[i, j] / pop[i] for i in 1:3, j in 1:3]
+
+    # Zero-population guards are per-direction: `to_counts` rescales columns,
+    # `to_per_capita` rescales rows.
+    @test_throws ArgumentError to_counts(
         ContactMatrix([0.0 1.0; 0.0 0.0], AgePartition([0, 18]), [10.0, 0.0])
+    )
+    @test_throws ArgumentError to_per_capita(
+        ContactMatrix([0.0 0.0; 1.0 0.0], AgePartition([0, 18]), [10.0, 0.0])
     )
 
     # Spectral radius
     sr = spectral_radius(cm)
     @test sr > 0
     @test sr ≈ maximum(abs.(eigvals(M)))
+end
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Unit semantics as a groupoid of representations, and naturality of the
+# operations defined on it. Formalised in proofs/ContACTProofs/UnitSemantics.lean
+# (`rescale_one`/`rescale_rescale`/`rescale_inv`, `symmetrise_naturality`,
+# `symmetriseAt_counts`, `symmetriseAt_perCapita`,
+# `symmetrise_not_natural_naive`).
+# ─────────────────────────────────────────────────────────────────────────────
+@testset "Unit semantics" begin
+    p = AgePartition([0, 18, 65])
+    # Deliberately unequal populations: every failure mode here is invisible
+    # when all N_j agree.
+    N = [1000.0, 3000.0, 500.0]
+    M = [2.0 1.0 0.5; 1.0 3.0 1.0; 0.5 1.0 1.5]
+    cm = ContactMatrix(M, p, N)
+
+    reps = (MeanContacts(), ContactCounts(), PerCapitaRate())
+
+    # Exponent the reciprocity law actually sees: e = b - a.
+    recip_exp(s) = population_exponents(s)[2] - population_exponents(s)[1]
+
+    @testset "representations form a groupoid" begin
+        # Exponents (a,b) on total contacts: R[i,j] = T[i,j]*N_i^-a*N_j^-b.
+        # Admissible representations are corners of the unit square, since a
+        # contact involves one participant and one contactee.
+        @test population_exponents(ContactCounts()) == (0, 0)
+        @test population_exponents(MeanContacts()) == (0, 1)
+        @test population_exponents(PerCapitaRate()) == (1, 1)
+        for s in reps
+            a, b = population_exponents(s)
+            @test a in (0, 1) && b in (0, 1)
+        end
+
+        for s in reps
+            cs = reinterpret_units(cm, s)
+            @test cs.semantics isa typeof(s)
+            # Identity: converting to the representation already held.
+            @test matrix(reinterpret_units(cs, s)) ≈ matrix(cs)
+            # Inverse.
+            @test matrix(reinterpret_units(cs, MeanContacts())) ≈ M
+            # Composition: any route between two representations agrees.
+            for t in reps, u in reps
+                direct = reinterpret_units(cs, u)
+                viaT = reinterpret_units(reinterpret_units(cs, t), u)
+                @test matrix(direct) ≈ matrix(viaT)
+            end
+        end
+    end
+
+    @testset "reciprocity is representation-dependent" begin
+        # The general form is R[i,j]*N_j^e == R[j,i]*N_i^e, with e = b - a: the
+        # reciprocity law sees only the difference of the two exponents.
+        cm_sym = symmetrise(cm)
+        for s in reps
+            R = matrix(reinterpret_units(cm_sym, s))
+            e = recip_exp(s)
+            for i in 1:3, j in 1:3
+                @test R[i, j] * N[j]^e ≈ R[j, i] * N[i]^e
+            end
+        end
+
+        C = matrix(to_counts(cm_sym))
+        P = matrix(to_per_capita(cm_sym))
+        S = matrix(cm_sym)
+        for i in 1:3, j in 1:3
+            @test S[i, j] * N[j] ≈ S[j, i] * N[i]   # MeanContacts: e = 1
+            @test C[i, j] ≈ C[j, i]                 # ContactCounts: e = 0
+            @test P[i, j] ≈ P[j, i]                 # PerCapitaRate: e = 0
+        end
+        # The property PerCapitaRate is named for: a reciprocal matrix is
+        # symmetric in this representation. This is Lomas et al.'s β_ij.
+        @test P ≈ transpose(P)
+    end
+
+    @testset "symmetrise: naturality square" begin
+        # reinterpret_units ∘ symmetrise == symmetrise ∘ reinterpret_units,
+        # for every pair of representations.
+        for s in reps, t in reps
+            cs = reinterpret_units(cm, s)
+            convert_then_sym = symmetrise(reinterpret_units(cs, t))
+            sym_then_convert = reinterpret_units(symmetrise(cs), t)
+            @test matrix(convert_then_sym) ≈ matrix(sym_then_convert)
+            @test typeof(convert_then_sym.semantics) == typeof(sym_then_convert.semantics)
+        end
+    end
+
+    @testset "symmetrise: closed form per representation" begin
+        # e = 0: plain averaging, no population in the formula.
+        C = matrix(to_counts(cm))
+        @test matrix(symmetrise(to_counts(cm))) ≈ (C .+ transpose(C)) ./ 2
+
+        P = matrix(to_per_capita(cm))
+        @test matrix(symmetrise(to_per_capita(cm))) ≈ (P .+ transpose(P)) ./ 2
+
+        # e = 1: the familiar MeanContacts formula.
+        @test matrix(symmetrise(cm)) ≈
+            [(M[i, j] * N[j] + M[j, i] * N[i]) / (2 * N[j]) for i in 1:3, j in 1:3]
+
+        # Two representations can share a formula (both e = 0) and still be
+        # different objects.
+        @test recip_exp(ContactCounts()) == recip_exp(PerCapitaRate()) == 0
+        @test !(C ≈ P)
+    end
+
+    @testset "PerCapitaRate agrees with the activity lift's β" begin
+        # Lomas et al. (2025): β_ij = a_i·a_j/D. ContACT's reciprocal lift is
+        # M[i,j] = a_i·N_i·a_j/D, so β is exactly the PerCapitaRate view of it.
+        act = [0.8, 1.3, 0.5]
+        D = sum(act .* N)
+        M_lift = [act[i] * N[i] * act[j] / D for i in 1:3, j in 1:3]
+        cm_lift = ContactMatrix(M_lift, p, N)
+        β = [act[i] * act[j] / D for i in 1:3, j in 1:3]
+
+        @test matrix(to_per_capita(cm_lift)) ≈ β
+        @test β ≈ transpose(β)
+        # The lift is already reciprocal, so symmetrisation is a no-op there.
+        @test matrix(symmetrise(to_per_capita(cm_lift))) ≈ β
+    end
+
+    @testset "symmetrise: idempotent in every representation" begin
+        for s in reps
+            cs = reinterpret_units(cm, s)
+            @test matrix(symmetrise(symmetrise(cs))) ≈ matrix(symmetrise(cs))
+        end
+    end
+
+    @testset "the naive non-dispatching formula breaks naturality" begin
+        # Regression guard: applying the MeanContacts formula to a ContactCounts
+        # matrix is what `symmetrise` used to do. It is a different matrix, so a
+        # future refactor that drops the dispatch will fail here rather than
+        # silently return a mislabelled result.
+        C = matrix(to_counts(cm))
+        naive = [(C[i, j] * N[j] + C[j, i] * N[i]) / (2 * N[j]) for i in 1:3, j in 1:3]
+        correct = matrix(symmetrise(to_counts(cm)))
+        @test !(naive ≈ correct)
+        # And the naive result is not even reciprocal in the counts sense.
+        @test !(naive ≈ transpose(naive))
+    end
+
+    @testset "zero populations" begin
+        p2 = AgePartition([0, 18])
+
+        # Guards are per-direction, because the conversions rescale different
+        # axes. `to_counts` scales columns; `to_per_capita` scales rows.
+        bad_col = ContactMatrix([0.0 1.0; 0.0 0.0], p2, [10.0, 0.0])
+        @test_throws ArgumentError to_counts(bad_col)
+        @test matrix(to_per_capita(bad_col)) ≈ [0.0 0.1; 0.0 0.0]  # rows are fine
+
+        bad_row = ContactMatrix([0.0 0.0; 1.0 0.0], p2, [10.0, 0.0])
+        @test_throws ArgumentError to_per_capita(bad_row)
+        @test matrix(to_counts(bad_row)) ≈ [0.0 0.0; 10.0 0.0]     # columns are fine
+
+        # `symmetrise` is *more* permissive than conversion, and deliberately
+        # so: its guard is on total contacts `M[i,j]·N_j`, which vanish for
+        # `bad_col`, whereas conversion needs the raw entry to vanish to stay
+        # invertible. So the naturality square above is stated on the
+        # conversions' domain, which is the smaller of the two.
+        @test matrix(symmetrise(bad_col)) ≈ zeros(2, 2)
+        # A nonzero *total* against an empty group is inconsistent for both.
+        @test_throws ArgumentError symmetrise(bad_row)
+
+        # An empty group with no contacts is fine in every representation.
+        ok = ContactMatrix([1.0 0.0; 0.0 0.0], p2, [10.0, 0.0])
+        for s in reps
+            os = reinterpret_units(ok, s)
+            @test matrix(reinterpret_units(os, MeanContacts())) ≈ matrix(ok)
+            @test matrix(symmetrise(os)) ≈ matrix(symmetrise(os))
+        end
+        # ContactCounts symmetrisation needs no division, so it goes through.
+        @test matrix(symmetrise(to_counts(ok))) ≈ [10.0 0.0; 0.0 0.0]
+    end
+end
+
+# Every structural morphism commutes with the unit-semantics isomorphisms:
+#     reinterpret_units(op(cm), s) == op(reinterpret_units(cm, s))
+# Any new morphism belongs in this testset.
+@testset "Naturality of unit semantics" begin
+    fine = AgePartition([0, 18, 65])
+    coarse = AgePartition([0, 18])
+    N = [1000.0, 3000.0, 500.0]
+    M = [2.0 1.0 0.5; 1.0 3.0 1.0; 0.5 1.0 1.5]
+    cm = ↔(ContactMatrix(M, fine, N))
+    cmc = coarsen(cm, coarse)
+    cm2 = ↔(ContactMatrix(M .* 0.5, fine, N))
+    coupling = [0.7 0.3; 0.3 0.7]
+
+    reps = (MeanContacts(), ContactCounts(), PerCapitaRate())
+
+    morphisms = (
+        ("symmetrise (↔)", c -> symmetrise(c),         cm),
+        ("coarsen (↓)",    c -> coarsen(c, coarse),    cm),
+        ("refine (↑)",     c -> refine(c, fine, N),    cmc),
+        ("stratify (⊗)",   c -> stratify(c, coupling), cm),
+    )
+
+    for (name, op, obj) in morphisms
+        @testset "$name commutes with reinterpret_units" begin
+            for s in reps
+                lhs = op(reinterpret_units(obj, s))
+                rhs = reinterpret_units(op(obj), s)
+                @test matrix(lhs) ≈ matrix(rhs)
+                @test typeof(lhs.semantics) == typeof(rhs.semantics)
+                @test population(lhs) ≈ population(rhs)
+                @test group_labels(lhs) == group_labels(rhs)
+            end
+        end
+    end
+
+    @testset "compose (⊕) commutes with reinterpret_units" begin
+        for s in reps
+            lhs = compose_matrices(reinterpret_units(cm, s), reinterpret_units(cm2, s))
+            rhs = reinterpret_units(compose_matrices(cm, cm2), s)
+            @test matrix(lhs) ≈ matrix(rhs)
+            @test typeof(lhs.semantics) == typeof(rhs.semantics)
+        end
+    end
+
+    @testset "heterogeneous stratify (⊗) commutes" begin
+        for s in reps
+            cs = [reinterpret_units(cm, s), reinterpret_units(cm2, s)]
+            lhs = stratify(cs, coupling)
+            rhs = reinterpret_units(stratify([cm, cm2], coupling), s)
+            @test matrix(lhs) ≈ matrix(rhs)
+            @test typeof(lhs.semantics) == typeof(rhs.semantics)
+        end
+    end
+
+    @testset "transport is the identity in the home representation" begin
+        @test matrix(symmetrise(cm)) == matrix(ContACT._symmetrise_mean(cm))
+        @test matrix(coarsen(cm, coarse)) ==
+              matrix(ContACT._coarsen_mean(cm, PartitionMap(fine, coarse)))
+    end
+
+    @testset "morphisms compose across representations" begin
+        pipeline(c) = symmetrise(refine(coarsen(c, coarse), fine, N))
+        for s in reps
+            @test matrix(pipeline(reinterpret_units(cm, s))) ≈
+                  matrix(reinterpret_units(pipeline(cm), s))
+        end
+    end
+end
+
+# Scalars leave the category, so transport does not apply to them. Each must
+# either agree across representations or reject the ones it is not defined on.
+@testset "Representation-dependent scalars" begin
+    p = AgePartition([0, 18, 65])
+    N = [1000.0, 3000.0, 500.0]
+    M = [2.0 1.0 0.5; 1.0 3.0 1.0; 0.5 1.0 1.5]
+    cm = ↔(ContactMatrix(M, p, N))
+
+    @testset "assortativity_index requires MeanContacts" begin
+        @test assortativity_index(cm) > 0
+        @test_throws ArgumentError assortativity_index(to_counts(cm))
+        @test_throws ArgumentError assortativity_index(to_per_capita(cm))
+        # Guarded because it is not invariant: the counts reading differs.
+        Mc = matrix(to_counts(cm))
+        @test sum(Mc[i, i] / sum(Mc[i, :]) for i in 1:3) ≉ assortativity_index(cm)
+    end
+
+    @testset "next-generation quantities require MeanContacts" begin
+        for f in (next_generation_matrix, basic_reproduction_number, R0, R₀)
+            @test_throws ArgumentError f(to_counts(cm))
+            @test_throws ArgumentError f(to_per_capita(cm))
+        end
+        @test_throws ArgumentError r0_bounds(to_counts(cm))
+        @test_throws ArgumentError calibrate_transmissibility(to_per_capita(cm), 2.0)
+    end
+
+    @testset "spectral_radius is raw and representation-dependent" begin
+        @test spectral_radius(cm) ≈ R0(cm)
+        @test spectral_radius(to_counts(cm)) ≉ spectral_radius(cm)
+        @test spectral_radius(to_per_capita(cm)) ≉ spectral_radius(cm)
+    end
 end
 
 @testset "ACSet schemas" begin
