@@ -180,7 +180,6 @@ function type_reproduction_number(cm::ContactMatrix, target_groups;
     )
     target = _group_indices(cm, target_groups)
     other = setdiff(collect(1:n_groups(cm)), target)
-    isempty(target) && throw(ArgumentError("target_groups must not be empty"))
 
     if isempty(other)
         return maximum(abs.(eigvals(K[target, target])))

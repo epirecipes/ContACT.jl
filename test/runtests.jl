@@ -352,11 +352,21 @@ end
         pspec_f = ParameterizedConstrainedLift(spec; default_params=feasible_params)
         @test is_feasible(base, pspec_f) == true
 
-        # Very extreme q should be infeasible
-        extreme_params = BlockAssortativityParams(q=Dict(:sep => 0.99))
-        pspec_e = ParameterizedConstrainedLift(spec; default_params=extreme_params)
-        # May or may not be feasible depending on structure; just test it returns Bool
-        @test is_feasible(base, pspec_e) isa Bool
+        # q is constrained to [-1, 1]. Every interior value is feasible here —
+        # even q=0.99 leaves a strictly positive minimum entry — while both
+        # endpoints fail, because the transport cannot then be balanced against
+        # the base marginals.
+        near_params = BlockAssortativityParams(q=Dict(:sep => 0.99))
+        pspec_n = ParameterizedConstrainedLift(spec; default_params=near_params)
+        @test is_feasible(base, pspec_n) == true
+        @test minimum(matrix(constrained_generalize(base, pspec_n))) > 0
+
+        for q_end in (1.0, -1.0)
+            pspec_e = ParameterizedConstrainedLift(spec;
+                default_params=BlockAssortativityParams(q=Dict(:sep => q_end)))
+            @test is_feasible(base, pspec_e) == false
+            @test_throws ArgumentError constrained_generalize(base, pspec_e)
+        end
     end
 
     @testset "sample_constrained_lifts" begin
@@ -364,8 +374,9 @@ end
         rng = Random.MersenneTwister(42)
         samples = sample_constrained_lifts(base, spec, 5;
             dimensions=[:sep], bounds=(-0.5, 0.5), rng=rng)
-        @test length(samples) <= 5
-        @test length(samples) >= 1  # at least some feasible
+        # Every |q| < 1 is feasible for this base/spec (see "is_feasible" above), and
+        # (-0.5, 0.5) is strictly interior, so every draw is accepted regardless of seed.
+        @test length(samples) == 5
         for (params, cm) in samples
             @test cm isa ContactMatrix
             @test all(matrix(cm) .>= -1e-10)
@@ -410,7 +421,9 @@ end
         rng = Random.MersenneTwister(123)
         samples = sample_perblock_lifts(base, spec, 3;
             dimensions=[:sep], bounds=(-0.4, 0.4), rng=rng)
-        @test length(samples) >= 1
+        # Same reasoning as sample_constrained_lifts above: (-0.4, 0.4) is strictly
+        # interior to the feasible range, so every draw is accepted regardless of seed.
+        @test length(samples) == 3
         for (bp, cm) in samples
             @test cm isa ContactMatrix
             @test all(matrix(cm) .>= -1e-10)
@@ -441,21 +454,43 @@ end
             @test matrix(cm ↓ age) ≈ matrix(base) atol=1e-10
         end
 
-        # MCMC with a log-density targeting high assortativity
+        # Omitting log_density means a flat target, recorded as zero throughout.
+        @test all(iszero, result.log_densities)
+
+        # A chain run against a log-density records, for each sample, the density
+        # of the state it actually stored. Both are exact: the recorded value is
+        # the one computed during the step, and the stored parameters regenerate
+        # the stored matrix.
         log_dens = (cm, _) -> assortativity_index(cm, :sep)
-        rng2 = Random.MersenneTwister(77)
         result_targeted = mcmc_constrained_lifts(base, spec, 10;
             dimensions=[:sep], bounds=(-0.4, 0.4),
             log_density=log_dens,
-            proposal_scale=0.05, burnin=20, thin=1, rng=rng2)
+            proposal_scale=0.05, burnin=20, thin=1, rng=Random.MersenneTwister(77))
         @test length(result_targeted.chain) == 10
-        # Targeted chain should have higher average assortativity than flat
-        mean_ai_targeted = sum(assortativity_index(cm, :sep)
-                               for cm in result_targeted.matrices) / length(result_targeted.matrices)
-        mean_ai_flat = sum(assortativity_index(cm, :sep)
-                          for cm in result.matrices) / length(result.matrices)
-        # Not guaranteed every run, but very likely with assortativity as density
-        @test mean_ai_targeted >= mean_ai_flat - 0.5  # soft check
+        for k in 1:10
+            cm, bp = result_targeted.matrices[k], result_targeted.chain[k]
+            @test result_targeted.log_densities[k] == log_dens(cm, bp)
+            regenerated = constrained_generalize(base,
+                ParameterizedConstrainedLift(spec; block_params=bp))
+            @test matrix(regenerated) == matrix(cm)
+            @test all(matrix(cm) .>= -1e-10)
+            @test matrix(cm ↓ age) ≈ matrix(base) atol=1e-10
+        end
+
+        # A constant density gives every proposal an acceptance ratio of 1, which
+        # is what omitting log_density does. On a shared seed the two chains are
+        # therefore identical step for step.
+        for c in (0.0, 3.7, -12.5)
+            r_flat = mcmc_constrained_lifts(base, spec, 10;
+                dimensions=[:sep], bounds=(-0.4, 0.4),
+                proposal_scale=0.05, burnin=20, thin=1, rng=Random.MersenneTwister(4))
+            r_const = mcmc_constrained_lifts(base, spec, 10;
+                dimensions=[:sep], bounds=(-0.4, 0.4), log_density=(cm, bp) -> c,
+                proposal_scale=0.05, burnin=20, thin=1, rng=Random.MersenneTwister(4))
+            @test all(matrix(r_const.matrices[k]) == matrix(r_flat.matrices[k]) for k in 1:10)
+            @test r_const.acceptance_rate == r_flat.acceptance_rate
+            @test all(==(c), r_const.log_densities)
+        end
     end
 end
 
@@ -507,6 +542,78 @@ end
     )
 end
 
+@testset "dropped contacts are excluded, not miscounted" begin
+    partition = AgePartition([0, 18, 65])
+    # participant 3's age and contact row 2's age both fall below the partition's
+    # first limit, so assign_group returns nothing for each (src/types.jl:214-221).
+    participants = DataFrame(part_id=[1, 2, 3], part_age=[10.0, 30.0, -5.0])
+    contacts = DataFrame(part_id=[1, 1, 2, 3], cnt_age=[10.0, -1.0, 30.0, 30.0])
+    survey = ContactSurvey(participants, contacts)
+
+    cm = @test_logs(
+        (:warn, r"dropped 2 contact\(s\): 1 with missing/unmapped contact group; 1 with missing/unmapped participant group"),
+        compute_matrix(survey, partition))
+    @test population(cm) == [1.0, 1.0, 0.0]
+    @test matrix(cm) ≈ [1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 0.0]
+    # the two dropped rows add nothing to either counts or weights
+    @test sum(matrix(cm) * Diagonal(population(cm))) ≈ 2.0
+
+    # missing and non-finite contact ages both drop, by different branches of assign_group
+    missing_survey = ContactSurvey(
+        DataFrame(part_id=[1], part_age=[10.0]),
+        DataFrame(part_id=[1, 1, 1, 1], cnt_age=[10.0, missing, NaN, Inf]),
+    )
+    cm_missing = @test_logs (:warn, r"dropped 3 contact\(s\): 3 with missing/unmapped contact group") compute_matrix(
+        missing_survey, partition)
+    @test matrix(cm_missing) ≈ [1.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 0.0]
+
+    # an age above the last limit is NOT dropped: the top group is open-ended
+    top_survey = ContactSurvey(
+        DataFrame(part_id=[1], part_age=[10.0]),
+        DataFrame(part_id=[1], cnt_age=[999.0]),
+    )
+    cm_top = @test_logs compute_matrix(top_survey, partition)   # asserts: no log records at all
+    @test matrix(cm_top) ≈ [0.0 0.0 0.0; 0.0 0.0 0.0; 1.0 0.0 0.0]
+
+    # The source-stratified functor mirrors both reachable drop reasons. Distinct
+    # target/source partitions keep the roles observable: the target partition is
+    # applied to contacts (rows), the source partition to participants (columns).
+    coarse = AgePartition([0, 18])
+    ssm = @test_logs(
+        (:warn, r"^compute_source_stratified_matrix dropped 2 contact\(s\): 1 with missing/unmapped contact group; 1 with missing/unmapped participant group"),
+        compute_source_stratified_matrix(survey, partition, coarse))
+    @test size(matrix(ssm)) == (3, 2)
+    @test population(ssm) == [1.0, 1.0]
+    @test matrix(ssm) ≈ [1.0 0.0; 0.0 1.0; 0.0 0.0]
+end
+
+@testset "unknown participant id is dropped after in-place mutation" begin
+    # ContactSurvey's constructor validates every contact's part_id against
+    # participants, so this drop reason can't be triggered through the constructor,
+    # filter_survey, or subset_survey — the only ways to build a survey. It exists to
+    # protect compute_matrix/compute_source_stratified_matrix against a survey mutated
+    # after construction: DataFrame fields are public and mutable, so external code
+    # (e.g. a future package integration holding a ContactSurvey reference, such as
+    # CategoricalInterventions.jl's planned ContACT extension) could append a contact
+    # row directly to survey.contacts without going through validation. This test pins
+    # that the drop-and-warn behaviour still holds if that ever happens.
+    partition = AgePartition([0, 18, 65])
+    survey = ContactSurvey(
+        DataFrame(part_id=[1], part_age=[10.0]),
+        DataFrame(part_id=[1], cnt_age=[10.0]),
+    )
+    push!(survey.contacts, (part_id=99, cnt_age=10.0))
+    cm = @test_logs (:warn, r"^compute_matrix dropped 1 contact\(s\): 1 with unknown participant id") compute_matrix(survey, partition)
+    @test matrix(cm) ≈ [1.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 0.0]
+    @test population(cm) == [1.0, 0.0, 0.0]   # the phantom row adds no participant weight
+
+    # the same branch exists in the source-stratified functor
+    ssm = @test_logs(
+        (:warn, r"^compute_source_stratified_matrix dropped 1 contact\(s\): 1 with unknown participant id"),
+        compute_source_stratified_matrix(survey, partition, partition))
+    @test matrix(ssm) ≈ [1.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 0.0]
+end
+
 @testset "Coarsening" begin
     fine = AgePartition([0, 5, 18, 65])
     M = [4.0 1.0 0.5 0.2;
@@ -554,6 +661,21 @@ end
     mixed = cm_int ⊕ cm_home
     @test eltype(matrix(mixed)) == Float64
     @test matrix(mixed) ≈ [1 2 3; 4 5 6; 7 8 9] .+ M_home
+
+    @testset "mismatched inputs are rejected" begin
+        p2 = AgePartition([0, 10, 65])
+        cm_diff_partition = ContactMatrix(M_home, p2, pop)
+        @test_throws ArgumentError cm_home ⊕ cm_diff_partition
+
+        cm_diff_pop = ContactMatrix(M_home, p, pop .+ 1.0)
+        @test_throws ArgumentError cm_home ⊕ cm_diff_pop
+
+        # Matching semantics is the third documented precondition; it is enforced by the
+        # shared type parameter on compose_matrices, so the rejection is a MethodError.
+        @test_throws MethodError cm_home ⊕ to_counts(cm_home)
+
+        @test_throws ArgumentError compose_matrices(ContactMatrix[])
+    end
 end
 
 @testset "Stratification (⊗)" begin
@@ -692,6 +814,14 @@ end
     @test activity_mixing_plan(row, col, :disassortative) ≈ [0.0 1.0; 1.2 2.4]
     @test activity_mixing_plan(row, col, :proportionate) ≈ row * transpose(col) ./ sum(row)
 
+    @testset "activity_mixing_plan rejects invalid marginals" begin
+        @test_throws DimensionMismatch activity_mixing_plan([1.0, 2.0], [1.0, 1.0, 1.0])
+        @test_throws ArgumentError activity_mixing_plan([-1.0, 2.0], [1.0, 0.0])  # row branch
+        @test_throws ArgumentError activity_mixing_plan([1.0, 0.0], [-1.0, 2.0])  # column branch
+        @test_throws ArgumentError activity_mixing_plan([NaN, 1.0], [1.0, 0.0])   # non-finite
+        @test_throws ArgumentError activity_mixing_plan([1.0, 2.0], [1.0, 1.0])   # totals 3 vs 2
+    end
+
     @test_throws ArgumentError activity_refine(
         ContactMatrix([1.0 2.0; 0.0 1.0], base, [2.0, 2.0]),
         spec,
@@ -751,6 +881,44 @@ end
     @test_throws ArgumentError GeneralizedLift(ses; distribution=[0.5, 0.5, 0.5])
     @test_throws ArgumentError generalize(base, ses, [10.0, 20.0, 30.0, 40.0, 50.0, 60.0])
     @test_throws ArgumentError BlockMixing([0.5 0.5; 0.5 0.5])
+
+    @testset "assortative mixing kernel guards" begin
+        ses2 = CategoricalPartition(:ses2; levels=["low", "high"])
+        ses3 = CategoricalPartition(:ses3; levels=["low", "middle", "high"])
+        ses4 = CategoricalPartition(:ses4; levels=["a", "b", "c", "d"])
+
+        # The constructor itself only checks the simplex and [0,1] ranges ...
+        unequal = AssortativeDimensionMixing([0.5, 0.5], [0.9, 0.1])
+        @test unequal isa AssortativeDimensionMixing
+        # ... the feasibility condition (1-r₁)·a₁ == (1-r₂)·a₂ is enforced during the lift.
+        @test_throws ArgumentError generalize(base, ses2; distribution=[0.5, 0.5], mixing=unequal)
+
+        # Balanced cross-group mass is accepted, and the lift still coarsens back.
+        balanced = AssortativeDimensionMixing([0.5, 0.5], [0.6, 0.6])
+        g2 = generalize(base, ses2; distribution=[0.5, 0.5], mixing=balanced)
+        @test matrix(g2 ↓ age) ≈ matrix(base)
+
+        # Four groups: automatic assortative diagonal blocks are not implemented.
+        @test_throws ArgumentError generalize(base, ses4;
+            distribution=fill(0.25, 4),
+            mixing=AssortativeDimensionMixing(fill(0.25, 4), fill(0.5, 4)))
+
+        # offdiag_split is the three-group Manna construction only. Reaching this guard needs
+        # a diagonal block that *does* build (n=2, balanced), so the failure is the split itself.
+        @test_throws ArgumentError generalize(base, ses2;
+            distribution=[0.5, 0.5],
+            mixing=AssortativeDimensionMixing([0.5, 0.5], [0.6, 0.6]; offdiag_split=[0.5, 0.5]))
+
+        # activity length must match the added partition (src/generalized_lift.jl:339-340)
+        @test_throws DimensionMismatch generalize(base, ses3;
+            distribution=[0.3, 0.3, 0.4],
+            mixing=AssortativeDimensionMixing([0.5, 0.5], [0.6, 0.6]))
+
+        # n=3 parameters implying negative off-diagonal mass (src/generalized_lift.jl:407-410)
+        @test_throws ArgumentError generalize(base, ses3;
+            distribution=[0.3, 0.3, 0.4],
+            mixing=AssortativeDimensionMixing([0.1, 0.1, 0.8], [0.0, 0.0, 0.0]))
+    end
 end
 
 @testset "Utilities" begin
@@ -1017,6 +1185,14 @@ end
     end
 
     @testset "transport is the identity in the home representation" begin
+        # ↔ and ↓ are both written in MeanContacts, and cm is MeanContacts, so _via
+        # routes straight to the home implementation. These pin that routing: a wrong
+        # home tag, or a formula belonging to another representation, changes the
+        # numbers outright. == rather than ≈ holds the arithmetic itself fixed —
+        # rewriting a morphism in another representation reassociates it.
+        # (_via's short-circuit is not what this pins: reinterpret_units returns early
+        # on an identity conversion, so the long path is the same numbers on the same
+        # domain, two intermediate wrappers more.)
         @test matrix(symmetrise(cm)) == matrix(ContACT._symmetrise_mean(cm))
         @test matrix(coarsen(cm, coarse)) ==
               matrix(ContACT._coarsen_mean(cm, PartitionMap(fine, coarse)))
@@ -1367,6 +1543,23 @@ end
         @test effort_kw ≈ effort
     end
 
+    @testset "invalid target groups are rejected" begin
+        simple_cm = ContactMatrix([2.0 1.0; 1.0 2.0], sep, [500.0, 500.0])
+
+        @test_throws ArgumentError type_reproduction_number(simple_cm, Int[])            # empty collection
+        @test_throws ArgumentError type_reproduction_number(simple_cm, [false, false])   # mask selects nothing
+        @test_throws ArgumentError type_reproduction_number(simple_cm, [1, 1])           # duplicate index
+        @test_throws ArgumentError type_reproduction_number(simple_cm, [3])              # index above n_groups
+        @test_throws ArgumentError type_reproduction_number(simple_cm, [0])              # index below 1
+        @test_throws ArgumentError type_reproduction_number(simple_cm, ["nonexistent"])  # label matches no group
+        @test_throws ArgumentError type_reproduction_number(simple_cm, (1, 2))           # not index/label/mask
+        @test_throws DimensionMismatch type_reproduction_number(simple_cm, [true, false, true])
+
+        # control_effort routes through the same helper
+        @test_throws ArgumentError control_effort(simple_cm, [3], 0.5)
+        @test_throws DimensionMismatch control_effort(simple_cm, [true, false, true], 0.5)
+    end
+
     @testset "PartitionMap product→product projection" begin
         # age × sep → sep projection
         proj = PartitionMap(prod_part, sep)
@@ -1545,6 +1738,35 @@ end
         @test b_sub.upper == 0.0
     end
 
+    @testset "info= argument validation" begin
+        K = [1.5 0.5; 0.3 1.7]
+        π = [0.5, 0.5]
+
+        @test_throws ArgumentError r0_bounds(K; info=:bogus)
+        @test_throws ArgumentError r0_bounds_detailed_balance(K, π; info=:bogus)
+        @test_throws ArgumentError final_size_bounds(K, π; info=:bogus)
+        @test_throws ArgumentError total_final_size_bounds(K, π; info=:bogus)
+
+        # :both is valid for the R₀ bounds but NOT for the final-size bounds, whose
+        # bodies are `if info == :col ... else <row>` — a widened guard would silently
+        # return row bounds. This is the case that pins the two allowed sets apart.
+        @test_throws ArgumentError final_size_bounds(K, π; info=:both)
+        @test_throws ArgumentError total_final_size_bounds(K, π; info=:both)
+
+        # The :both branch of the detailed-balance bounds. Intersecting the row and column
+        # intervals is only meaningful when detailed balance actually holds — a precondition
+        # the function does not check — so the pair is chosen to satisfy it exactly and the
+        # property is asserted rather than assumed. Non-uniform π keeps the row and column
+        # intervals distinct, so returning either one under :both fails here.
+        K_db = [1.5 0.75; 0.25 1.25]
+        π_db = [0.25, 0.75]
+        @test π_db[1] * K_db[1, 2] == π_db[2] * K_db[2, 1]
+        b_both = r0_bounds_detailed_balance(K_db, π_db; info=:both)
+        @test b_both.lower ≤ b_both.upper
+        @test b_both.lower ≤ maximum(abs.(eigvals(K_db))) ≤ b_both.upper
+        @test b_both.lower > r0_bounds_detailed_balance(K_db, π_db; info=:row).lower
+    end
+
     @testset "ContactMatrix convenience" begin
         part = AgePartition([0, 18, 65])
         pop = [11000.0, 33000.0, 9500.0]
@@ -1610,6 +1832,18 @@ end
         @test_throws ArgumentError BlockAssortativityParams(q=Dict(:sep => -1.1))
         @test_throws ArgumentError BlockAssortativityParams(q=Dict(:sep => NaN))
         @test_throws ArgumentError BlockAssortativityParams(q=Dict(:sep => Inf))
+
+        # The positional form validates too, whatever the dict's element type,
+        # so no construction path can hand the solver a q outside [-1, 1].
+        @test_throws ArgumentError BlockAssortativityParams(Dict(:sep => 5.0))
+        @test_throws ArgumentError BlockAssortativityParams(Dict(:sep => 5))
+        @test_throws ArgumentError BlockAssortativityParams(Dict(:sep => 3 // 2))
+        @test_throws ArgumentError BlockAssortativityParams(Dict(:sep => -Inf))
+
+        # The endpoints themselves are valid, and integer input is converted.
+        @test BlockAssortativityParams(Dict(:sep => 1.0)).q[:sep] == 1.0
+        @test BlockAssortativityParams(Dict(:sep => -1)).q[:sep] === -1.0
+        @test isempty(BlockAssortativityParams().q)
     end
 
     @testset "NGM has no population rescaling; bounds bracket true R₀" begin
@@ -1723,7 +1957,7 @@ end
             # Total contacts must be symmetric (reciprocity)
             @test C ≈ C' atol=1e-10
             # Coarsening back to base must be preserved
-            @test matrix(result ↓ age) ≈ matrix(base_cm) atol=1e-8
+            @test matrix(result ↓ age) ≈ matrix(base_cm) atol=1e-10
         end
     end
 
