@@ -166,9 +166,20 @@ mixing preference within that dimension:
 The parametrization adjusts the proportionate transport plan within each base
 block by shifting mass toward or away from same-dimension-value entries while
 preserving row and column marginals.
+
+Values outside `[-1, 1]`, and non-finite values, are rejected on construction.
 """
 struct BlockAssortativityParams
     q::Dict{Symbol,Float64}
+
+    function BlockAssortativityParams(q::Dict{Symbol,Float64})
+        for (dim, val) in q
+            isfinite(val) || throw(ArgumentError("q-parameter for $dim must be finite"))
+            abs(val) <= 1.0 || throw(ArgumentError(
+                "q-parameter for $dim must lie in [-1, 1], got $val"))
+        end
+        new(q)
+    end
 end
 
 # q-parameters are constrained to [-1, 1] (see `BlockAssortativityParams`), so any
@@ -183,17 +194,11 @@ function _validate_q_bounds(bounds::Tuple{Real,Real})
     (lo, hi)
 end
 
-function BlockAssortativityParams(; q::AbstractDict{Symbol,<:Real}=Dict{Symbol,Float64}())
-    vals = Dict{Symbol,Float64}()
-    for (dim, val) in q
-        qval = Float64(val)
-        isfinite(qval) || throw(ArgumentError("q-parameter for $dim must be finite"))
-        abs(qval) <= 1.0 || throw(ArgumentError(
-            "q-parameter for $dim must lie in [-1, 1], got $qval"))
-        vals[dim] = qval
-    end
-    BlockAssortativityParams(vals)
-end
+BlockAssortativityParams(q::AbstractDict{Symbol,<:Real}) =
+    BlockAssortativityParams(Dict{Symbol,Float64}(dim => Float64(val) for (dim, val) in q))
+
+BlockAssortativityParams(; q::AbstractDict{Symbol,<:Real}=Dict{Symbol,Float64}()) =
+    BlockAssortativityParams(q)
 
 """
     ParameterizedConstrainedLift(spec; block_params=nothing, default_params=BlockAssortativityParams())
@@ -226,8 +231,9 @@ assortativity. Each base block is solved independently: the proportionate
 transport plan is adjusted by shifting mass toward same-dimension-value entries
 (assortative, q > 0) or away (disassortative, q < 0).
 
-Throws `ArgumentError` if the resulting block has negative entries (infeasible
-parameters).
+Throws `ArgumentError` when a block has no solution. As `|q|` approaches 1 the
+shift empties some group pairs of contacts entirely, and the pairs left over
+cannot be rescaled to reproduce the row and column totals the block started with.
 """
 function constrained_generalize(base::ContactMatrix, pspec::ParameterizedConstrainedLift)
     spec = pspec.spec
@@ -305,8 +311,12 @@ generalize(base::ContactMatrix, pspec::ParameterizedConstrainedLift) =
 """
     is_feasible(base, pspec::ParameterizedConstrainedLift)
 
-Check whether the parameterized constrained lift produces a non-negative matrix.
-Returns `true` if all entries are non-negative, `false` otherwise.
+Check whether the parameterized constrained lift has a solution. Returns `false`
+when some block cannot reproduce its original row and column totals under the
+requested q-parameters, `true` otherwise.
+
+Entries are never negative for any q the constructor accepts, so this reports
+solvability rather than sign.
 """
 function is_feasible(base::ContactMatrix, pspec::ParameterizedConstrainedLift)
     try
@@ -323,9 +333,11 @@ end
         dimensions=Symbol[], bounds=(-1.0, 1.0), rng=Random.default_rng())
 
 Sample `n` feasible parameterized lifts by uniformly sampling q-parameters
-within `bounds` and rejecting infeasible (negative-entry) solutions.
+within `bounds`, discarding any draw whose blocks have no solution.
 
-Returns a vector of `(params, matrix)` tuples for accepted samples.
+Draws are attempted until `n` have been accepted or `100n` have been tried,
+whichever comes first. Returns a vector of `(params, matrix)` tuples for the
+accepted draws, which may therefore be shorter than `n`.
 """
 function sample_constrained_lifts(base::ContactMatrix, spec::ConstrainedGeneralizedLift, n::Int;
     dimensions::AbstractVector{Symbol}=Symbol[],
@@ -447,7 +459,9 @@ end
 Sample `n` feasible parameterized lifts with independent per-block per-dimension
 q-parameters. Uses rejection sampling over the full parameter space.
 
-Returns a vector of `(block_params, matrix)` tuples.
+Draws are attempted until `n` have been accepted or `200n` have been tried,
+whichever comes first. Returns a vector of `(block_params, matrix)` tuples for the
+accepted draws, which may therefore be shorter than `n`.
 """
 function sample_perblock_lifts(base::ContactMatrix, spec::ConstrainedGeneralizedLift, n::Int;
     dimensions::AbstractVector{Symbol}=Symbol[],
@@ -701,8 +715,8 @@ function _parameterized_transport(row_marginal::AbstractVector{<:Real},
         end
 
         if any(block .< -1e-10)
-            throw(ArgumentError(
-                "q-parameter q_$(dim) = $q produces negative entries; infeasible parameters"))
+            error("q_$(dim) = $q produced a negative transport entry, " *
+                  "which |q| ≤ 1 should make impossible")
         end
         block .= max.(block, 0.0)
     end
@@ -727,8 +741,8 @@ function _balance_transport(candidate::AbstractMatrix{<:Real},
     block = Float64.(candidate)
     size(block) == (length(row), length(col)) || throw(DimensionMismatch(
         "candidate block size $(size(block)) does not match marginals $(length(row)) × $(length(col))"))
-    all(isfinite, block) || throw(ArgumentError("candidate transport entries must be finite"))
-    any(block .< -atol) && throw(ArgumentError("candidate transport has negative entries"))
+    all(isfinite, block) || error("candidate transport has non-finite entries")
+    any(block .< -atol) && error("candidate transport has negative entries")
     block .= max.(block, 0.0)
 
     for i in eachindex(row)
