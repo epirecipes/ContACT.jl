@@ -49,6 +49,9 @@ export stratify
 # Symmetrisation
 export symmetrise
 
+# Demographic reprojection
+export reproject
+
 # Operators (type \name<TAB> in REPL)
 export ⊕, ⊗, ↓, ↑, ⤊, ⊠, ▷, ↔, ρ, ×, RefinementPrior
 
@@ -86,6 +89,7 @@ include("refinement.jl")
 include("composition.jl")
 include("stratification.jl")
 include("symmetrise.jl")
+include("reprojection.jl")
 include("activity_refinement.jl")
 include("generalized_lift.jl")
 include("operators.jl")

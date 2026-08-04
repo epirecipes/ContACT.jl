@@ -1,5 +1,6 @@
 using Test
 using ContACT
+using CSV
 using DataFrames
 using LinearAlgebra
 using Catlab
@@ -740,6 +741,108 @@ end
     )
 end
 
+@testset "Demographic reprojection" begin
+    p = AgePartition([0, 18])
+    N = [100.0, 200.0]
+    M = [0.0 1.0; 2.0 0.0]              # already reciprocal at N
+    cm = ContactMatrix(M, p, N)
+
+    Np = [50.0, 400.0]
+    cm_proj = reproject(cm, Np)
+    M_proj = matrix(cm_proj)
+
+    # Hand-computed: M'[i,j] = (M[i,j]*N'[j] + M[j,i]*N'[i]) / (2*N'[j])
+    @test M_proj ≈ [0.0 0.625; 5.0 0.0]
+    @test population(cm_proj) == Np
+
+    # Reciprocity: M'[i,j] * N'[j] == M'[j,i] * N'[i], for any input (reciprocal or not)
+    M_nonrecip = [0.0 1.0; 3.0 0.0]     # not reciprocal at N
+    cm_nonrecip = ContactMatrix(M_nonrecip, p, N)
+    M_proj2 = matrix(reproject(cm_nonrecip, Np))
+    for i in 1:2, j in 1:2
+        @test M_proj2[i, j] * Np[j] ≈ M_proj2[j, i] * Np[i] atol=1e-10
+    end
+
+    # Identity: reprojecting a matrix already reciprocal at N onto N itself is a no-op
+    @test matrix(reproject(cm, N)) ≈ M
+
+    # Zero target population: zero contacts pass through, nonzero contacts throw
+    zero_target_ok = reproject(ContactMatrix([0.0 0.0; 0.0 4.0], p, N), [0.0, 10.0])
+    @test matrix(zero_target_ok) == [0.0 0.0; 0.0 4.0]
+    @test_throws ArgumentError reproject(ContactMatrix([1.0 2.0; 3.0 4.0], p, N), [0.0, 10.0])
+
+    # Target population length must match the partition
+    @test_throws DimensionMismatch reproject(cm, [1.0, 2.0, 3.0])
+
+    # Not functorial in the population: routing through an intermediate population
+    # differs from reprojecting straight to the final one.
+    Npp = [1.0, 1.0]
+    two_step = matrix(reproject(reproject(cm, Np), Npp))
+    one_step = matrix(reproject(cm, Npp))
+    @test two_step ≉ one_step
+
+    # Does not commute with coarsening: reproject-then-coarsen differs from
+    # coarsen-then-reproject, even onto matching populations.
+    fine = AgePartition([0, 10, 20, 30])
+    coarse = AgePartition([0, 20])
+    N4 = [100.0, 200.0, 150.0, 50.0]
+    M4 = [0.0 1.0 0.5 0.2; 2.0 0.0 0.3 0.1; 0.4 0.6 0.0 0.8; 0.1 0.2 0.9 0.0]
+    cm4 = ContactMatrix(M4, fine, N4)
+    N4p = [80.0, 300.0, 60.0, 90.0]
+    N_coarse_target = [N4p[1] + N4p[2], N4p[3] + N4p[4]]
+
+    reproject_then_coarsen = coarsen(reproject(cm4, N4p), coarse)
+    coarsen_then_reproject = reproject(coarsen(cm4, coarse), N_coarse_target)
+    @test population(reproject_then_coarsen) ≈ population(coarsen_then_reproject)
+    @test matrix(reproject_then_coarsen) ≉ matrix(coarsen_then_reproject)
+end
+
+# ---------------------------------------------------------------------------
+# POLYMOD UK: cross-validation against socialmixr's reprojection formula
+# ---------------------------------------------------------------------------
+# Uses a pre-computed R reference matrix committed as a CSV fixture
+# (test/fixtures/reprojection/). build_raw_matrix.jl builds the raw matrix
+# below from the bundled POLYMOD UK data; compute_reference.R applies
+# socialmixr's own normalise_weighted_matrix formula to it and writes
+# reprojection_polymod_matrix_R.csv. This validates that ContACT.jl's
+# `reproject` produces identical results to socialmixr's own formula.
+#
+# Data is bundled locally (data/polymod_uk_*.csv); no download is needed.
+@testset "reproject matches socialmixr's normalise_weighted_matrix (POLYMOD UK)" begin
+    data_dir = joinpath(@__DIR__, "..", "data")
+    fixture_dir = joinpath(@__DIR__, "fixtures", "reprojection")
+
+    parse_age(x::AbstractString) = x == "NA" ? missing : parse(Float64, x)
+    parse_age(x::Real) = Float64(x)
+    parse_age(::Missing) = missing
+
+    participants = CSV.read(joinpath(data_dir, "polymod_uk_participants.csv"), DataFrame)
+    contacts = CSV.read(joinpath(data_dir, "polymod_uk_contacts.csv"), DataFrame)
+    rename!(participants, :part_age_exact => :part_age)
+    participants.part_age = Float64.(participants.part_age)
+    cnt_exact = parse_age.(contacts.cnt_age_exact)
+    cnt_min = parse_age.(contacts.cnt_age_est_min)
+    cnt_max = parse_age.(contacts.cnt_age_est_max)
+    contacts.cnt_age = coalesce.(cnt_exact, (cnt_min .+ cnt_max) ./ 2)
+    select!(contacts, [:part_id, :cnt_age])
+    dropmissing!(contacts, :cnt_age)
+    valid_ids = Set(participants.part_id)
+    filter!(row -> row.part_id in valid_ids, contacts)
+
+    survey = ContactSurvey(participants, contacts)
+    age_partition = AgePartition([0, 18, 65])
+    uk_pop_age = [11000.0, 33000.0, 9500.0]
+    cm_age = compute_matrix(survey, age_partition; population=uk_pop_age)
+
+    target_pop = [10500.0, 34000.0, 13500.0]
+    proj = reproject(cm_age, target_pop)
+
+    ref_df = CSV.read(joinpath(fixture_dir, "reprojection_polymod_matrix_R.csv"), DataFrame)
+    ref = Matrix{Float64}(ref_df[:, 2:end])
+
+    @test isapprox(matrix(proj), ref; atol=1e-4)
+end
+
 @testset "Refinement" begin
     # Start with a coarse matrix, refine it
     coarse = AgePartition([0, 18, 65])
@@ -1145,11 +1248,14 @@ end
 
     reps = (MeanContacts(), ContactCounts(), PerCapitaRate())
 
+    Nreproj = [800.0, 1200.0, 900.0]
+
     morphisms = (
-        ("symmetrise (↔)", c -> symmetrise(c),         cm),
-        ("coarsen (↓)",    c -> coarsen(c, coarse),    cm),
-        ("refine (↑)",     c -> refine(c, fine, N),    cmc),
-        ("stratify (⊗)",   c -> stratify(c, coupling), cm),
+        ("symmetrise (↔)", c -> symmetrise(c),                cm),
+        ("coarsen (↓)",    c -> coarsen(c, coarse),           cm),
+        ("refine (↑)",     c -> refine(c, fine, N),           cmc),
+        ("stratify (⊗)",   c -> stratify(c, coupling),        cm),
+        ("reproject",      c -> reproject(c, Nreproj),        cm),
     )
 
     for (name, op, obj) in morphisms
@@ -1196,6 +1302,8 @@ end
         @test matrix(symmetrise(cm)) == matrix(ContACT._symmetrise_mean(cm))
         @test matrix(coarsen(cm, coarse)) ==
               matrix(ContACT._coarsen_mean(cm, PartitionMap(fine, coarse)))
+        @test matrix(reproject(cm, Nreproj)) ==
+              matrix(ContACT._reproject_mean(cm, Nreproj))
     end
 
     @testset "morphisms compose across representations" begin

@@ -119,6 +119,10 @@ The `proofs/` directory contains machine-checked proofs of:
 | Symmetrisation–composition commutativity | `Commutativity.lean` | ✅ |
 | Symmetrisation–stratification commutativity (iff coupling symmetric) | `Stratification.lean` | ✅ |
 | Constrained-lift coarsening recovery, symmetry & structural zeros | `ConstrainedLift.lean` | ✅ |
+| Reprojection reciprocity at the target population (incl. empty groups) | `Reprojection.lean` | ✅ |
+| Reprojection preserves total contacts at the target population (incl. empty groups) | `Reprojection.lean` | ✅ |
+| Reprojection is the identity on matrices already reciprocal at the target | `Reprojection.lean` | ✅ |
+| Reprojection is not functorial in the population (counterexample) | `Reprojection.lean` | ✅ |
 
 The weighted-coarsening and empty-group theorems model the exact arithmetic the
 Julia code runs (population-weighted averaging and the zero-population branch),
