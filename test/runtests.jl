@@ -890,6 +890,85 @@ end
     end
 end
 
+@testset "transport: coarsening equivariance" begin
+    fine = AgePartition([0, 10, 20, 30])
+    coarse = AgePartition([0, 18])
+    N4 = [100.0, 200.0, 150.0, 50.0]
+    N4p = [80.0, 300.0, 60.0, 90.0]
+    M4 = [0.0 1.0 0.5 0.2; 2.0 0.0 0.3 0.1; 0.4 0.6 0.0 0.8; 0.1 0.2 0.9 0.0]
+    cm4 = ContactMatrix(M4, fine, N4)
+
+    # Coarsening adds up the contacts of the groups it merges, and transport
+    # leaves those totals alone, so doing the two in either order gives the same
+    # matrix — provided the coarse target population is the fine one added up the
+    # same way. This holds however the fine groups are assigned to coarse ones,
+    # which is why the loop also covers assignments that interleave them rather
+    # than only ones that keep them adjacent. Reprojection has no matching law;
+    # the "Demographic reprojection" testset pins that failure.
+    for assignment in ([1, 1, 2, 2], [1, 2, 1, 2], [2, 1, 2, 1])
+        f = PartitionMap(fine, coarse, assignment)
+        coarse_target = zeros(2)
+        for j in 1:4
+            coarse_target[assignment[j]] += N4p[j]
+        end
+
+        transport_then_coarsen = coarsen(transport_population(cm4, N4p), f)
+        coarsen_then_transport = transport_population(coarsen(cm4, f), coarse_target)
+        @test population(transport_then_coarsen) ≈ population(coarsen_then_transport)
+        @test matrix(transport_then_coarsen) ≈ matrix(coarsen_then_transport) atol=1e-10
+        @test transport_then_coarsen.semantics isa MeanContacts
+    end
+end
+
+@testset "transport: symmetrisation commutativity" begin
+    p = AgePartition([0, 18])
+    N = [100.0, 200.0]
+    Np = [50.0, 400.0]
+    cm = ContactMatrix([0.0 1.0; 3.0 0.0], p, N)     # not reciprocal at N
+
+    # Symmetrisation replaces total contacts by their symmetric part, transport
+    # leaves total contacts alone, so the order does not matter. Stronger than
+    # transport's conditional reciprocity preservation, which says nothing about
+    # input that is not already reciprocal.
+    @test matrix(transport_population(symmetrise(cm), Np)) ≈
+          matrix(symmetrise(transport_population(cm, Np))) atol=1e-10
+end
+
+@testset "transport and reprojection: additivity over ⊕" begin
+    p = AgePartition([0, 18])
+    N = [100.0, 200.0]
+    Np = [50.0, 400.0]
+    home = ContactMatrix([0.0 1.0; 2.0 0.0], p, N)
+    work = ContactMatrix([1.0 0.5; 0.25 2.0], p, N)
+
+    # Both are linear in the matrix at a fixed target population, so settings can
+    # be composed before or after either one. `⊕` requires its arguments to share
+    # a population, which is why both parts are built at `N`; reprojection itself
+    # never reads the source population.
+    @test matrix(transport_population(home ⊕ work, Np)) ≈
+          matrix(transport_population(home, Np) ⊕ transport_population(work, Np)) atol=1e-10
+    @test matrix(reproject(home ⊕ work, Np)) ≈
+          matrix(reproject(home, Np) ⊕ reproject(work, Np)) atol=1e-10
+end
+
+@testset "reprojection: idempotence at a fixed target" begin
+    p = AgePartition([0, 18])
+    N = [100.0, 200.0]
+    Np = [50.0, 400.0]
+    cm = ContactMatrix([0.0 1.0; 3.0 0.0], p, N)     # not reciprocal at N
+
+    # Reprojection always returns a matrix reciprocal at the target population,
+    # and is the identity on such matrices, so repeating it at the same target
+    # changes nothing. This is the case of the composition law where both targets
+    # coincide; the general case fails, as the "Demographic reprojection" testset
+    # asserts.
+    once = reproject(cm, Np)
+    twice = reproject(once, Np)
+    @test matrix(twice) ≈ matrix(once) atol=1e-10
+    @test population(twice) == Np
+    @test twice.semantics isa MeanContacts
+end
+
 # ---------------------------------------------------------------------------
 # POLYMOD UK: cross-validation against socialmixr's reprojection formula
 # ---------------------------------------------------------------------------
