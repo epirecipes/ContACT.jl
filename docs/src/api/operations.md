@@ -127,6 +127,12 @@ symmetrise
 reproject
 ```
 
+## Population transport
+
+```@docs
+transport_population
+```
+
 ## Unit semantics
 
 `ContactCounts`, `MeanContacts` and `PerCapitaRate` are three representations of one

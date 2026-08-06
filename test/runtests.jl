@@ -797,6 +797,99 @@ end
     @test matrix(reproject_then_coarsen) ≉ matrix(coarsen_then_reproject)
 end
 
+@testset "Population transport" begin
+    p = AgePartition([0, 18])
+    N = [100.0, 200.0]
+    M = [0.0 1.0; 2.0 0.0]              # reciprocal at N
+    cm = ContactMatrix(M, p, N)
+    Np = [50.0, 400.0]
+
+    # Identity: transporting onto its own population is exact, unlike reproject
+    @test matrix(transport_population(cm, N)) ≈ M
+    @test population(transport_population(cm, N)) == N
+
+    # Composition is exact (diagonal-group action), unlike reproject
+    Npp = [10.0, 20.0]
+    two_step = matrix(transport_population(transport_population(cm, Np), Npp))
+    one_step = matrix(transport_population(cm, Npp))
+    @test two_step ≈ one_step
+
+    # Total contacts preserved entrywise: M'[i,j]*N'[j] == M[i,j]*N[j]
+    transported = matrix(transport_population(cm, Np))
+    for i in 1:2, j in 1:2
+        @test transported[i, j] * Np[j] ≈ M[i, j] * N[j]
+    end
+
+    # Reciprocity is preserved when the source is already reciprocal at its own
+    # population (conditional, unlike reproject's unconditional repair)
+    for i in 1:2, j in 1:2
+        @test transported[i, j] * Np[j] ≈ transported[j, i] * Np[i] atol=1e-10
+    end
+
+    # Non-reciprocal input: transport carries the imbalance through unchanged in
+    # total-contacts terms rather than repairing it (that's `reproject`'s job)
+    M_nonrecip = [0.0 1.0; 3.0 0.0]      # not reciprocal at N
+    cm_nonrecip = ContactMatrix(M_nonrecip, p, N)
+    transported_nonrecip = matrix(transport_population(cm_nonrecip, Np))
+    @test transported_nonrecip[1, 2] * Np[2] ≉ transported_nonrecip[2, 1] * Np[1]
+    @test transported_nonrecip[1, 2] * Np[2] ≈ M_nonrecip[1, 2] * N[2]
+    @test transported_nonrecip[2, 1] * Np[1] ≈ M_nonrecip[2, 1] * N[1]
+
+    # Invertible on the reciprocal fibre: round trip recovers the original exactly
+    roundtrip = matrix(transport_population(transport_population(cm, Np), N))
+    @test roundtrip ≈ M
+
+    # Target population length must match the partition
+    @test_throws DimensionMismatch transport_population(cm, [1.0, 2.0, 3.0])
+
+    # Zero (or negative) target population is rejected outright: unlike
+    # `reproject`, transport has no zero-population branch to fall back on
+    @test_throws ArgumentError transport_population(cm, [0.0, 400.0])
+    @test_throws ArgumentError transport_population(cm, [-1.0, 400.0])
+
+    # Identity is bitwise exact, so these assert `==` rather than `≈`. A column
+    # whose population is unchanged is copied rather than rescaled, because
+    # `0.1*3.0/3.0` is `0.10000000000000002`.
+    p_exact = AgePartition([0, 18])
+    cm_exact = ContactMatrix([0.1 1.0; 0.7 2.0], p_exact, [3.0, 5.0])
+    identity_transport = transport_population(cm_exact, [3.0, 5.0])
+    @test matrix(identity_transport) == matrix(cm_exact)
+    @test population(identity_transport) == population(cm_exact)
+
+    # The copy is per column, so a partial demographic update leaves the groups
+    # whose population did not change bitwise unchanged.
+    partial = transport_population(cm_exact, [3.0, 10.0])
+    @test matrix(partial)[:, 1] == matrix(cm_exact)[:, 1]
+    @test matrix(partial)[:, 2] ≈ [0.5, 1.0]
+
+    # An empty source group is admitted when it carries no contacts: there is
+    # nothing to carry forward, and the transported column stays zero.
+    empty_ok = ContactMatrix([0.0 1.0; 0.0 2.0], p_exact, [0.0, 10.0])
+    transported_empty = transport_population(empty_ok, [5.0, 20.0])
+    @test matrix(transported_empty)[:, 1] == [0.0, 0.0]
+    @test matrix(transported_empty)[:, 2] ≈ [0.5, 1.0]
+
+    # An empty source group carrying nonzero contacts is rejected. Tagging the
+    # same numbers differently must not change whether the call succeeds, since
+    # transport accepts exactly the matrices `reinterpret_units` accepts.
+    empty_bad = [5.0 7.0; 2.0 1.0]
+    @test_throws ArgumentError transport_population(
+        ContactMatrix(empty_bad, p_exact, [0.0, 10.0]), [5.0, 10.0])
+    @test_throws ArgumentError transport_population(
+        ContactMatrix(empty_bad, p_exact, [0.0, 10.0], ContactCounts()), [5.0, 10.0])
+
+    # `reinterpret_units` only checks the axes it rescales, and `PerCapitaRate`
+    # rescales rows alone. A matrix whose empty group has a zero row but a
+    # nonzero column therefore reaches transport in every representation, and
+    # each must reject it on the column.
+    zero_row_nonzero_col = [0.0 0.0; 2.0 0.0]
+    for semantics in (MeanContacts(), ContactCounts(), PerCapitaRate())
+        @test_throws ArgumentError transport_population(
+            ContactMatrix(zero_row_nonzero_col, p_exact, [0.0, 10.0], semantics),
+            [5.0, 10.0])
+    end
+end
+
 # ---------------------------------------------------------------------------
 # POLYMOD UK: cross-validation against socialmixr's reprojection formula
 # ---------------------------------------------------------------------------
@@ -1256,6 +1349,7 @@ end
         ("refine (↑)",     c -> refine(c, fine, N),           cmc),
         ("stratify (⊗)",   c -> stratify(c, coupling),        cm),
         ("reproject",      c -> reproject(c, Nreproj),        cm),
+        ("transport_population", c -> transport_population(c, Nreproj), cm),
     )
 
     for (name, op, obj) in morphisms

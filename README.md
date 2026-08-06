@@ -123,11 +123,22 @@ The `proofs/` directory contains machine-checked proofs of:
 | Reprojection preserves total contacts at the target population (incl. empty groups) | `Reprojection.lean` | ✅ |
 | Reprojection is the identity on matrices already reciprocal at the target | `Reprojection.lean` | ✅ |
 | Reprojection is not functorial in the population (counterexample) | `Reprojection.lean` | ✅ |
+| Population transport identity & composition, for every matrix (positive populations) | `PopulationTransport.lean` | ✅ |
+| Population transport preserves total contacts entrywise (positive target) | `PopulationTransport.lean` | ✅ |
+| Population transport preserves reciprocity when the source already has it | `PopulationTransport.lean` | ✅ |
+| Population transport is invertible (round trip), for every matrix (positive populations) | `PopulationTransport.lean` | ✅ |
 
 The weighted-coarsening and empty-group theorems model the exact arithmetic the
 Julia code runs (population-weighted averaging and the zero-population branch),
 not only the simplified count-space model; the count-space theorems are retained
 because the weighted results are built on top of them.
+
+The population-transport theorems are equalities in ℝ. In floating point,
+`transport_population`'s identity law is bitwise exact — a column whose population
+is unchanged is copied rather than rescaled, since `M·N/N` is not the identity in
+Float64 — while composition, invertibility and total-contact preservation agree to
+roundoff, about one ulp. Its Julia domain is also narrower than the theorems':
+a zero source population is admitted only when that group carries no contacts.
 
 Build proofs with:
 ```bash

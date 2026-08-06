@@ -52,6 +52,9 @@ export symmetrise
 # Demographic reprojection
 export reproject
 
+# Population transport
+export transport_population
+
 # Operators (type \name<TAB> in REPL)
 export ⊕, ⊗, ↓, ↑, ⤊, ⊠, ▷, ↔, ρ, ×, RefinementPrior
 
@@ -90,6 +93,7 @@ include("composition.jl")
 include("stratification.jl")
 include("symmetrise.jl")
 include("reprojection.jl")
+include("population_transport.jl")
 include("activity_refinement.jl")
 include("generalized_lift.jl")
 include("operators.jl")
