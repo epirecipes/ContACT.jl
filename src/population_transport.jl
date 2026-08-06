@@ -35,6 +35,18 @@ that
     reinterpret_units(transport_population(cm, N'), s) ≈
         transport_population(reinterpret_units(cm, s), N')
 
+The quantity held fixed is total contacts, so in `ContactCounts` this operation is
+the identity on the matrix and changes only the attached population. It is
+nevertheless implemented in `MeanContacts`, where nearly every other operation in
+the package lives, so the common path requires no unit conversion.
+
+Because coarsening only sums total contacts over the fibres of a partition map,
+`transport_population` commutes with coarsening whenever the coarse target
+population is obtained by aggregating the fine target population along the same map.
+This holds for any valid fibre map; the fine groups need not be contiguous or
+order-preserving. Checked by the `"transport: coarsening equivariance"` testset, not
+proved in Lean.
+
 Four laws hold, stated here on matrix entries:
 
     identity      M'[i,j] == M[i,j]                    when N' == N
