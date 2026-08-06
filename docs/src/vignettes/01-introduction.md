@@ -208,11 +208,11 @@ f = AgeMap(partition, mid)
 g = AgeMap(mid, final_part)
 h = g ∘ f   # composed map (type \circ<TAB>)
 
-# Functoriality: (cm ↓ g) ∘ (cm ↓ f) == cm ↓ (g ∘ f)
+# Functoriality: coarsening along the composed map equals coarsening twice
 via_mid = (cm ↓ f) ↓ g
 direct = cm ↓ h
 
-println("Functoriality: cm ↓ (g ∘ f) == (cm ↓ f) ↓ g")
+println("Functoriality: matrix(cm ↓ (g ∘ f)) ≈ matrix((cm ↓ f) ↓ g)")
 println("  Holds: $(matrix(via_mid) ≈ matrix(direct))")
 nothing # hide
 ```

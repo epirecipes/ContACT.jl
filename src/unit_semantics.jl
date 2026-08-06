@@ -119,7 +119,18 @@ end
 # isomorphisms. This is what makes every morphism natural with respect to
 # `reinterpret_units`:
 #
-#     reinterpret_units(f(cm), s) == f(reinterpret_units(cm, s))
+#     reinterpret_units(f(cm), s) ≈ f(reinterpret_units(cm, s))
+#
+# The law is an equality of contact matrices, but it is written with `≈`, and the
+# docstrings of the morphisms that rely on it follow suit, for two reasons. The two
+# routes multiply and divide by the populations in a different order, so their
+# entries agree to about 15 significant digits rather than bit for bit — close
+# enough that `==` on the numbers is false more often than true, but well inside
+# `≈`'s default relative tolerance of `sqrt(eps())`, which is roughly 8 significant
+# digits. A discrepancy anywhere near that tolerance is a bug, not rounding. And
+# `ContactMatrix` defines no `==` of its own, so Julia compares the wrapped arrays
+# by identity: two matrices with identical contents are already `!=` before any
+# arithmetic enters into it.
 #
 # `f` receives a `ContactMatrix` tagged `home` and must return one tagged `home`;
 # carrying `cm.semantics` forward, as the implementations do, achieves that. The

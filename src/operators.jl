@@ -31,9 +31,13 @@ Categorically, this is the monoidal product in the category of contact matrices
 over a fixed age partition: (ContactMat, ⊕, 𝟎) where 𝟎 is the zero matrix.
 
 # Properties (proven in Lean)
-- Associativity: `(A ⊕ B) ⊕ C == A ⊕ (B ⊕ C)`
-- Commutativity: `A ⊕ B == B ⊕ A`
-- Identity: `A ⊕ 𝟎 == A`
+- Associativity: `matrix((A ⊕ B) ⊕ C) ≈ matrix(A ⊕ (B ⊕ C))`
+- Commutativity: `matrix(A ⊕ B) == matrix(B ⊕ A)`
+- Identity: `matrix(A ⊕ 𝟎) == matrix(A)`
+
+All three are exact in real arithmetic. In floating point, commutativity and identity
+also hold bit for bit, but associativity does not: regrouping a sum of floats changes
+where it rounds, so that one is asserted with `≈`.
 
 # Example
 ```julia
@@ -75,7 +79,10 @@ Coarsen a contact matrix along a surjective partition map. Type `\\downarrow<TAB
 This is the left Kan extension: it pushes forward contact data while preserving
 total contacts. Satisfies functoriality (proven in Lean):
 
-    `cm ↓ (g ∘ f) == (cm ↓ f) ↓ g`
+    `matrix(cm ↓ (g ∘ f)) ≈ matrix((cm ↓ f) ↓ g)`
+
+Exact in real arithmetic; in floating point the one-step and two-step routes group
+the population weights differently and so agree to about 15 significant digits.
 
 # Example
 ```julia
@@ -214,7 +221,10 @@ Type `\\circ<TAB>`.
 Given `f: A → B` and `g: B → C`, yields `g ∘ f: A → C`.
 Satisfies functoriality (proven in Lean):
 
-    `coarsen(cm, g ∘ f) == coarsen(coarsen(cm, f), g)`
+    `coarsen(cm, g ∘ f) ≈ coarsen(coarsen(cm, f), g)`
+
+Exact in real arithmetic; in floating point the one-step and two-step routes group
+the population weights differently and so agree to about 15 significant digits.
 
 # Example
 ```julia
@@ -245,7 +255,10 @@ Type `\\leftrightarrow<TAB>`.
 
 The arrow denotes bidirectional balance:
 
-    `matrix(↔(cm))[i,j] * N[j] == matrix(↔(cm))[j,i] * N[i]`
+    `matrix(↔(cm))[i,j] * N[j] ≈ matrix(↔(cm))[j,i] * N[i]`
+
+Exact in real arithmetic; in floating point the two sides divide by different
+populations and so agree to about 15 significant digits.
 
 This is a prefix operator alias for `symmetrise(cm)`.
 

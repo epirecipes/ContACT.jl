@@ -127,6 +127,13 @@ The `proofs/` directory contains machine-checked proofs of:
 | Population transport preserves total contacts entrywise (positive target) | `PopulationTransport.lean` | ✅ |
 | Population transport preserves reciprocity when the source already has it | `PopulationTransport.lean` | ✅ |
 | Population transport is invertible (round trip), for every matrix (positive populations) | `PopulationTransport.lean` | ✅ |
+| Unit-semantics representations form a groupoid (identity, composition, inverses) | `UnitSemantics.lean` | ✅ |
+| Any operation is natural once conjugated by the representation isomorphisms | `UnitSemantics.lean` | ✅ |
+| Symmetrisation is natural with respect to the representation isomorphisms | `UnitSemantics.lean` | ✅ |
+| Symmetrisation that ignores the input tag is **not** natural (counterexample) | `UnitSemantics.lean` | ✅ |
+| Symmetrisation in `ContactCounts` and `PerCapitaRate` is plain averaging | `UnitSemantics.lean` | ✅ |
+| Reciprocity is plain matrix symmetry exactly when the effective population is 1 | `UnitSemantics.lean` | ✅ |
+| Activity lift build/coarsen equivariance, for any surjective fibre map | `Coarsening.lean` | ✅ |
 
 The weighted-coarsening and empty-group theorems model the exact arithmetic the
 Julia code runs (population-weighted averaging and the zero-population branch),

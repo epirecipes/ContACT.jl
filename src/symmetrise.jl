@@ -21,9 +21,12 @@ Written in `MeanContacts`, where the formula is
 
 and carried to the other representations by the representation isomorphisms, so that
 
-    reinterpret_units(symmetrise(cm), s) == symmetrise(reinterpret_units(cm, s))
+    reinterpret_units(symmetrise(cm), s) ≈ symmetrise(reinterpret_units(cm, s))
 
-for every representation `s`. Reciprocity itself is representation-dependent —
+for every representation `s`. The law is exact in real arithmetic; in floating point
+the two routes agree to about 15 significant digits, well inside `≈`'s tolerance.
+
+Reciprocity itself is representation-dependent —
 `M[i,j]·N_j == M[j,i]·N_i` under `MeanContacts`, plain matrix symmetry under
 `ContactCounts` and `PerCapitaRate` — and transport is what reconciles the two
 facts: one formula, the right answer everywhere.

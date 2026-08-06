@@ -33,7 +33,8 @@ Written in `MeanContacts` — replicating an entry across strata leaves mean con
 per participant unchanged, while the stratum populations are split, so the counts and
 per-capita readings do change — and carried to the other representations by the
 representation isomorphisms, so that
-`reinterpret_units(stratify(cm, D), s) == stratify(reinterpret_units(cm, s), D)`.
+`reinterpret_units(stratify(cm, D), s) ≈ stratify(reinterpret_units(cm, s), D)` — exact
+in real arithmetic, agreeing to about 15 significant digits in floating point.
 """
 stratify(cm::ContactMatrix, coupling::AbstractMatrix{<:Real}; kwargs...) =
     _via(MeanContacts(), c -> _stratify_mean(c, coupling; kwargs...), cm)

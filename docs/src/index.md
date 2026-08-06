@@ -71,7 +71,7 @@ f = AgeMap(fine, partition)       # fine → 3 groups
 g = AgeMap(partition, AgePartition([0, 18]))  # 3 → 2 groups
 h = g ∘ f                        # composed: fine → 2 groups
 
-# Functoriality: cm ↓ (g ∘ f) == (cm ↓ f) ↓ g
+# Functoriality: matrix(cm ↓ (g ∘ f)) ≈ matrix((cm ↓ f) ↓ g)
 println("Functorial: $(matrix(cm4 ↓ h) ≈ matrix((cm4 ↓ f) ↓ g))")
 ```
 

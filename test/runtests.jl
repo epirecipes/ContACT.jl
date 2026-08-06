@@ -1668,7 +1668,7 @@ end
         @test h.domain.limits == fine.limits
         @test h.codomain.limits == coarse.limits
 
-        # Functoriality: coarsen(cm, g ∘ f) == coarsen(coarsen(cm, f), g)
+        # Functoriality: matrix(coarsen(cm, g ∘ f)) ≈ matrix(coarsen(coarsen(cm, f), g))
         M = [4.0 1.0 0.5 0.2 0.1;
              1.0 3.0 1.0 0.3 0.1;
              0.5 1.0 2.5 0.8 0.2;

@@ -141,6 +141,20 @@ along the contactee (row) and participant (column) indices. Conversions dispatch
 the semantics the matrix actually carries, and `symmetrise` is natural with respect
 to them.
 
+The naturality and functoriality laws on this page are exact in real arithmetic, and
+most are machine-checked in Lean — the README's proofs table lists which. In floating
+point the two routes reach the same quantity through different orders of
+multiplication and division, so their entries agree to about 15 significant digits
+rather than bit for bit. Julia's `≈` is much looser than that, accepting a relative
+difference of roughly 8 significant digits, which is why these laws are written with
+`≈` and why a discrepancy anywhere near that tolerance indicates a bug rather than
+rounding.
+
+`ContactMatrix` also defines no `==` of its own, so Julia compares the wrapped arrays
+by identity: two matrices with identical contents are `!=` regardless of arithmetic.
+Assert these laws on `matrix(...)` and `population(...)`, not on the matrices
+themselves.
+
 ```@docs
 population_exponents
 reinterpret_units

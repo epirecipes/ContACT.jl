@@ -43,10 +43,10 @@ Four laws hold, stated here on matrix entries:
     totals        M'[i,j]·N'_j == M[i,j]·N_j
 
 All four are exact in real arithmetic. In floating point the last three agree to
-about one ulp, so tests assert them with `≈`. The identity law is bitwise exact: a
-group whose population does not change has its column copied rather than rescaled,
-since `M·N/N` can round away from `M`. Transporting onto `cm`'s own population
-returns `cm` unchanged.
+about 15 significant digits, so tests assert them with `≈`. The identity law is
+bitwise exact: a group whose population does not change has its column copied rather
+than rescaled, since `M·N/N` can round away from `M`. Transporting onto `cm`'s own
+population returns `cm` unchanged.
 
 If `cm` is already reciprocal at its own population, the result is reciprocal at
 `target_population`. Unlike `reproject`, this operation does not repair
