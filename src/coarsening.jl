@@ -189,7 +189,8 @@ where N_j is the population of fine group j and N_J = Σ_{j∈f⁻¹(J)} N_j.
 
 Written in `MeanContacts` and carried to the other representations by the
 representation isomorphisms, so that
-`reinterpret_units(coarsen(cm, f), s) == coarsen(reinterpret_units(cm, s), f)`.
+`reinterpret_units(coarsen(cm, f), s) ≈ coarsen(reinterpret_units(cm, s), f)` — exact
+in real arithmetic, agreeing to about 15 significant digits in floating point.
 The population-weighted average above is the `MeanContacts` form of a plain sum of
 total contacts over the fibres; those weights are not valid in the other
 representations, so the formula is not applied to them directly.

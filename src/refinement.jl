@@ -29,7 +29,8 @@ sub-groups within each coarse bin.
 Written in `MeanContacts` — "contacts per participant is uniform within a coarse
 bin" is a statement about mean contacts, not about counts — and carried to the other
 representations by the representation isomorphisms, so that
-`reinterpret_units(refine(cm, fine, p), s) == refine(reinterpret_units(cm, s), fine, p)`.
+`reinterpret_units(refine(cm, fine, p), s) ≈ refine(reinterpret_units(cm, s), fine, p)`
+— exact in real arithmetic, agreeing to about 15 significant digits in floating point.
 """
 refine(cm::ContactMatrix, fine::AbstractPartition,
        fine_population::AbstractVector{<:Real}) =

@@ -2,6 +2,8 @@
 import ContACTProofs.ContactCat
 import ContACTProofs.Coarsening
 import ContACTProofs.Symmetrisation
+import ContACTProofs.Reprojection
+import ContACTProofs.PopulationTransport
 import ContACTProofs.UnitSemantics
 import ContACTProofs.Composition
 import ContACTProofs.Stratification

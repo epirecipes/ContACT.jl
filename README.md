@@ -119,11 +119,33 @@ The `proofs/` directory contains machine-checked proofs of:
 | Symmetrisation–composition commutativity | `Commutativity.lean` | ✅ |
 | Symmetrisation–stratification commutativity (iff coupling symmetric) | `Stratification.lean` | ✅ |
 | Constrained-lift coarsening recovery, symmetry & structural zeros | `ConstrainedLift.lean` | ✅ |
+| Reprojection reciprocity at the target population (incl. empty groups) | `Reprojection.lean` | ✅ |
+| Reprojection preserves total contacts at the target population (incl. empty groups) | `Reprojection.lean` | ✅ |
+| Reprojection is the identity on matrices already reciprocal at the target | `Reprojection.lean` | ✅ |
+| Reprojection is not functorial in the population (counterexample) | `Reprojection.lean` | ✅ |
+| Population transport identity & composition, for every matrix (positive populations) | `PopulationTransport.lean` | ✅ |
+| Population transport preserves total contacts entrywise (positive target) | `PopulationTransport.lean` | ✅ |
+| Population transport preserves reciprocity when the source already has it | `PopulationTransport.lean` | ✅ |
+| Population transport is invertible (round trip), for every matrix (positive populations) | `PopulationTransport.lean` | ✅ |
+| Unit-semantics representations form a groupoid (identity, composition, inverses) | `UnitSemantics.lean` | ✅ |
+| Any operation is natural once conjugated by the representation isomorphisms | `UnitSemantics.lean` | ✅ |
+| Symmetrisation is natural with respect to the representation isomorphisms | `UnitSemantics.lean` | ✅ |
+| Symmetrisation that ignores the input tag is **not** natural (counterexample) | `UnitSemantics.lean` | ✅ |
+| Symmetrisation in `ContactCounts` and `PerCapitaRate` is plain averaging | `UnitSemantics.lean` | ✅ |
+| Reciprocity is plain matrix symmetry exactly when the effective population is 1 | `UnitSemantics.lean` | ✅ |
+| Activity lift build/coarsen equivariance, for any surjective fibre map | `Coarsening.lean` | ✅ |
 
 The weighted-coarsening and empty-group theorems model the exact arithmetic the
 Julia code runs (population-weighted averaging and the zero-population branch),
 not only the simplified count-space model; the count-space theorems are retained
 because the weighted results are built on top of them.
+
+The population-transport theorems are equalities in ℝ. In floating point,
+`transport_population`'s identity law is bitwise exact — a column whose population
+is unchanged is copied rather than rescaled, since `M·N/N` is not the identity in
+Float64 — while composition, invertibility and total-contact preservation agree to
+roundoff, about one ulp. Its Julia domain is also narrower than the theorems':
+a zero source population is admitted only when that group carries no contacts.
 
 Build proofs with:
 ```bash

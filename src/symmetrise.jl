@@ -21,9 +21,12 @@ Written in `MeanContacts`, where the formula is
 
 and carried to the other representations by the representation isomorphisms, so that
 
-    reinterpret_units(symmetrise(cm), s) == symmetrise(reinterpret_units(cm, s))
+    reinterpret_units(symmetrise(cm), s) ≈ symmetrise(reinterpret_units(cm, s))
 
-for every representation `s`. Reciprocity itself is representation-dependent —
+for every representation `s`. The law is exact in real arithmetic; in floating point
+the two routes agree to about 15 significant digits, well inside `≈`'s tolerance.
+
+Reciprocity itself is representation-dependent —
 `M[i,j]·N_j == M[j,i]·N_i` under `MeanContacts`, plain matrix symmetry under
 `ContactCounts` and `PerCapitaRate` — and transport is what reconciles the two
 facts: one formula, the right answer everywhere.
@@ -39,11 +42,12 @@ symmetrise(cm::ContactMatrix) = _via(MeanContacts(), _symmetrise_mean, cm)
 # Symmetrisation in its home representation, `MeanContacts`. Call `symmetrise`
 # rather than this: applying it directly to another representation is the error
 # `_via` exists to prevent.
-function _symmetrise_mean(cm::ContactMatrix)
-    M = matrix(cm)
-    pop = population(cm)
-    n = n_groups(cm)
+_symmetrise_mean(cm::ContactMatrix) =
+    ContactMatrix(_symmetrise_at(matrix(cm), population(cm)), cm.partition, population(cm), cm.semantics)
 
+# Force an n×n `MeanContacts`-style matrix reciprocal against `pop`.
+function _symmetrise_at(M::AbstractMatrix{<:Real}, pop::AbstractVector{<:Real})
+    n = size(M, 1)
     M_sym = zeros(Float64, n, n)
     for i in 1:n
         for j in 1:n
@@ -58,6 +62,5 @@ function _symmetrise_mean(cm::ContactMatrix)
             end
         end
     end
-
-    ContactMatrix(M_sym, cm.partition, pop, cm.semantics)
+    M_sym
 end

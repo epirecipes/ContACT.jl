@@ -1,5 +1,6 @@
 using Test
 using ContACT
+using CSV
 using DataFrames
 using LinearAlgebra
 using Catlab
@@ -740,6 +741,280 @@ end
     )
 end
 
+@testset "Demographic reprojection" begin
+    p = AgePartition([0, 18])
+    N = [100.0, 200.0]
+    M = [0.0 1.0; 2.0 0.0]              # already reciprocal at N
+    cm = ContactMatrix(M, p, N)
+
+    Np = [50.0, 400.0]
+    cm_proj = reproject(cm, Np)
+    M_proj = matrix(cm_proj)
+
+    # Hand-computed: M'[i,j] = (M[i,j]*N'[j] + M[j,i]*N'[i]) / (2*N'[j])
+    @test M_proj ≈ [0.0 0.625; 5.0 0.0]
+    @test population(cm_proj) == Np
+
+    # Reciprocity: M'[i,j] * N'[j] == M'[j,i] * N'[i], for any input (reciprocal or not)
+    M_nonrecip = [0.0 1.0; 3.0 0.0]     # not reciprocal at N
+    cm_nonrecip = ContactMatrix(M_nonrecip, p, N)
+    M_proj2 = matrix(reproject(cm_nonrecip, Np))
+    for i in 1:2, j in 1:2
+        @test M_proj2[i, j] * Np[j] ≈ M_proj2[j, i] * Np[i] atol=1e-10
+    end
+
+    # Identity: reprojecting a matrix already reciprocal at N onto N itself is a no-op
+    @test matrix(reproject(cm, N)) ≈ M
+
+    # Zero target population: zero contacts pass through, nonzero contacts throw
+    zero_target_ok = reproject(ContactMatrix([0.0 0.0; 0.0 4.0], p, N), [0.0, 10.0])
+    @test matrix(zero_target_ok) == [0.0 0.0; 0.0 4.0]
+    @test_throws ArgumentError reproject(ContactMatrix([1.0 2.0; 3.0 4.0], p, N), [0.0, 10.0])
+
+    # Target population length must match the partition
+    @test_throws DimensionMismatch reproject(cm, [1.0, 2.0, 3.0])
+
+    # Not functorial in the population: routing through an intermediate population
+    # differs from reprojecting straight to the final one.
+    Npp = [1.0, 1.0]
+    two_step = matrix(reproject(reproject(cm, Np), Npp))
+    one_step = matrix(reproject(cm, Npp))
+    @test two_step ≉ one_step
+
+    # Does not commute with coarsening: reproject-then-coarsen differs from
+    # coarsen-then-reproject, even onto matching populations.
+    fine = AgePartition([0, 10, 20, 30])
+    coarse = AgePartition([0, 20])
+    N4 = [100.0, 200.0, 150.0, 50.0]
+    M4 = [0.0 1.0 0.5 0.2; 2.0 0.0 0.3 0.1; 0.4 0.6 0.0 0.8; 0.1 0.2 0.9 0.0]
+    cm4 = ContactMatrix(M4, fine, N4)
+    N4p = [80.0, 300.0, 60.0, 90.0]
+    N_coarse_target = [N4p[1] + N4p[2], N4p[3] + N4p[4]]
+
+    reproject_then_coarsen = coarsen(reproject(cm4, N4p), coarse)
+    coarsen_then_reproject = reproject(coarsen(cm4, coarse), N_coarse_target)
+    @test population(reproject_then_coarsen) ≈ population(coarsen_then_reproject)
+    @test matrix(reproject_then_coarsen) ≉ matrix(coarsen_then_reproject)
+end
+
+@testset "Population transport" begin
+    p = AgePartition([0, 18])
+    N = [100.0, 200.0]
+    M = [0.0 1.0; 2.0 0.0]              # reciprocal at N
+    cm = ContactMatrix(M, p, N)
+    Np = [50.0, 400.0]
+
+    # Identity: transporting onto its own population is exact, unlike reproject
+    @test matrix(transport_population(cm, N)) ≈ M
+    @test population(transport_population(cm, N)) == N
+
+    # Composition is exact (diagonal-group action), unlike reproject
+    Npp = [10.0, 20.0]
+    two_step = matrix(transport_population(transport_population(cm, Np), Npp))
+    one_step = matrix(transport_population(cm, Npp))
+    @test two_step ≈ one_step
+
+    # Total contacts preserved entrywise: M'[i,j]*N'[j] == M[i,j]*N[j]
+    transported = matrix(transport_population(cm, Np))
+    for i in 1:2, j in 1:2
+        @test transported[i, j] * Np[j] ≈ M[i, j] * N[j]
+    end
+
+    # Reciprocity is preserved when the source is already reciprocal at its own
+    # population (conditional, unlike reproject's unconditional repair)
+    for i in 1:2, j in 1:2
+        @test transported[i, j] * Np[j] ≈ transported[j, i] * Np[i] atol=1e-10
+    end
+
+    # Non-reciprocal input: transport carries the imbalance through unchanged in
+    # total-contacts terms rather than repairing it (that's `reproject`'s job)
+    M_nonrecip = [0.0 1.0; 3.0 0.0]      # not reciprocal at N
+    cm_nonrecip = ContactMatrix(M_nonrecip, p, N)
+    transported_nonrecip = matrix(transport_population(cm_nonrecip, Np))
+    @test transported_nonrecip[1, 2] * Np[2] ≉ transported_nonrecip[2, 1] * Np[1]
+    @test transported_nonrecip[1, 2] * Np[2] ≈ M_nonrecip[1, 2] * N[2]
+    @test transported_nonrecip[2, 1] * Np[1] ≈ M_nonrecip[2, 1] * N[1]
+
+    # Invertible on the reciprocal fibre: round trip recovers the original exactly
+    roundtrip = matrix(transport_population(transport_population(cm, Np), N))
+    @test roundtrip ≈ M
+
+    # Target population length must match the partition
+    @test_throws DimensionMismatch transport_population(cm, [1.0, 2.0, 3.0])
+
+    # Zero (or negative) target population is rejected outright: unlike
+    # `reproject`, transport has no zero-population branch to fall back on
+    @test_throws ArgumentError transport_population(cm, [0.0, 400.0])
+    @test_throws ArgumentError transport_population(cm, [-1.0, 400.0])
+
+    # Identity is bitwise exact, so these assert `==` rather than `≈`. A column
+    # whose population is unchanged is copied rather than rescaled, because
+    # `0.1*3.0/3.0` is `0.10000000000000002`.
+    p_exact = AgePartition([0, 18])
+    cm_exact = ContactMatrix([0.1 1.0; 0.7 2.0], p_exact, [3.0, 5.0])
+    identity_transport = transport_population(cm_exact, [3.0, 5.0])
+    @test matrix(identity_transport) == matrix(cm_exact)
+    @test population(identity_transport) == population(cm_exact)
+
+    # The copy is per column, so a partial demographic update leaves the groups
+    # whose population did not change bitwise unchanged.
+    partial = transport_population(cm_exact, [3.0, 10.0])
+    @test matrix(partial)[:, 1] == matrix(cm_exact)[:, 1]
+    @test matrix(partial)[:, 2] ≈ [0.5, 1.0]
+
+    # An empty source group is admitted when it carries no contacts: there is
+    # nothing to carry forward, and the transported column stays zero.
+    empty_ok = ContactMatrix([0.0 1.0; 0.0 2.0], p_exact, [0.0, 10.0])
+    transported_empty = transport_population(empty_ok, [5.0, 20.0])
+    @test matrix(transported_empty)[:, 1] == [0.0, 0.0]
+    @test matrix(transported_empty)[:, 2] ≈ [0.5, 1.0]
+
+    # An empty source group carrying nonzero contacts is rejected. Tagging the
+    # same numbers differently must not change whether the call succeeds, since
+    # transport accepts exactly the matrices `reinterpret_units` accepts.
+    empty_bad = [5.0 7.0; 2.0 1.0]
+    @test_throws ArgumentError transport_population(
+        ContactMatrix(empty_bad, p_exact, [0.0, 10.0]), [5.0, 10.0])
+    @test_throws ArgumentError transport_population(
+        ContactMatrix(empty_bad, p_exact, [0.0, 10.0], ContactCounts()), [5.0, 10.0])
+
+    # `reinterpret_units` only checks the axes it rescales, and `PerCapitaRate`
+    # rescales rows alone. A matrix whose empty group has a zero row but a
+    # nonzero column therefore reaches transport in every representation, and
+    # each must reject it on the column.
+    zero_row_nonzero_col = [0.0 0.0; 2.0 0.0]
+    for semantics in (MeanContacts(), ContactCounts(), PerCapitaRate())
+        @test_throws ArgumentError transport_population(
+            ContactMatrix(zero_row_nonzero_col, p_exact, [0.0, 10.0], semantics),
+            [5.0, 10.0])
+    end
+end
+
+@testset "transport: coarsening equivariance" begin
+    fine = AgePartition([0, 10, 20, 30])
+    coarse = AgePartition([0, 18])
+    N4 = [100.0, 200.0, 150.0, 50.0]
+    N4p = [80.0, 300.0, 60.0, 90.0]
+    M4 = [0.0 1.0 0.5 0.2; 2.0 0.0 0.3 0.1; 0.4 0.6 0.0 0.8; 0.1 0.2 0.9 0.0]
+    cm4 = ContactMatrix(M4, fine, N4)
+
+    # Coarsening adds up the contacts of the groups it merges, and transport
+    # leaves those totals alone, so doing the two in either order gives the same
+    # matrix — provided the coarse target population is the fine one added up the
+    # same way. This holds however the fine groups are assigned to coarse ones,
+    # which is why the loop also covers assignments that interleave them rather
+    # than only ones that keep them adjacent. Reprojection has no matching law;
+    # the "Demographic reprojection" testset pins that failure.
+    for assignment in ([1, 1, 2, 2], [1, 2, 1, 2], [2, 1, 2, 1])
+        f = PartitionMap(fine, coarse, assignment)
+        coarse_target = zeros(2)
+        for j in 1:4
+            coarse_target[assignment[j]] += N4p[j]
+        end
+
+        transport_then_coarsen = coarsen(transport_population(cm4, N4p), f)
+        coarsen_then_transport = transport_population(coarsen(cm4, f), coarse_target)
+        @test population(transport_then_coarsen) ≈ population(coarsen_then_transport)
+        @test matrix(transport_then_coarsen) ≈ matrix(coarsen_then_transport) atol=1e-10
+        @test transport_then_coarsen.semantics isa MeanContacts
+    end
+end
+
+@testset "transport: symmetrisation commutativity" begin
+    p = AgePartition([0, 18])
+    N = [100.0, 200.0]
+    Np = [50.0, 400.0]
+    cm = ContactMatrix([0.0 1.0; 3.0 0.0], p, N)     # not reciprocal at N
+
+    # Symmetrisation replaces total contacts by their symmetric part, transport
+    # leaves total contacts alone, so the order does not matter. Stronger than
+    # transport's conditional reciprocity preservation, which says nothing about
+    # input that is not already reciprocal.
+    @test matrix(transport_population(symmetrise(cm), Np)) ≈
+          matrix(symmetrise(transport_population(cm, Np))) atol=1e-10
+end
+
+@testset "transport and reprojection: additivity over ⊕" begin
+    p = AgePartition([0, 18])
+    N = [100.0, 200.0]
+    Np = [50.0, 400.0]
+    home = ContactMatrix([0.0 1.0; 2.0 0.0], p, N)
+    work = ContactMatrix([1.0 0.5; 0.25 2.0], p, N)
+
+    # Both are linear in the matrix at a fixed target population, so settings can
+    # be composed before or after either one. `⊕` requires its arguments to share
+    # a population, which is why both parts are built at `N`; reprojection itself
+    # never reads the source population.
+    @test matrix(transport_population(home ⊕ work, Np)) ≈
+          matrix(transport_population(home, Np) ⊕ transport_population(work, Np)) atol=1e-10
+    @test matrix(reproject(home ⊕ work, Np)) ≈
+          matrix(reproject(home, Np) ⊕ reproject(work, Np)) atol=1e-10
+end
+
+@testset "reprojection: idempotence at a fixed target" begin
+    p = AgePartition([0, 18])
+    N = [100.0, 200.0]
+    Np = [50.0, 400.0]
+    cm = ContactMatrix([0.0 1.0; 3.0 0.0], p, N)     # not reciprocal at N
+
+    # Reprojection always returns a matrix reciprocal at the target population,
+    # and is the identity on such matrices, so repeating it at the same target
+    # changes nothing. This is the case of the composition law where both targets
+    # coincide; the general case fails, as the "Demographic reprojection" testset
+    # asserts.
+    once = reproject(cm, Np)
+    twice = reproject(once, Np)
+    @test matrix(twice) ≈ matrix(once) atol=1e-10
+    @test population(twice) == Np
+    @test twice.semantics isa MeanContacts
+end
+
+# ---------------------------------------------------------------------------
+# POLYMOD UK: cross-validation against socialmixr's reprojection formula
+# ---------------------------------------------------------------------------
+# Uses a pre-computed R reference matrix committed as a CSV fixture
+# (test/fixtures/reprojection/). build_raw_matrix.jl builds the raw matrix
+# below from the bundled POLYMOD UK data; compute_reference.R applies
+# socialmixr's own normalise_weighted_matrix formula to it and writes
+# reprojection_polymod_matrix_R.csv. This validates that ContACT.jl's
+# `reproject` produces identical results to socialmixr's own formula.
+#
+# Data is bundled locally (data/polymod_uk_*.csv); no download is needed.
+@testset "reproject matches socialmixr's normalise_weighted_matrix (POLYMOD UK)" begin
+    data_dir = joinpath(@__DIR__, "..", "data")
+    fixture_dir = joinpath(@__DIR__, "fixtures", "reprojection")
+
+    parse_age(x::AbstractString) = x == "NA" ? missing : parse(Float64, x)
+    parse_age(x::Real) = Float64(x)
+    parse_age(::Missing) = missing
+
+    participants = CSV.read(joinpath(data_dir, "polymod_uk_participants.csv"), DataFrame)
+    contacts = CSV.read(joinpath(data_dir, "polymod_uk_contacts.csv"), DataFrame)
+    rename!(participants, :part_age_exact => :part_age)
+    participants.part_age = Float64.(participants.part_age)
+    cnt_exact = parse_age.(contacts.cnt_age_exact)
+    cnt_min = parse_age.(contacts.cnt_age_est_min)
+    cnt_max = parse_age.(contacts.cnt_age_est_max)
+    contacts.cnt_age = coalesce.(cnt_exact, (cnt_min .+ cnt_max) ./ 2)
+    select!(contacts, [:part_id, :cnt_age])
+    dropmissing!(contacts, :cnt_age)
+    valid_ids = Set(participants.part_id)
+    filter!(row -> row.part_id in valid_ids, contacts)
+
+    survey = ContactSurvey(participants, contacts)
+    age_partition = AgePartition([0, 18, 65])
+    uk_pop_age = [11000.0, 33000.0, 9500.0]
+    cm_age = compute_matrix(survey, age_partition; population=uk_pop_age)
+
+    target_pop = [10500.0, 34000.0, 13500.0]
+    proj = reproject(cm_age, target_pop)
+
+    ref_df = CSV.read(joinpath(fixture_dir, "reprojection_polymod_matrix_R.csv"), DataFrame)
+    ref = Matrix{Float64}(ref_df[:, 2:end])
+
+    @test isapprox(matrix(proj), ref; atol=1e-4)
+end
+
 @testset "Refinement" begin
     # Start with a coarse matrix, refine it
     coarse = AgePartition([0, 18, 65])
@@ -1145,11 +1420,15 @@ end
 
     reps = (MeanContacts(), ContactCounts(), PerCapitaRate())
 
+    Nreproj = [800.0, 1200.0, 900.0]
+
     morphisms = (
-        ("symmetrise (↔)", c -> symmetrise(c),         cm),
-        ("coarsen (↓)",    c -> coarsen(c, coarse),    cm),
-        ("refine (↑)",     c -> refine(c, fine, N),    cmc),
-        ("stratify (⊗)",   c -> stratify(c, coupling), cm),
+        ("symmetrise (↔)", c -> symmetrise(c),                cm),
+        ("coarsen (↓)",    c -> coarsen(c, coarse),           cm),
+        ("refine (↑)",     c -> refine(c, fine, N),           cmc),
+        ("stratify (⊗)",   c -> stratify(c, coupling),        cm),
+        ("reproject",      c -> reproject(c, Nreproj),        cm),
+        ("transport_population", c -> transport_population(c, Nreproj), cm),
     )
 
     for (name, op, obj) in morphisms
@@ -1196,6 +1475,8 @@ end
         @test matrix(symmetrise(cm)) == matrix(ContACT._symmetrise_mean(cm))
         @test matrix(coarsen(cm, coarse)) ==
               matrix(ContACT._coarsen_mean(cm, PartitionMap(fine, coarse)))
+        @test matrix(reproject(cm, Nreproj)) ==
+              matrix(ContACT._reproject_mean(cm, Nreproj))
     end
 
     @testset "morphisms compose across representations" begin
@@ -1387,7 +1668,7 @@ end
         @test h.domain.limits == fine.limits
         @test h.codomain.limits == coarse.limits
 
-        # Functoriality: coarsen(cm, g ∘ f) == coarsen(coarsen(cm, f), g)
+        # Functoriality: matrix(coarsen(cm, g ∘ f)) ≈ matrix(coarsen(coarsen(cm, f), g))
         M = [4.0 1.0 0.5 0.2 0.1;
              1.0 3.0 1.0 0.3 0.1;
              0.5 1.0 2.5 0.8 0.2;
