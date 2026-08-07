@@ -808,7 +808,8 @@ end
     @test matrix(transport_population(cm, N)) ≈ M
     @test population(transport_population(cm, N)) == N
 
-    # Composition is exact (diagonal-group action), unlike reproject
+    # The composition law holds algebraically (a diagonal-group action), unlike
+    # reproject; numerically the two routes agree to floating-point roundoff, hence ≈
     Npp = [10.0, 20.0]
     two_step = matrix(transport_population(transport_population(cm, Np), Npp))
     one_step = matrix(transport_population(cm, Npp))
@@ -835,7 +836,8 @@ end
     @test transported_nonrecip[1, 2] * Np[2] ≈ M_nonrecip[1, 2] * N[2]
     @test transported_nonrecip[2, 1] * Np[1] ≈ M_nonrecip[2, 1] * N[1]
 
-    # Invertible on the reciprocal fibre: round trip recovers the original exactly
+    # Invertible for positive populations: the round trip recovers the original.
+    # Reciprocity is irrelevant here — a non-reciprocal round trip is asserted below
     roundtrip = matrix(transport_population(transport_population(cm, Np), N))
     @test roundtrip ≈ M
 
@@ -869,25 +871,67 @@ end
     @test matrix(transported_empty)[:, 1] == [0.0, 0.0]
     @test matrix(transported_empty)[:, 2] ≈ [0.5, 1.0]
 
-    # An empty source group carrying nonzero contacts is rejected. Tagging the
-    # same numbers differently must not change whether the call succeeds, since
-    # transport accepts exactly the matrices `reinterpret_units` accepts.
+    # An empty source group whose participant column is nonzero is rejected: those
+    # contacts would be silently discarded.
     empty_bad = [5.0 7.0; 2.0 1.0]
-    @test_throws ArgumentError transport_population(
-        ContactMatrix(empty_bad, p_exact, [0.0, 10.0]), [5.0, 10.0])
-    @test_throws ArgumentError transport_population(
-        ContactMatrix(empty_bad, p_exact, [0.0, 10.0], ContactCounts()), [5.0, 10.0])
+    for semantics in (MeanContacts(), ContactCounts())
+        @test_throws ArgumentError transport_population(
+            ContactMatrix(empty_bad, p_exact, [0.0, 10.0], semantics), [5.0, 10.0])
+    end
 
-    # `reinterpret_units` only checks the axes it rescales, and `PerCapitaRate`
-    # rescales rows alone. A matrix whose empty group has a zero row but a
-    # nonzero column therefore reaches transport in every representation, and
-    # each must reject it on the column.
+    # A zero row with a nonzero column is rejected in every representation: the
+    # column is what transport guards.
     zero_row_nonzero_col = [0.0 0.0; 2.0 0.0]
     for semantics in (MeanContacts(), ContactCounts(), PerCapitaRate())
         @test_throws ArgumentError transport_population(
             ContactMatrix(zero_row_nonzero_col, p_exact, [0.0, 10.0], semantics),
             [5.0, 10.0])
     end
+
+    # The mirror case pins the asymmetry. Transport guards the column, while
+    # `reinterpret_units` guards whichever axis it rescales, and converting to
+    # `PerCapitaRate` rescales rows. So an empty group with a zero column but a
+    # nonzero row is accepted under the two representations that reach
+    # `_transport_at` unconverted, and rejected under the one that must convert.
+    # Whether a matrix is accepted at a zero population is therefore
+    # representation-dependent, and that is a property of the guards, not a bug.
+    zero_col_nonzero_row = [0.0 5.0; 0.0 3.0]
+    accepted = transport_population(
+        ContactMatrix(zero_col_nonzero_row, p_exact, [0.0, 10.0]), [5.0, 20.0])
+    @test matrix(accepted) ≈ [0.0 2.5; 0.0 1.5] atol=1e-10
+    # In `ContactCounts` the same transport leaves the matrix alone, since total
+    # contacts are what it holds fixed; only the attached population changes.
+    counts_out = transport_population(
+        ContactMatrix(zero_col_nonzero_row, p_exact, [0.0, 10.0], ContactCounts()),
+        [5.0, 20.0])
+    @test matrix(counts_out) ≈ zero_col_nonzero_row atol=1e-10
+    @test population(counts_out) == [5.0, 20.0]
+    @test_throws ArgumentError transport_population(
+        ContactMatrix(zero_col_nonzero_row, p_exact, [0.0, 10.0], PerCapitaRate()),
+        [5.0, 20.0])
+
+    # The identity returns a fresh matrix, not `cm` itself: `ContactMatrix` wraps
+    # mutable arrays, so aliasing would let a caller's edit reach back into the
+    # input. Bitwise exactness is unaffected, since the constructor copies.
+    aliased = transport_population(cm_exact, population(cm_exact))
+    @test aliased !== cm_exact
+    @test matrix(aliased) !== matrix(cm_exact)
+
+    # Composition survives an admissible zero source. Only the intermediate and
+    # final populations must be positive — `populationTransport_comp` assumes
+    # nothing about the initial one — so a one-way transport out of an empty group
+    # still composes with what follows.
+    zero_src = ContactMatrix([0.0 1.0; 0.0 2.0], p_exact, [0.0, 10.0])
+    @test matrix(transport_population(
+              transport_population(zero_src, [5.0, 20.0]), [8.0, 30.0])) ≈
+          matrix(transport_population(zero_src, [8.0, 30.0])) atol=1e-10
+
+    # Invertibility does not depend on reciprocity, so round-trip a matrix that is
+    # not reciprocal at its own population.
+    not_recip = ContactMatrix([0.0 1.0; 3.0 0.0], p_exact, [100.0, 200.0])
+    @test matrix(transport_population(
+              transport_population(not_recip, [50.0, 400.0]), [100.0, 200.0])) ≈
+          matrix(not_recip) atol=1e-10
 end
 
 @testset "transport: coarsening equivariance" begin
@@ -918,6 +962,23 @@ end
         @test matrix(transport_then_coarsen) ≈ matrix(coarsen_then_transport) atol=1e-10
         @test transport_then_coarsen.semantics isa MeanContacts
     end
+
+    # A coarse group whose whole source fibre is empty. This is the case
+    # `weightedCoarsen_populationTransport_nonneg` was added for: the general
+    # theorem's `hNJ` excludes it, and nonnegativity is what discharges the
+    # hypothesis, since a fibre summing to zero forces every member to zero.
+    # Groups 1 and 2 are empty, so they report no contacts as participants and
+    # their columns are zero — a matrix with contacts there would (rightly) be
+    # rejected by the zero-source guard instead.
+    M4_empty = [0.0 0.0 0.5 0.2; 0.0 0.0 0.3 0.1; 0.0 0.0 0.0 0.8; 0.0 0.0 0.9 0.0]
+    cm4_empty = ContactMatrix(M4_empty, fine, [0.0, 0.0, 150.0, 50.0])
+    f_empty = PartitionMap(fine, coarse, [1, 1, 2, 2])
+    coarse_target = [N4p[1] + N4p[2], N4p[3] + N4p[4]]
+    @test population(coarsen(cm4_empty, f_empty)) ≈ [0.0, 200.0]
+    empty_lhs = coarsen(transport_population(cm4_empty, N4p), f_empty)
+    empty_rhs = transport_population(coarsen(cm4_empty, f_empty), coarse_target)
+    @test matrix(empty_lhs) ≈ matrix(empty_rhs) atol=1e-10
+    @test !any(isnan, matrix(empty_lhs))
 end
 
 @testset "transport: symmetrisation commutativity" begin
@@ -2286,8 +2347,9 @@ end
 #
 # Three findings pinned here:
 #   1. The reciprocal lift M[i,j] = a_i*N_i*a_j/D  (D = Σ_k a_k*N_k) commutes
-#      unconditionally — any surjective fibre map, contiguous or not, any
-#      populations. Both paths reduce to S_I*S_J/(D*N_J) with S_I = Σ_{i∈I} a_i*N_i.
+#      for any fibre map, contiguous or not, needing only that each coarse group
+#      has nonzero total population (the Lean theorem's hNJ). Both paths reduce to
+#      S_I*S_J/(D*N_J) with S_I = Σ_{i∈I} a_i*N_i.
 #   2. The naive lift M[i,j] = a_i*a_j/D (missing the N_i factor) is not a valid
 #      MeanContacts ContactMatrix: MeanContacts reciprocity requires symmetry of
 #      *total* contacts, M[i,j]*N_j == M[j,i]*N_i, which fails whenever group

@@ -10,7 +10,7 @@ import ContACTProofs.Symmetrisation
 
 ## Key results
 
-1. **S always commutes with ⊕**: S(A + B) = S(A) + S(B)
+1. **S commutes with ⊕ on positive populations**: S(A + B) = S(A) + S(B)
 2. **S commutes with ⊗ iff coupling symmetric**: characterisation theorem
 3. **S is a monoid homomorphism** on (Contact, ⊕, 0)
 
@@ -18,10 +18,10 @@ import ContACTProofs.Symmetrisation
 
 | # | Result | Status |
 |---|--------|--------|
-| 1 | S(A ⊕ B) = S(A) ⊕ S(B) | ✅ |
+| 1 | S(A ⊕ B) = S(A) ⊕ S(B) (positive populations) | ✅ |
 | 2 | S(c • A) = c • S(A) | ✅ |
 | 3 | S(0) = 0 | ✅ |
-| 4 | Monoid homomorphism | ✅ |
+| 4 | Monoid homomorphism (positive populations; `S(0) = 0` needs none) | ✅ |
 | 5 | S and ⊗ commutativity characterisation | ✅ |
 
 -/
@@ -85,10 +85,11 @@ theorem symmetrise_stratify_entry_iff {s a : ℕ}
 -- 3. Monoid homomorphism properties
 -- ═══════════════════════════════════════════════════════════════════════════
 
-/-- Symmetrisation preserves zero. -/
+/-- Symmetrisation preserves zero. Unlike `symmetrise_add`, this needs no
+    positivity hypothesis: the numerator vanishes, and `0 / x = 0` for every `x`,
+    including an empty group's `2 * pop j = 0`. -/
 theorem symmetrise_zero {n : ℕ}
-    (pop : Fin n → ℝ)
-    (hpop : ∀ i, pop i > 0) :
+    (pop : Fin n → ℝ) :
     symmetriseMatrix (0 : Matrix (Fin n) (Fin n) ℝ) pop = 0 := by
   ext i j
   simp [symmetriseMatrix]
@@ -102,4 +103,4 @@ theorem symmetrise_is_monoid_hom {n : ℕ}
     ∀ A B : Matrix (Fin n) (Fin n) ℝ,
       symmetriseMatrix (A + B) pop =
       symmetriseMatrix A pop + symmetriseMatrix B pop := by
-  exact ⟨symmetrise_zero pop hpop, fun A B => symmetrise_add A B pop hpop⟩
+  exact ⟨symmetrise_zero pop, fun A B => symmetrise_add A B pop hpop⟩
