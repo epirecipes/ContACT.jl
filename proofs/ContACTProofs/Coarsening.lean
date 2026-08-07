@@ -27,7 +27,7 @@ basic sum manipulations.
 | 4 | Population-weighted coarsening (`weightedCoarsen`, matching the shipped `coarsen`) preserves total contacts | ✅ |
 | 5 | Population-weighted coarsening is functorial | ✅ |
 | 6 | `ContactCat` morphisms act on contact data via coarsening, functorially | ✅ |
-| 7 | Activity-vector build/coarsen equivariance: the reciprocal proportionate-mixing lift `a_i·N_i·a_j/D` commutes with coarsening for any fibre map, no side condition (`weightedCoarsen_proportionate`) | ✅ |
+| 7 | Activity-vector build/coarsen equivariance: the reciprocal proportionate-mixing lift `a_i·N_i·a_j/D` commutes with coarsening for any fibre map (`weightedCoarsen_proportionate`, and `_nonneg` with no coarse-population condition) | ✅ |
 
 -/
 
@@ -265,9 +265,9 @@ or demographic resolution can't be interpreted at another.
 
 Three findings pinned here:
   1. The reciprocal lift `M[i,j] = a_i·N_i·a_j / D` (`D = Σ_k a_k·N_k`) commutes
-     unconditionally — any surjective fibre map, contiguous or not, any
-     populations. Both paths reduce to `S_I·S_J/(D·N_J)` with `S_I = Σ_{i∈I} a_i·N_i`.
-     This is `weightedCoarsen_proportionate` below.
+     for any fibre map, contiguous or not, needing only that each coarse group
+     has nonzero total population. Both paths reduce to `S_I·S_J/(D·N_J)` with
+     `S_I = Σ_{i∈I} a_i·N_i`. This is `weightedCoarsen_proportionate` below.
   2. The naive lift `M[i,j] = a_i·a_j/D` (missing the `N_i` factor) is not a
      valid MeanContacts ContactMatrix: MeanContacts reciprocity requires
      symmetry of *total* contacts, `M[i,j]·N_j == M[j,i]·N_i`, which fails
@@ -351,10 +351,73 @@ theorem totalActivity_coarsen {m n : ℕ} (a N : Fin m → ℝ) (f : Fin m → F
   simp_rw [hcancel]
   exact Finset.sum_fiberwise Finset.univ f (fun i => a i * N i)
 
+/-- The cancellation `a_I · N_I = S_I` underlying both coarsening-equivariance
+    results, without assuming the coarse population is nonzero. Populations are
+    nonnegative in every `ContactMatrix`, so a fibre summing to zero forces each of
+    its members to zero; the activity mass then vanishes too and both sides are `0`.
+    This is what lets `hNJ` be discharged rather than merely documented. -/
+theorem coarsenActivity_mul_pop {m n : ℕ} (a N : Fin m → ℝ) (f : Fin m → Fin n)
+    (hN : ∀ j, 0 ≤ N j) (I : Fin n) :
+    coarsenActivity a N f I * coarsenPop N f I = coarsenActivityMass a N f I := by
+  rcases eq_or_ne (coarsenPop N f I) 0 with hz | hz
+  · rw [hz, mul_zero]
+    symm
+    simp only [coarsenPop] at hz
+    have hzero : ∀ i ∈ Finset.univ.filter (fun i => f i = I), N i = 0 :=
+      (Finset.sum_eq_zero_iff_of_nonneg (fun i _ => hN i)).mp hz
+    simp only [coarsenActivityMass]
+    exact Finset.sum_eq_zero (fun i hi => by rw [hzero i hi, mul_zero])
+  · rw [coarsenActivity_apply, div_mul_cancel₀ _ hz]
+
+/-- Total activity is preserved by coarsening, on nonnegative populations and with
+    no condition on the coarse populations. -/
+theorem totalActivity_coarsen_nonneg {m n : ℕ} (a N : Fin m → ℝ) (f : Fin m → Fin n)
+    (hN : ∀ j, 0 ≤ N j) :
+    totalActivity (coarsenActivity a N f) (coarsenPop N f) = totalActivity a N := by
+  show ∑ I : Fin n, coarsenActivity a N f I * coarsenPop N f I = ∑ i : Fin m, a i * N i
+  simp_rw [coarsenActivity_mul_pop a N f hN]
+  exact Finset.sum_fiberwise Finset.univ f (fun i => a i * N i)
+
+/-- **Build/coarsen equivariance on the domain the package actually uses.**
+    Identical conclusion to `weightedCoarsen_proportionate`, with the
+    coarse-population hypothesis `hNJ` replaced by nonnegativity of the fine
+    populations — which every `ContactMatrix` satisfies by construction
+    (`src/types.jl` rejects negative entries). On that domain the equivariance holds
+    with no side condition beyond the populations being populations, for any fibre
+    map, surjective or not. -/
+theorem weightedCoarsen_proportionate_nonneg {m n : ℕ}
+    (a N : Fin m → ℝ) (f : Fin m → Fin n) (hN : ∀ j, 0 ≤ N j) :
+    weightedCoarsen (proportionateMatrix a N) N f =
+    proportionateMatrix (coarsenActivity a N f) (coarsenPop N f) := by
+  have hD := totalActivity_coarsen_nonneg a N f hN
+  ext I J
+  have hfun : (fun i j => proportionateMatrix a N i j * N j)
+      = (fun i j => (a i * N i) * (a j * N j) / totalActivity a N) := by
+    funext i j
+    unfold proportionateMatrix
+    ring
+  show coarsenTotal (fun i j => proportionateMatrix a N i j * N j) f I J / coarsenPop N f J
+     = proportionateMatrix (coarsenActivity a N f) (coarsenPop N f) I J
+  rw [hfun, coarsenTotal_outer_div]
+  show coarsenActivityMass a N f I * coarsenActivityMass a N f J / totalActivity a N
+       / coarsenPop N f J
+     = coarsenActivity a N f I * coarsenPop N f I * coarsenActivity a N f J
+       / totalActivity (coarsenActivity a N f) (coarsenPop N f)
+  rw [hD, coarsenActivity_mul_pop a N f hN I, coarsenActivity_apply]
+  ring
+
 /-- Coarsening commutes with the reciprocal proportionate-mixing lift:
     coarsening an activity vector and then building a matrix agrees with
-    building and then coarsening. Holds for *any* surjective fibre map,
-    contiguous or not, with no side condition.
+    building and then coarsening. Holds for *any* fibre map, contiguous or not —
+    no order-preservation and no surjectivity are needed.
+
+    There is one side condition, `hNJ`: every coarse group must have nonzero
+    total population. It is not implied by surjectivity, since a coarse group
+    can be hit only by fine groups that are themselves empty. Under the
+    nonnegative populations `ContactMatrix` enforces it *is* discharged, because a
+    fibre summing to zero forces each of its members to zero — see
+    `weightedCoarsen_proportionate_nonneg` immediately above, which is the version
+    to cite for anything about ContACT's own domain.
 
     Distinct from `coarsenAction_comp`, which is functoriality of coarsening
     alone and holds for *any* matrix. This theorem relates two different

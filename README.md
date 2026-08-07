@@ -14,7 +14,7 @@ ContACT.jl provides a categorical framework for:
 - Adding spatial structure via **stratification** (Kronecker product) (⊗)
 - Enforcing reciprocity via **symmetrisation** (↔)
 
-All operations come with formal guarantees verified in Lean 4.
+Structural operations are verified with formal Lean 4 proofs of their claimed algebraic laws (see the proof table below), while numerical utilities, such as spectral radius, R₀ helpers, and epidemic bounds, undergo standard testing.
 
 ## Quick Start
 
@@ -93,6 +93,15 @@ A `ContactMatrix` bundles:
 - **Constrained partial-data lifts** (via `SourceStratifiedContactMatrix` and `ConstrainedGeneralizedLift`): reconstruct product matrices constrained by participant-side covariates, coarsening, and reciprocity
 - **Symmetrisation**: idempotent endomorphism preserving reciprocity
 - **Setting composition**: commutative monoid structure (additive)
+- **Population transport** (via `transport_population`): changes the population at a
+  fixed partition while holding each pair's total contacts fixed. On strictly positive
+  populations it satisfies identity, composition and inverse laws, and it commutes
+  with coarsening for any partition map. An empty source group whose participant
+  column is zero admits a one-way extension of this
+- **Demographic reprojection** (via `reproject`): changes the population at a fixed
+  partition while establishing reciprocity under the new one, following Arregui et
+  al. Unlike population transport it is not functorial in the population and does not
+  commute with coarsening — it repairs the matrix rather than carrying it across
 
 ### Functor
 `compute_matrix` is a functor from the subcategory of surveys (with fixed partition and weighting) to the category of contact matrices.
@@ -116,7 +125,7 @@ The `proofs/` directory contains machine-checked proofs of:
 | Additive composition commutativity | `Composition.lean` | ✅ |
 | Stratification = Kronecker product, with Julia linear-index layout | `Stratification.lean` | ✅ |
 | Stratification distributes over composition | `Stratification.lean` | ✅ |
-| Symmetrisation–composition commutativity | `Commutativity.lean` | ✅ |
+| Symmetrisation–composition commutativity (positive populations) | `Commutativity.lean` | ✅ |
 | Symmetrisation–stratification commutativity (iff coupling symmetric) | `Stratification.lean` | ✅ |
 | Constrained-lift coarsening recovery, symmetry & structural zeros | `ConstrainedLift.lean` | ✅ |
 | Reprojection reciprocity at the target population (incl. empty groups) | `Reprojection.lean` | ✅ |
@@ -127,13 +136,23 @@ The `proofs/` directory contains machine-checked proofs of:
 | Population transport preserves total contacts entrywise (positive target) | `PopulationTransport.lean` | ✅ |
 | Population transport preserves reciprocity when the source already has it | `PopulationTransport.lean` | ✅ |
 | Population transport is invertible (round trip), for every matrix (positive populations) | `PopulationTransport.lean` | ✅ |
+| Population transport commutes with population-weighted coarsening, for any fibre map (nonnegative populations) | `PopulationTransport.lean` | ✅ |
+| That commutation genuinely needs a nonzero target population (counterexample) | `PopulationTransport.lean` | ✅ |
 | Unit-semantics representations form a groupoid (identity, composition, inverses) | `UnitSemantics.lean` | ✅ |
 | Any operation is natural once conjugated by the representation isomorphisms | `UnitSemantics.lean` | ✅ |
 | Symmetrisation is natural with respect to the representation isomorphisms | `UnitSemantics.lean` | ✅ |
 | Symmetrisation that ignores the input tag is **not** natural (counterexample) | `UnitSemantics.lean` | ✅ |
 | Symmetrisation in `ContactCounts` and `PerCapitaRate` is plain averaging | `UnitSemantics.lean` | ✅ |
 | Reciprocity is plain matrix symmetry exactly when the effective population is 1 | `UnitSemantics.lean` | ✅ |
-| Activity lift build/coarsen equivariance, for any surjective fibre map | `Coarsening.lean` | ✅ |
+| Reciprocal *proportionate* activity lift: build/coarsen equivariance, for any fibre map (nonnegative populations) | `Coarsening.lean` | ✅ |
+
+The equivariance row above is specific to the reciprocal proportionate lift. ContACT's
+other two activity kernels, assortative and disassortative, allocate contacts by walking
+activity strata in order, and commute with coarsening only when each coarse group is a
+contiguous run of fine strata. Merging non-adjacent strata changes the result by O(1) in
+mean-contacts units — a documented limitation pinned by regression test rather than a
+proof. Ordinary use, merging adjacent strata of an ordered activity partition, satisfies
+the condition automatically.
 
 The weighted-coarsening and empty-group theorems model the exact arithmetic the
 Julia code runs (population-weighted averaging and the zero-population branch),
