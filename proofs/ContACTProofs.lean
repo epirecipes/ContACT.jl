@@ -1,6 +1,7 @@
 -- ContACTProofs: Formal verification of ContACT.jl categorical properties
 import ContACTProofs.ContactCat
 import ContACTProofs.Coarsening
+import ContACTProofs.Refinement
 import ContACTProofs.Symmetrisation
 import ContACTProofs.Reprojection
 import ContACTProofs.PopulationTransport

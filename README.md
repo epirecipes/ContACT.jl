@@ -7,7 +7,7 @@
 ContACT.jl provides a categorical framework for:
 - Computing contact matrices from individual-level survey data over arbitrary finite partitions (the **functor** from surveys to matrices)
 - Composing setting-specific matrices (home, work, school) via **additive composition** (⊕)
-- Changing partition resolution via **coarsening** (left Kan extension) and refinement
+- Changing partition resolution via **coarsening** (left Kan extension) and **refinement** (its section, given a population prior)
 - Refining reciprocal matrices by respondent social activity, following Britton-Ball-style high/low or quantile activity strata (⤊)
 - Lifting age matrices to generalized age × SES/contact matrices with explicit mixing assumptions (⊠)
 - Reconstructing generalized matrices from partial participant-side covariates with source-stratified intermediate matrices
@@ -69,7 +69,7 @@ partial = compute_source_stratified_matrix(survey, partition, partition × ses)
 | `⊕` | `\oplus` | Additive composition | Coproduct in setting category |
 | `⊗` | `\otimes` | Stratification | Pullback in slice category |
 | `↓` | `\downarrow` | Coarsening | Left Kan extension |
-| `↑` | `\uparrow` | Refinement with prior | Parameterised disaggregation |
+| `↑` | `\uparrow` | Refinement with prior | Section of coarsening |
 | `⤊` | `\Uuparrow` | Activity refinement | Hidden-stratum lift |
 | `⊠` | `\boxtimes` | Generalized product lift | Section of product coarsening |
 | `▷` | `\triangleright` | Survey-to-matrix functor | Functor application |
@@ -88,6 +88,10 @@ A `ContactMatrix` bundles:
 
 ### Morphisms
 - **Coarsening** (via `PartitionMap`; `AgeMap` is the age-specific alias): surjective partition maps that push forward contact structure
+- **Refinement** (via `RefinementPrior`): splits each coarse group's contacts between
+  its fine subgroups in proportion to a population prior. A section of coarsening —
+  coarsening the result recovers the original matrix — but not an inverse, since
+  coarsening discards the within-group structure the prior then has to supply
 - **Activity refinement** (via `ActivityRefinement`): assumption-driven lift to a product partition such as age × activity
 - **Generalized lifts** (via `GeneralizedLift`): assumption-driven sections from a base partition to a product partition such as age × SES
 - **Constrained partial-data lifts** (via `SourceStratifiedContactMatrix` and `ConstrainedGeneralizedLift`): reconstruct product matrices constrained by participant-side covariates, coarsening, and reciprocity
@@ -118,6 +122,11 @@ The `proofs/` directory contains machine-checked proofs of:
 | Coarsening preserves total contacts (unweighted count model) | `Coarsening.lean` | ✅ |
 | **Population-weighted** coarsening functoriality (matches `coarsen`) | `Coarsening.lean` | ✅ |
 | **Population-weighted** coarsening preserves total contacts | `Coarsening.lean` | ✅ |
+| Refinement is a section of coarsening (empty coarse groups must carry no contacts) | `Refinement.lean` | ✅ |
+| That section law with no side condition, where no coarse population is zero | `Refinement.lean` | ✅ |
+| Refinement preserves total contacts | `Refinement.lean` | ✅ |
+| Refinement inherits reciprocity from the coarse matrix | `Refinement.lean` | ✅ |
+| Refinement is **not** a left inverse of coarsening (counterexample) | `Refinement.lean` | ✅ |
 | Symmetrisation idempotence (positive populations) | `Symmetrisation.lean` | ✅ |
 | Symmetrisation reciprocity (positive populations) | `Symmetrisation.lean` | ✅ |
 | Symmetrisation idempotence & reciprocity with empty groups (matches `symmetrise`) | `Symmetrisation.lean` | ✅ |
