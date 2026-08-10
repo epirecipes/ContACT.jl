@@ -131,7 +131,8 @@ end
 Refine a coarse contact matrix to a finer partition. Type `\\uparrow<TAB>`.
 
 Unlike coarsening (which is canonical), refinement requires auxiliary assumptions
-encoded in a `RefinementPrior`. This is NOT an inverse of `↓`.
+encoded in a `RefinementPrior`. It is a section of `↓` rather than an inverse:
+`(cm ↑ prior) ↓ f` recovers `cm`'s matrix, while `(cm ↓ f) ↑ prior` does not.
 
 When the right-hand side is an `ActivityRefinement`, this performs the
 Britton-Ball style activity lift. Use `⤊` for a visually distinct alias.

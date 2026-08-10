@@ -1085,10 +1085,121 @@ end
 
     fine = AgePartition([0, 5, 18, 45, 65])
     fine_pop = [800.0, 1200.0, 2000.0, 2000.0, 1000.0]
+    f = PartitionMap(fine, coarse)
     cm_fine = refine(cm, fine, fine_pop)
 
     @test n_groups(cm_fine) == 5
     @test population(cm_fine) == fine_pop
+
+    # M_fine[i, j] = M_coarse[I, J] * N_i / N_I. The fibres are {1,2}, {3,4}, {5},
+    # so the contactee shares are 0.4, 0.6, 0.5, 0.5, 1.0 and the columns within a
+    # coarse group are equal.
+    @test matrix(cm_fine) ≈ [0.8 0.8 0.4 0.4 0.2
+                             1.2 1.2 0.6 0.6 0.3
+                             0.5 0.5 1.5 1.5 0.5
+                             0.5 0.5 1.5 1.5 0.5
+                             0.5 0.5 1.0 1.0 1.5]
+
+    @testset "coarsening recovers the coarse matrix" begin
+        @test matrix(coarsen(cm_fine, f)) ≈ M
+        @test population(coarsen(cm_fine, f)) ≈ pop_coarse
+    end
+
+    counts(c) = matrix(c) * Diagonal(population(c))
+
+    @testset "total contacts preserved" begin
+        @test sum(counts(cm_fine)) ≈ sum(counts(cm))
+    end
+
+    @testset "the prior determines the refined matrix" begin
+        other_pop = [200.0, 1800.0, 3000.0, 1000.0, 1000.0]
+        other = refine(cm, fine, other_pop)
+        @test !(matrix(other) ≈ matrix(cm_fine))
+        @test matrix(coarsen(other, f)) ≈ M
+    end
+
+    @testset "reciprocity preserved" begin
+        C = counts(refine(↔(cm), fine, fine_pop))
+        @test C ≈ transpose(C)
+        # The unsymmetrised fixture is not reciprocal, so this is a real hypothesis
+        C_raw = counts(cm)
+        @test !(C_raw ≈ transpose(C_raw))
+    end
+
+    @testset "not a two-sided inverse" begin
+        M_fine = [1.0 2.0 0.5 0.5 0.1
+                  3.0 1.0 0.5 0.5 0.1
+                  0.5 0.5 2.0 1.0 0.2
+                  0.5 0.5 1.0 2.0 0.2
+                  0.1 0.1 0.2 0.2 1.0]
+        start = ContactMatrix(M_fine, fine, fine_pop)
+        round_trip = refine(coarsen(start, f), fine, fine_pop)
+        @test !(matrix(round_trip) ≈ M_fine)
+        # Coarsening is still recovered, so the failure is loss of within-group
+        # structure rather than a broken section.
+        @test matrix(coarsen(round_trip, f)) ≈ matrix(coarsen(start, f))
+    end
+
+    @testset "empty fine group is empty on both axes" begin
+        empty_pop = [0.0, 2000.0, 2000.0, 2000.0, 1000.0]
+        ef = refine(cm, fine, empty_pop)
+        @test all(iszero, matrix(ef)[1, :])
+        @test all(iszero, matrix(ef)[:, 1])
+        @test matrix(coarsen(ef, f)) ≈ M
+        # Zero on both axes is what lets every representation accept the result;
+        # a nonzero column at zero population is rejected by reinterpret_units.
+        for s in (MeanContacts(), ContactCounts(), PerCapitaRate())
+            @test matrix(refine(reinterpret_units(cm, s), fine, empty_pop)) ≈
+                  matrix(reinterpret_units(ef, s))
+        end
+    end
+
+    @testset "empty coarse group must carry no contacts" begin
+        empty_coarse = [2000.0, 0.0, 1000.0]
+        split = [800.0, 1200.0, 0.0, 0.0, 1000.0]
+
+        # Nonzero row: no population shares to split those contacts by
+        @test_throws ArgumentError refine(
+            ContactMatrix(M, coarse, empty_coarse), fine, split)
+
+        # Nonzero column: the fine subgroups are empty, so they cannot carry it
+        zero_row = copy(M)
+        zero_row[2, :] .= 0.0
+        @test_throws ArgumentError refine(
+            ContactMatrix(zero_row, coarse, empty_coarse), fine, split)
+
+        zero_both = copy(zero_row)
+        zero_both[:, 2] .= 0.0
+        ok = refine(ContactMatrix(zero_both, coarse, empty_coarse), fine, split)
+        @test all(isfinite, matrix(ok))
+        @test matrix(coarsen(ok, f)) ≈ zero_both
+    end
+
+    @testset "an empty coarse group must be empty in the prior too" begin
+        # The aggregation check is approximate and scales with the largest
+        # population, so at this scale it accepts a prior that puts five people
+        # into the empty group — which would bypass the guard above.
+        two = AgePartition([0, 18])
+        four = AgePartition([0, 5, 18, 45])
+        empty_col = ContactMatrix([0.0 0.0; 1.0 1.0], two, [0.0, 1.0e9])
+        @test isapprox([5.0, 1.0e9], [0.0, 1.0e9]; rtol=1e-8, atol=1e-8)
+
+        err = try
+            refine(empty_col, four, [2.5, 2.5, 5.0e8, 5.0e8])
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("exactly zero", sprint(showerror, err))
+
+        # Stated exactly, the same input is rejected by the zero-column guard
+        @test_throws ArgumentError refine(empty_col, four, [0.0, 0.0, 5.0e8, 5.0e8])
+
+        # The mismatch is rejected in the other direction too
+        nearly_empty = ContactMatrix([0.0 0.0; 0.0 1.0], two, [1.0e-9, 1.0e9])
+        @test_throws ArgumentError refine(nearly_empty, four, [0.0, 0.0, 5.0e8, 5.0e8])
+    end
 end
 
 @testset "Activity refinement" begin
@@ -1692,6 +1803,9 @@ end
         @test n_groups(cm_fine) == 5
         @test population(cm_fine) == fine_pop
         @test matrix(cm_fine) ≈ matrix(refine(cm, fine, fine_pop))
+
+        # ↑ is a section of ↓, so coarsening back along the same map returns cm
+        @test matrix((cm ↑ prior) ↓ PartitionMap(fine, coarse)) ≈ M
 
         # Dimension mismatch in RefinementPrior
         @test_throws DimensionMismatch RefinementPrior(fine, [1.0, 2.0])
