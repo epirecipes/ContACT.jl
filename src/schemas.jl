@@ -6,8 +6,12 @@ This module leverages Catlab's ACSet machinery to provide:
 1. **Schema-enforced survey structure**: Type-safe joins between participants
    and contacts, preventing structural errors at construction time.
 
-2. **Functorial data migration (Σ, Δ, Π)**: Principled coarsening (Σ = left Kan),
-   restriction (Δ = pullback), and refinement (Π = right Kan) of age-structured data.
+2. **Functorial data migration (Σ, Δ, Π)**: The intended data-migration framework
+   comprises covariant migration by left Kan extension (Σ), restriction by
+   precomposition/pullback (Δ), and right Kan extension (Π). ContACT currently
+   implements `migrate_coarsen`, which is the Σ migration for each group-labelled
+   family `X → G`; no universal property has been established for the migration of
+   the complete `ContactSurveyACSet`.
 
 3. **Structured cospans for open contact matrices**: Composable interfaces
    where shared age groups form the boundary.
@@ -218,9 +222,20 @@ end
 
 Apply functorial data migration (Σ_f) to coarsen the age groups in a survey ACSet.
 
-This is the ACSet-level implementation of the left Kan extension: it
-pushes forward participant and contact group assignments along the
-surjective age-group map f.
+Postcomposes the participant- and contact-group assignment maps with `f`, leaving the
+records and reporter links unchanged. For each group-labelled family `X → G`, this is
+the dependent sum `Σ_f`; equivalently, under the discrete-family interpretation, it is
+the left Kan extension along `f`, whose value at a coarse group is the coproduct of
+the fine-group fibres mapping to it.
+
+Unlike `coarsen`, this migration performs no averaging or population normalisation: it
+simply relabels records through `f`. The map `f` need not be surjective; coarse groups
+with empty fibres simply receive no records.
+
+Here `Σ_f` denotes dependent sum along the group map in the slice `Set/G`. It is
+distinct from Catlab's `SigmaMigration`, which performs data migration along a functor
+between schemas. A universal-property characterization of the migration of the
+complete `ContactSurveyACSet` has not yet been established.
 """
 function migrate_coarsen(acs::ContactSurveyACSet, f::PartitionMap)
     fmap = collect(f.mapping)

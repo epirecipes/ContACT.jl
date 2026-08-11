@@ -9,11 +9,11 @@ Type the LaTeX name followed by TAB in the Julia REPL:
 |----------|-------|-----------|
 | `⊕` | `\oplus<TAB>` | Additive composition |
 | `⊗` | `\otimes<TAB>` | Stratification (Kronecker) |
-| `↓` | `\downarrow<TAB>` | Coarsening (left Kan extension) |
-| `↑` | `\uparrow<TAB>` | Refinement (with prior) |
+| `↓` | `\downarrow<TAB>` | Coarsening (population-weighted pushforward) |
+| `↑` | `\uparrow<TAB>` | Population-based refinement |
 | `⤊` | `\Uuparrow<TAB>` | Activity refinement / hidden-stratum lift |
 | `⊠` | `\boxtimes<TAB>` | Generalized product lift |
-| `▷` | `\triangleright<TAB>` | Functor application |
+| `▷` | `\triangleright<TAB>` | Survey-to-matrix construction |
 | `∘` | `\circ<TAB>` | Partition map composition |
 | `↔` | `\leftrightarrow<TAB>` | Symmetrisation / reciprocity |
 | `ρ` | `\rho<TAB>` | Spectral radius |

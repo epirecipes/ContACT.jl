@@ -150,9 +150,9 @@ nothing # hide
 
 ## Coarsening
 
-Coarsening is the left Kan extension along a surjective partition map. For
-interval partitions such as age, the coarse limits must be a subset of the fine
-limits:
+Coarsening pushes total contacts forward along the fibres of a partition map and
+divides by the coarse population. For interval partitions such as age, the coarse
+limits must be a subset of the fine limits:
 
 ```@example tutorial
 coarse = AgePartition([0, 15, 45, 65])

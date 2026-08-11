@@ -14,10 +14,10 @@ the categorical framework:
 
 | Step                        | Categorical Operation                          | Operator |
 |:----------------------------|:-----------------------------------------------|:---------|
-| Survey → contact matrix     | Functor `F: Survey(P) → Contact`               | `▷`      |
+| Survey → contact matrix     | Contact counts normalised by participant mass  | `▷`      |
 | Symmetrisation              | Idempotent endomorphism                        | `↔`      |
 | Setting composition         | Commutative monoid `⊕`                         | `⊕`      |
-| Age coarsening              | Left Kan extension along `FinFunction`          | `↓`      |
+| Age coarsening              | Population-weighted pushforward along `FinFunction` | `↓`      |
 | NGM construction            | Diagonal scaling by population                 | —        |
 
 !!! note "Methodological Note"
@@ -160,14 +160,14 @@ println(
 
 ## 3. Age-Stratified Contact Matrix
 
-We apply the **survey-to-matrix functor** with a 16-group age partition
+We build the contact matrix with a 16-group age partition
 matching the Reconnect study's published age bands.
 
 ```@example v08
 age_breaks = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75]
 age_part = AgePartition(age_breaks)
 
-# The functor maps survey data to a ContactMatrix, weighted by day_weight
+# Survey data becomes a ContactMatrix, weighted by day_weight
 cm_age = compute_matrix(survey, age_part; weights = :day_weight)
 
 println("Contact matrix: $(n_groups(cm_age)) × $(n_groups(cm_age))")
@@ -337,8 +337,8 @@ end
 
 ## 7. Coarsening: Fine → Coarse Age Groups
 
-Coarsening is a left Kan extension along a `FinFunction` that maps fine
-groups to coarse groups.
+Coarsening sums total contacts along the fibres of a `FinFunction` that maps
+fine groups to coarse groups, then divides by the coarse population.
 
 !!! warning "Partition Compatibility"
     The 16-group partition `[0, 5, 10, 15, 20, ...]` does **not** refine
@@ -410,7 +410,7 @@ println("  True R₀:     $(round(R0_val, digits=3))")
 
 | Section | Operation | Key Result |
 |:--------|:----------|:-----------|
-| §3 | Functor `▷` | Survey → 16×16 age contact matrix |
+| §3 | Construction `▷` | Survey → 16×16 age contact matrix |
 | §4 | Symmetrisation `↔` | Reciprocity enforced; idempotent |
 | §5 | Composition `⊕` | Home ⊕ Work ⊕ School ⊕ Other = Total (exact) |
 | §6 | Categorical partition | 5×5 ethnicity matrix; assortativity visible |

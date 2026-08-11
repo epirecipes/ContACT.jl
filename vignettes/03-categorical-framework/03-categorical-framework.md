@@ -192,10 +192,12 @@ println("  Group names: $(subpart(acs_cm, :gname))")
 
 The power of ACSets is that morphisms between schemas induce **data
 migration functors**. For contact data, the key morphism is coarsening:
-a surjective map $f: G_{\mathrm{fine}} \to G_{\mathrm{coarse}}$ between
+a map $f: G_{\mathrm{fine}} \to G_{\mathrm{coarse}}$ between
 partition-group objects.
 
-The **left Kan extension** $\Sigma_f$ pushes data forward along $f$:
+For each group-labelled family $X \to G$, the dependent sum $\Sigma_f$ —
+equivalently the **left Kan extension** along $f$ — pushes data forward. No
+universal property is claimed for the migration of the whole survey ACSet:
 
 ``` julia
 # Start with fine partition
@@ -387,7 +389,7 @@ The full categorical pipeline expressed with Unicode operators:
 
 1.  **Survey → ACSet** (schema-enforced structure)
 2.  **ACSet → ACSet** via functorial migration (coarsening)
-3.  **Survey ▷ Partition** (compute functor)
+3.  **Survey ▷ Partition** (matrix construction)
 4.  **ContactMatrix ↓ ∘ ⊕ ⊗** (algebraic manipulation)
 
 ``` julia
@@ -398,7 +400,7 @@ pop_4 = [6987.0, 11537.0, 35854.0, 9492.0]
 # Step 1: Survey to structured ACSet
 acs_survey = ContactSurveyACSet(survey, partition_4)
 
-# Step 2: Apply the functor (▷)
+# Step 2: Build the matrix (▷)
 cm_full = compute_matrix(survey, partition_4; population=pop_4)
 
 # Step 3: Symmetrise via ↔ (idempotent reciprocity projection)
@@ -430,11 +432,11 @@ println("  Regional: $(n_groups(cm_regional)) groups, ρ = $(round(ρ(cm_regiona
 
 | Operator | LaTeX | Category-theoretic role |
 |----|----|----|
-| `⊕` | `\\oplus` | Monoidal product (commutative monoid) |
-| `⊗` | `\\otimes` | Kronecker/stratification functor |
-| `↓` | `\\downarrow` | Left Kan extension (coarsening) |
+| `⊕` | `\\oplus` | Commutative monoid (entrywise addition) |
+| `⊗` | `\\otimes` | Kronecker stratification (bilinear) |
+| `↓` | `\\downarrow` | Population-weighted pushforward (coarsening) |
 | `↑` | `\\uparrow` | Parameterised refinement (with prior) |
-| `▷` | `\\triangleright` | Functor application (survey → matrix) |
+| `▷` | `\\triangleright` | Survey-to-matrix construction |
 | `∘` | `\\circ` | Morphism composition (PartitionMap; `AgeMap` is the age alias) |
 | `↔` | `\\leftrightarrow` | Reciprocity projection (symmetrisation) |
 | `ρ` | `\\rho` | Spectral radius (R₀ proxy) |

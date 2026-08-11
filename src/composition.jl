@@ -3,8 +3,8 @@ Additive composition of contact matrices.
 
 In the categorical framework, setting-specific contact matrices (home, work,
 school, other) combine additively: the total contact matrix is the sum of
-setting-specific matrices. This forms a commutative monoid on ContactMatrix
-objects sharing the same partition and semantics.
+setting-specific matrices. At fixed partition, population, and unit semantics,
+entrywise addition has the commutative-monoid laws.
 
 Key properties (proven in Lean):
 - Associativity: (A ⊕ B) ⊕ C = A ⊕ (B ⊕ C)

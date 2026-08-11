@@ -81,9 +81,11 @@ nothing # hide
 
 ## Functorial Data Migration
 
-A surjective map ``f: G_{\text{fine}} \to G_{\text{coarse}}`` between partition-group
-objects induces a **left Kan extension** ``\Sigma_f`` that pushes survey data
-forward:
+A map ``f: G_{\text{fine}} \to G_{\text{coarse}}`` between partition-group objects
+induces, for each group-labelled family ``X → G``, the dependent sum ``\Sigma_f`` —
+equivalently the left Kan extension along ``f``. This relabels records and involves no
+population weighting, unlike the matrix-level ``↓``. No universal property has been
+established for the migration of the whole survey ACSet:
 
 ```@example categorical
 fine = AgePartition([0, 5, 18, 45, 65])

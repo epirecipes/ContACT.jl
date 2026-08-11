@@ -12,7 +12,7 @@ Type the LaTeX name followed by TAB in the Julia REPL to enter these:
 | `↑` | `\\uparrow` | Refinement | `cm ↑ prior` |
 | `⤊` | `\\Uuparrow` | Activity refinement | `cm ⤊ ActivityRefinement(survey)` |
 | `⊠` | `\\boxtimes` | Generalized product lift | `cm ⊠ GeneralizedLift(ses; distribution=p)` |
-| `▷` | `\\triangleright` | Functor (compute matrix) | `survey ▷ partition` |
+| `▷` | `\\triangleright` | Survey-to-matrix construction | `survey ▷ partition` |
 | `∘` | `\\circ` | Map composition | `g ∘ f` |
 | `↔` | `\\leftrightarrow` | Symmetrisation/reciprocity | `↔(cm)` |
 | `ρ` | `\\rho` | Spectral radius | `ρ(cm)` |
@@ -27,8 +27,9 @@ Type the LaTeX name followed by TAB in the Julia REPL to enter these:
 
 Additive composition of contact matrices (commutative monoid). Type `\\oplus<TAB>`.
 
-Categorically, this is the monoidal product in the category of contact matrices
-over a fixed age partition: (ContactMat, ⊕, 𝟎) where 𝟎 is the zero matrix.
+Entrywise addition at a fixed partition, population and unit semantics, with the zero
+matrix as identity: `(ContactMat, ⊕, 𝟎)` is a commutative monoid. It is not a
+coproduct — there are no injections and no universal property.
 
 # Properties (proven in Lean)
 - Associativity: `matrix((A ⊕ B) ⊕ C) ≈ matrix(A ⊕ (B ⊕ C))`
@@ -67,17 +68,19 @@ cm_spatial = cm ⊗ coupling   # 2 regions × n ages
 ⊗(cm::ContactMatrix, coupling::AbstractMatrix) = stratify(cm, coupling)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Coarsening (left Kan extension): ↓
+# Coarsening (population-weighted pushforward): ↓
 # ═══════════════════════════════════════════════════════════════════════════════
 
 """
     cm ↓ coarse_partition
     cm ↓ f::PartitionMap
 
-Coarsen a contact matrix along a surjective partition map. Type `\\downarrow<TAB>`.
+Coarsen a contact matrix along a partition map. Type `\\downarrow<TAB>`.
 
-This is the left Kan extension: it pushes forward contact data while preserving
-total contacts. Satisfies functoriality (proven in Lean):
+Total contacts are pushed forward along the fibres of the map and the result is
+divided by the coarse population, so total contacts are preserved. The map need not
+be surjective; a coarse group hit by no fine group is empty and carries no contacts.
+Satisfies functoriality (proven in Lean):
 
     `matrix(cm ↓ (g ∘ f)) ≈ matrix((cm ↓ f) ↓ g)`
 
@@ -174,9 +177,13 @@ cm_activity = ↔(cm) ⤊ spec
 Lift a contact matrix to a generalized product partition. Type
 `\\boxtimes<TAB>`.
 
-The boxed product arrow denotes an assumption-driven lift from `P` to `P × Q`.
-Coarsening the result along the projection `P × Q → P` recovers the original
-matrix.
+The boxed product arrow denotes an assumption-driven lift from `P` to `P × Q`,
+constructed so that coarsening along the projection `P × Q → P` recovers the
+original matrix.
+
+The mixing distribution and product-population marginals are currently validated
+numerically rather than enforced exactly, so this recovery holds to numerical
+tolerance on the full accepted Julia domain rather than as an exact section.
 
 # Example
 ```julia
@@ -190,17 +197,18 @@ G = cm ⊠ spec
 ⊠(cm::ContactMatrix, pspec::ParameterizedConstrainedLift) = constrained_generalize(cm, pspec)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Functor application: ▷
+# Survey-to-matrix construction: ▷
 # ═══════════════════════════════════════════════════════════════════════════════
 
 """
     survey ▷ partition
 
-Apply the survey-to-matrix functor. Type `\\triangleright<TAB>`.
+Build a contact matrix from a survey. Type `\\triangleright<TAB>`.
 
-Categorically, this is the image of `survey` under the functor
-F: ContactSurvey → ContactMatrix. For the full API with population and
-weights, use `compute_matrix(survey, partition; kwargs...)`.
+Shorthand for `compute_matrix(survey, partition)`, which normalises the survey's
+weighted contact counts by weighted participant mass. Use `compute_matrix` directly
+for the full API with population and weights, and see its docstring for when building
+at a fine partition and then coarsening agrees with building at the coarse one.
 
 # Example
 ```julia

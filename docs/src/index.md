@@ -17,14 +17,14 @@ All core operations have Unicode operators (type LaTeX name + TAB in the REPL):
 
 | Operator | Input | Category-theoretic role |
 |----------|-------|------------------------|
-| `⊕` | `\oplus` | Commutative monoid (additive composition) |
-| `⊗` | `\otimes` | Kronecker stratification functor |
-| `↓` | `\downarrow` | Left Kan extension (coarsening) |
-| `↑` | `\uparrow` | Parameterised refinement (with prior) |
+| `⊕` | `\oplus` | Commutative monoid at fixed partition, population, and semantics |
+| `⊗` | `\otimes` | Kronecker stratification (bilinear) |
+| `↓` | `\downarrow` | Population-weighted pushforward (coarsening) |
+| `↑` | `\uparrow` | Population-based refinement (section of coarsening) |
 | `⤊` | `\Uuparrow` | Activity refinement / hidden-stratum lift |
 | `⊠` | `\boxtimes` | Generalized product lift |
-| `▷` | `\triangleright` | Functor application (survey → matrix) |
-| `∘` | `\circ` | Morphism composition (PartitionMap) |
+| `▷` | `\triangleright` | Survey-to-matrix construction |
+| `∘` | `\circ` | Partition-map composition |
 | `↔` | `\leftrightarrow` | Reciprocity projection (symmetrisation) |
 | `ρ` | `\rho` | Spectral radius (R₀ proxy) |
 
@@ -55,7 +55,7 @@ group_labels(sex)
 ```
 
 ```@example quickstart
-# Coarsen via ↓ (left Kan extension)
+# Coarsen via ↓ (population-weighted pushforward)
 cm_coarse = cm ↓ AgePartition([0, 18])
 matrix(cm_coarse)
 ```

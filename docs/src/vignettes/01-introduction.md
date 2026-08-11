@@ -70,9 +70,8 @@ nothing # hide
 
 ## Computing a Contact Matrix
 
-The central operation is the **restricted functor** from surveys to contact
-matrices. We fix a partition — here, an interval-valued age partition — which
-makes the operation deterministic and functorial:
+The central operation builds a matrix from a survey at a fixed partition — here, an
+interval-valued age partition — by normalising contact counts by participant mass:
 
 ```@example v01
 # Standard 5-year age bands up to 75+
@@ -85,7 +84,7 @@ uk_pop = [3433.0, 3554.0, 3824.0, 3956.0, 3757.0, 3520.0, 4009.0,
            4405.0, 4548.0, 4187.0, 3883.0, 3589.0, 3117.0, 2765.0,
            2425.0, 3752.0]
 
-# The ▷ operator applies the survey→matrix functor (type \triangleright<TAB>)
+# The ▷ operator builds the matrix from the survey (type \triangleright<TAB>)
 cm = survey ▷ partition
 println("Contact matrix: $(n_groups(cm)) age groups")
 println("Spectral radius ρ(M) ∝ R₀: $(round(ρ(cm); digits=2))")
@@ -171,15 +170,16 @@ println("Idempotent: $(matrix(cm_sym2) ≈ matrix(cm_sym))")
 nothing # hide
 ```
 
-## Coarsening (Left Kan Extension)
+## Coarsening
 
-A key morphism is **coarsening**: reducing the number of partition groups.
-Categorically, this is a left Kan extension along a surjective partition map
-``f: G_{\mathrm{fine}} \to G_{\mathrm{coarse}}``.
+A key morphism is **coarsening**: reducing the number of partition groups. Along a
+partition map ``f: G_{\mathrm{fine}} \to G_{\mathrm{coarse}}``, total contacts are
+summed over the fibres of ``f`` and the result divided by the coarse population, so
+total contacts are preserved.
 
 For interval partitions such as age, the coarse partition must have limits that
-are a **subset** of the fine partition's limits (ensuring a well-defined
-surjection between groups).
+are a **subset** of the fine partition's limits, so that every fine bin sits inside
+exactly one coarse bin.
 
 ```@example v01
 # Coarsen to broader groups (limits must be a subset of the fine partition)
