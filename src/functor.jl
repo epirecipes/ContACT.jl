@@ -30,10 +30,10 @@ mass:
 
     N_j = λ_J · W_j        for all j ∈ f⁻¹(J)
 
-with `λ_J > 0` on fibres carrying participant mass. The constant cancels in the
-derivation, but it must be nonzero; on ContACT's nonnegative population domain that
-means strictly positive. The condition is per-fibre, so proportionality must hold
-separately in each one.
+with `λ_J > 0`, required only on fibres carrying participant mass — on the others,
+`N` is unconstrained. The constant cancels in the derivation, but it must be
+nonzero; on ContACT's nonnegative population domain that means strictly positive.
+The condition is per-fibre, so proportionality must hold separately in each one.
 
 This condition is sufficient for every survey and is required for agreement for
 arbitrary contact-count data. A particular survey may agree without it — for example,

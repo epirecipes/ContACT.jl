@@ -20,7 +20,7 @@ export AbstractPartition, IntervalPartition, CategoricalPartition, ProductPartit
 # Survey operations
 export filter_survey, subset_survey
 
-# Functor: Survey → ContactMatrix
+# Matrix construction: Survey → ContactMatrix
 export compute_matrix, compute_source_stratified_matrix,
        coarsen_sources, align_source_stratified_matrix
 

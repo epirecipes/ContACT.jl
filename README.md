@@ -150,9 +150,9 @@ the same **matrix** whenever, within each coarse **participant/source** fibre `J
 
     N_j = λ_J · W_j        for all j ∈ f⁻¹(J)
 
-with `λ_J > 0` on fibres carrying participant mass. The constant cancels in the
-derivation, but it must be nonzero; on ContACT's nonnegative population domain this
-means strictly positive.
+with `λ_J > 0`, required only on fibres carrying participant mass — on the others,
+`N` is unconstrained. The constant cancels in the derivation, but it must be
+nonzero; on ContACT's nonnegative population domain this means strictly positive.
 
 This condition is sufficient for every survey, and is the condition required for
 agreement for arbitrary contact-count data. A particular survey may agree without

@@ -9,8 +9,9 @@ stratified matrix is block-structured:
 which is the Kronecker product A_strat = D ⊗ A_local, bilinear in the two arguments.
 
 This builds a matrix over a product index; it does not stratify an epidemic model.
-Model stratification is AlgebraicPetri's `typed_product`, and using both on the same
-index is what makes the two indexings disagree.
+Model stratification is a separate operation (AlgebraicPetri's `typed_product`), and
+its state ordering need not match the stratum-major ordering used here — check the
+index conventions before pairing this matrix with a stratified model.
 """
 
 """

@@ -21,7 +21,7 @@ wealth, age × education, or age × ethnicity. In ContACT.jl this is not a
 separate matrix type: it is a `ContactMatrix` over a `ProductPartition`.
 
 If a survey records both participant and contact-side SES variables, the
-survey-to-matrix functor can estimate the product matrix directly:
+survey-to-matrix construction can estimate the product matrix directly:
 
 ``` julia
 G = survey ▷ (age × wealth)

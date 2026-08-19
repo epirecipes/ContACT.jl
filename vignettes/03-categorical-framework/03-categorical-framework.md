@@ -162,7 +162,7 @@ println("All group assignments valid: $all_groups_valid")
 
 ### ContactMatrixSchema
 
-The matrix schema represents the output of the functor:
+The matrix schema represents the output of the matrix construction:
 
 - **Objects**: G (Partition Groups), E (Matrix Entries)
 - **Morphisms**: `row_group: E → G`, `col_group: E → G`

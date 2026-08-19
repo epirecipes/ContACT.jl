@@ -27,7 +27,7 @@ individual-level contact data from 13,238 participants across the UK,
 recording details of 125,671 social contacts including age, setting (home,
 work, school, other), and socio-demographic characteristics.
 
-We show how each step of the analysis corresponds to a morphism or functor in
+We show how each step of the analysis corresponds to an operation in
 the categorical framework:
 
 | Step                        | Categorical Operation                          | Operator |
