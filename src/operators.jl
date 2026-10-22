@@ -246,8 +246,8 @@ function Base.:∘(g::PartitionMap, f::PartitionMap)
     same_partition(f.codomain, g.domain) || throw(ArgumentError(
         "Cannot compose: f codomain does not match g domain"))
     # Compose the underlying FinFunctions
-    f_assignments = collect(f.mapping)
-    g_assignments = collect(g.mapping)
+    f_assignments = _assignments(f)
+    g_assignments = _assignments(g)
     composed = [g_assignments[f_assignments[i]] for i in eachindex(f_assignments)]
     PartitionMap(f.domain, g.codomain, composed)
 end

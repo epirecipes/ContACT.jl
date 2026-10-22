@@ -113,6 +113,8 @@ compose_matrices
 
 ```@docs
 stratify
+stratify_coarsen
+stratified_partition
 ```
 
 ## Symmetrisation

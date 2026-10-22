@@ -62,7 +62,7 @@ function _refine_mean(cm::ContactMatrix, fine::AbstractPartition,
 
     # Build the mapping from fine to coarse
     f = PartitionMap(fine, coarse)
-    fmap = collect(f.mapping)
+    fmap = _assignments(f)
 
     M_coarse = matrix(cm)
     pop_fine = Float64.(fine_population)

@@ -97,7 +97,7 @@ function constrained_generalize(base::ContactMatrix, spec::ConstrainedGeneralize
 
     full_partition = spec.full_partition
     full_pop = population(aligned)
-    source_base = collect(spec.source_map.mapping)
+    source_base = _assignments(spec.source_map)
     n_base = n_groups(base.partition)
     n_full = n_groups(full_partition)
     intermediate_counts = source_total_contacts(aligned)
@@ -245,7 +245,7 @@ function constrained_generalize(base::ContactMatrix, pspec::ParameterizedConstra
 
     full_part = spec.full_partition
     full_pop = population(aligned)
-    source_base = collect(spec.source_map.mapping)
+    source_base = _assignments(spec.source_map)
     n_base = n_groups(base.partition)
     n_full = n_groups(full_part)
     intermediate_counts = source_total_contacts(aligned)
