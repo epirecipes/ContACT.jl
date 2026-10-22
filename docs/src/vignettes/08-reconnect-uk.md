@@ -12,7 +12,7 @@ work, school, other), and socio-demographic characteristics.
 We show how each step of the analysis corresponds to an operation in
 the categorical framework:
 
-| Step                        | Categorical Operation                          | Operator |
+| Step                        | Structure                                      | Operator |
 |:----------------------------|:-----------------------------------------------|:---------|
 | Survey → contact matrix     | Contact counts normalised by participant mass  | `▷`      |
 | Symmetrisation              | Idempotent endomorphism                        | `↔`      |
