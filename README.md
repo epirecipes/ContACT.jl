@@ -86,6 +86,15 @@ used to stratify an epidemic model. Model stratification belongs to AlgebraicPet
 `typed_product`; constructing a contact matrix over a product partition is a separate
 operation.
 
+The stratified matrix is dense over strata × groups, so it grows quadratically with the
+number of strata. When the next step is to coarsen it, as in an area-level
+unconstrained-mixing model that sums over areas, use
+`stratify_coarsen(cms, coupling, f)`. It returns `coarsen(stratify(cms, coupling), f)`
+block by block without building the stratified matrix. Build `f` on
+`stratified_partition(partition, n_strata)`, and pass a `Diagonal` coupling when strata do
+not mix. On 2,157 SA2 areas with block-diagonal coupling it takes about 10 ms and 3 MB,
+against 1.6 s and 2.2 GB for the dense route, and it agrees with that route to roundoff.
+
 `↓` is not the ordinary left Kan extension of the `MeanContacts` matrix. In the
 straightforward discrete, vector-valued interpretation, a left Kan extension along the
 partition map — on both contact axes — first produces the coproduct/direct sum over

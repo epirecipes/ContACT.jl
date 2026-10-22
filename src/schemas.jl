@@ -238,7 +238,7 @@ between schemas. A universal-property characterization of the migration of the
 complete `ContactSurveyACSet` has not yet been established.
 """
 function migrate_coarsen(acs::ContactSurveyACSet, f::PartitionMap)
-    fmap = collect(f.mapping)
+    fmap = _assignments(f)
     n_coarse = n_groups(f.codomain)
 
     coarsened = ContactSurveyACSet()

@@ -224,7 +224,7 @@ function coarsen_sources(cm::SourceStratifiedContactMatrix, f::PartitionMap)
 
     n_target = n_target_groups(cm)
     n_source_coarse = n_groups(f.codomain)
-    fmap = collect(f.mapping)
+    fmap = _assignments(f)
     source_pop = population(cm)
 
     coarse_pop = zeros(Float64, n_source_coarse)
@@ -276,7 +276,7 @@ function align_source_stratified_matrix(
     same_partition(base.partition, f.codomain) || throw(ArgumentError(
         "source map codomain must match the base ContactMatrix partition"))
 
-    fmap = collect(f.mapping)
+    fmap = _assignments(f)
     n_target = n_target_groups(partial)
     n_base = n_groups(base.partition)
     source_pop = population(partial)

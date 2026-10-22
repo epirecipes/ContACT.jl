@@ -44,7 +44,7 @@ export ConstrainedGeneralizedLift, full_partition, intermediate_matrix,
 export compose_matrices
 
 # Stratification
-export stratify
+export stratify, stratify_coarsen, stratified_partition
 
 # Symmetrisation
 export symmetrise

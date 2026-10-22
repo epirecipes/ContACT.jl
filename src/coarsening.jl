@@ -44,6 +44,12 @@ struct PartitionMap{D,E,P<:AbstractPartition{D},Q<:AbstractPartition{E}}
     mapping::FinFunction
 end
 
+# Assignments of a partition map as a `Vector{Int}`, for use in loops. This helper fixes
+# the type so those loops run faster.
+# `f.mapping` has the abstract type `FinFunction`, so loops indexing `collect(f.mapping)`
+# give the same results but run more slowly and allocate more memory.
+_assignments(f::PartitionMap) = convert(Vector{Int}, collect(f.mapping))::Vector{Int}
+
 function _partition_map(domain::P, codomain::Q,
                         assignments::AbstractVector{Int}) where {D,E,P<:AbstractPartition{D},Q<:AbstractPartition{E}}
     n_domain = n_groups(domain)
@@ -221,7 +227,7 @@ function _coarsen_mean(cm::ContactMatrix, f::PartitionMap)
     pop = population(cm)
     n_fine = n_groups(cm)
     n_coarse = n_groups(f.codomain)
-    fmap = collect(f.mapping)
+    fmap = _assignments(f)
 
     pop_coarse = zeros(Float64, n_coarse)
     for j in 1:n_fine

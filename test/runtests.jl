@@ -834,6 +834,144 @@ end
     @test_throws ArgumentError cm ⊗ [1.0 -0.1; 0.0 1.0]
     @test_throws ArgumentError stratify([cm, ContactMatrix(M, AgePartition([0, 10, 65]), pop)], coupling)
     @test_throws ArgumentError stratify([cm, ContactMatrix(M, p, pop, PerCapitaRate())], coupling)
+
+    labelled = stratify([cm, cm], coupling; stratum_labels=["North", "South"])
+    @test group_labels(labelled)[4:6] == ["South:[0,18)", "South:[18,65)", "South:65+"]
+end
+
+# stratify_coarsen regroups the sums of coarsen(stratify(...), f) without building the
+# stratified matrix, so the two routes must agree to roundoff, carry the same population
+# and labels, and accept and reject the same inputs.
+@testset "blockwise ⊗ then ↓ equals coarsen of stratify" begin
+    p = AgePartition([0, 18, 65])
+    M1 = [2.0 1.0 0.5; 1.0 3.0 1.0; 0.5 1.0 1.5]
+    M2 = [1.0 0.2 0.0; 0.4 2.0 0.6; 0.0 0.5 1.0]
+    M3 = [0.5 0.5 0.5; 0.5 0.5 0.5; 0.5 0.5 0.5]
+    Ns = [[1000.0, 3000.0, 500.0], [200.0, 800.0, 100.0], [50.0, 400.0, 900.0]]
+    cms = [ContactMatrix(M, p, N) for (M, N) in zip((M1, M2, M3), Ns)]
+    D = [0.8 0.1 0.0; 0.2 0.7 0.3; 0.0 0.2 0.7]       # not symmetric, with structural zeros
+    sp = stratified_partition(p, 3)
+    maps = (
+        "sum over strata" => PartitionMap(sp, p),
+        "onto strata" => PartitionMap(sp, sp.factors[1]),
+        "non-contiguous" => PartitionMap(sp, AgePartition([0, 40]), [1, 2, 1, 2, 2, 1, 1, 1, 2]),
+        "identity" => PartitionMap(sp, sp, collect(1:9)),
+    )
+    reps = (MeanContacts(), ContactCounts(), PerCapitaRate())
+    agree(block, dense) = matrix(block) ≈ matrix(dense) && population(block) == population(dense) &&
+        typeof(block.semantics) == typeof(dense.semantics) && group_labels(block) == group_labels(dense)
+
+    @testset "heterogeneous strata: $name, $(nameof(typeof(s)))" for (name, f) in maps, s in reps
+        cs = [reinterpret_units(c, s) for c in cms]
+        dense = coarsen(stratify(cs, D), f)
+        block = stratify_coarsen(cs, D, f)
+        @test isapprox(matrix(block), matrix(dense); atol=1e-10)
+        @test population(block) == population(dense)
+        @test typeof(block.semantics) == typeof(dense.semantics)
+        @test group_labels(block) == group_labels(dense)
+    end
+
+    @testset "shared local matrix: $(nameof(typeof(s)))" for s in reps
+        c = reinterpret_units(cms[1], s)
+        spop = reduce(hcat, Ns)
+        for kw in ((;), (; stratum_populations=spop), (; stratum_populations=vec(spop))), (_, f) in maps
+            dense = coarsen(stratify(c, D; kw...), f)
+            block = stratify_coarsen(c, D, f; kw...)
+            @test isapprox(matrix(block), matrix(dense); atol=1e-10)
+            @test population(block) == population(dense)
+            @test typeof(block.semantics) == typeof(dense.semantics)
+        end
+    end
+
+    @testset "many strata with block-diagonal coupling" begin
+        L = 200
+        local_cms = [ContactMatrix(M1 .* (1 + r / L), p, Ns[1] .* (1 + (r % 7))) for r in 1:L]
+        Dl = Matrix{Float64}(I, L, L)
+        f = PartitionMap(stratified_partition(p, L), p)
+        dense = coarsen(stratify(local_cms, Dl), f)
+        block = stratify_coarsen(local_cms, Dl, f)
+        @test isapprox(matrix(block), matrix(dense); atol=1e-10)
+        @test population(block) == population(dense)
+
+        # A Diagonal coupling takes the diagonal-only path and must give the same result.
+        diag_block = stratify_coarsen(local_cms, Diagonal(ones(L)), f)
+        @test isapprox(matrix(diag_block), matrix(block); atol=1e-10)
+        @test population(diag_block) == population(block)
+        @test_throws ArgumentError stratify_coarsen(local_cms, Diagonal(vcat(-1.0, ones(L - 1))), f)
+    end
+
+    # Inherited laws: since stratify_coarsen is ↓_f ∘ ⊗_D, it composes with further
+    # coarsening (weightedCoarsen_functorial) and is additive at a fixed population
+    # (stratify_distributes_over_add, with ↓ linear in the matrix).
+    @testset "composes along g ∘ f" begin
+        f = PartitionMap(sp, p)
+        g = PartitionMap(p, AgePartition([0, 18]))
+        for s in reps
+            cs = [reinterpret_units(c, s) for c in cms]
+            lhs = stratify_coarsen(cs, D, g ∘ f)
+            rhs = coarsen(stratify_coarsen(cs, D, f), g)
+            @test isapprox(matrix(lhs), matrix(rhs); atol=1e-10)
+            @test population(lhs) ≈ population(rhs)
+            @test typeof(lhs.semantics) == typeof(rhs.semantics)
+        end
+    end
+
+    @testset "additive over ⊕ at a fixed population" begin
+        f = PartitionMap(sp, AgePartition([0, 40]), [1, 2, 1, 2, 2, 1, 1, 1, 2])
+        spop = reduce(hcat, Ns)
+        a, b = ContactMatrix(M1, p, Ns[1]), ContactMatrix(M2, p, Ns[1])
+        lhs = stratify_coarsen(a ⊕ b, D, f; stratum_populations=spop)
+        rhs = stratify_coarsen(a, D, f; stratum_populations=spop) ⊕
+              stratify_coarsen(b, D, f; stratum_populations=spop)
+        @test isapprox(matrix(lhs), matrix(rhs); atol=1e-10)
+        @test population(lhs) == population(rhs)
+    end
+
+    @testset "stratum labels carry through" begin
+        labs = ["North", "Centre", "South"]
+        spl = stratified_partition(p, 3; stratum_labels=labs)
+        f = PartitionMap(spl, spl.factors[1])
+        block = stratify_coarsen(cms, D, f; stratum_labels=labs)
+        @test group_labels(block) == labs
+        @test agree(block, coarsen(stratify(cms, D; stratum_labels=labs), f))
+        # A map built on the default-labelled partition does not fit a relabelled one.
+        @test_throws ArgumentError stratify_coarsen(cms, D, PartitionMap(sp, p); stratum_labels=labs)
+    end
+
+    @testset "same domain as the dense route at zero populations" begin
+        outcome(g) = try g(); :accepted catch e; e isa ArgumentError ? :rejected : rethrow() end
+        f = PartitionMap(sp, p)
+
+        # Group 1 is empty in stratum 2 and carries no contacts there, so every input
+        # converts; but it receives contacts from strata 1 and 3 (D[2,1], D[2,3] > 0), which
+        # the dense route's PerCapitaRate conversion of the stratified matrix rejects.
+        Nz = [Ns[1], [0.0, 800.0, 100.0], Ns[3]]
+        Mz = [M1, [0.0 0.0 0.0; 0.0 2.0 0.6; 0.0 0.5 1.0], M3]
+        for s in reps
+            cs = [reinterpret_units(ContactMatrix(M, p, N), s) for (M, N) in zip(Mz, Nz)]
+            @test outcome(() -> stratify_coarsen(cs, D, f)) == outcome(() -> coarsen(stratify(cs, D), f))
+        end
+        rate_inputs = [reinterpret_units(ContactMatrix(M, p, N), PerCapitaRate()) for (M, N) in zip(Mz, Nz)]
+        @test outcome(() -> stratify_coarsen(rate_inputs, D, f)) == :rejected   # the case is not vacuous
+
+        # Shared local matrix with a stratum population of zero for a group whose column
+        # carries contacts: the ContactCounts conversion of the stratified matrix rejects it.
+        spop = reduce(hcat, Ns)
+        spop[1, 2] = 0.0
+        for s in reps
+            c = reinterpret_units(cms[1], s)
+            @test outcome(() -> stratify_coarsen(c, D, f; stratum_populations=spop)) ==
+                  outcome(() -> coarsen(stratify(c, D; stratum_populations=spop), f))
+        end
+        counts = reinterpret_units(cms[1], ContactCounts())
+        @test outcome(() -> stratify_coarsen(counts, D, f; stratum_populations=spop)) == :rejected
+    end
+
+    @test_throws DimensionMismatch stratify_coarsen(cms, [1.0 0.0; 0.0 1.0], PartitionMap(sp, p))
+    @test_throws ArgumentError stratify_coarsen(cms, D, PartitionMap(stratified_partition(p, 2), p))
+    @test_throws ArgumentError stratify_coarsen(cms, [0.8 -0.1 0.0; 0.2 0.7 0.3; 0.0 0.2 0.7], PartitionMap(sp, p))
+    @test_throws ArgumentError stratify_coarsen(cms[1], D, PartitionMap(sp, p);
+                                                stratum_populations=-reduce(hcat, Ns))
 end
 
 @testset "Symmetrisation" begin
@@ -1723,6 +1861,8 @@ end
         ("coarsen (↓)",    c -> coarsen(c, coarse),           cm),
         ("refine (↑)",     c -> refine(c, fine, N),           cmc),
         ("stratify (⊗)",   c -> stratify(c, coupling),        cm),
+        ("stratify_coarsen (⊗ then ↓)",
+                           c -> stratify_coarsen(c, coupling, PartitionMap(stratified_partition(fine, 2), fine)), cm),
         ("reproject",      c -> reproject(c, Nreproj),        cm),
         ("transport_population", c -> transport_population(c, Nreproj), cm),
     )
@@ -1756,6 +1896,18 @@ end
             rhs = reinterpret_units(stratify([cm, cm2], coupling), s)
             @test matrix(lhs) ≈ matrix(rhs)
             @test typeof(lhs.semantics) == typeof(rhs.semantics)
+        end
+    end
+
+    @testset "heterogeneous stratify_coarsen (⊗ then ↓) commutes" begin
+        f = PartitionMap(stratified_partition(fine, 2), fine)
+        for s in reps
+            cs = [reinterpret_units(cm, s), reinterpret_units(cm2, s)]
+            lhs = stratify_coarsen(cs, coupling, f)
+            rhs = reinterpret_units(stratify_coarsen([cm, cm2], coupling, f), s)
+            @test matrix(lhs) ≈ matrix(rhs)
+            @test typeof(lhs.semantics) == typeof(rhs.semantics)
+            @test population(lhs) ≈ population(rhs)
         end
     end
 
