@@ -195,7 +195,7 @@ M = [7.0 2.5 1.0;
      0.5 2.0 4.0]
 cm = ↔(ContactMatrix(M, part, pop))
 
-println("Contact matrix (per-capita rates):")
+println("Contact matrix (mean contacts per participant):")
 display(matrix(cm))
 
 # R₀ bounds
@@ -242,15 +242,18 @@ prod_part = age_part × activity
 prod_pop = [6000.0, 9000.0, 8000.0, 12000.0, 3000.0, 7000.0]
 
 # Build an intermediate source-stratified matrix (source = age × activity, target = age)
-# representing observed participant-side data before full reconstruction
+# representing observed participant-side data before full reconstruction.
+# High-activity participants report twice as many contacts as low-activity ones;
+# the lift rescales each block to cm_age's totals, so only these relative rates matter.
+activity_rate = [2.0, 1.0]                 # high, low
 n_age = n_groups(age_part)
 n_prod = n_groups(prod_part)
 M_inter = zeros(n_age, n_prod)
 for j in 1:n_prod
     age_idx = ((j - 1) ÷ 2) + 1            # age group this source column belongs to
+    act_idx = ((j - 1) % 2) + 1            # activity level of this source column
     for i in 1:n_age
-        M_inter[i, j] = matrix(cm_age)[i, age_idx] *
-            prod_pop[j] / sum(prod_pop[2*(age_idx-1)+1:2*age_idx])
+        M_inter[i, j] = matrix(cm_age)[i, age_idx] * activity_rate[act_idx]
     end
 end
 intermediate = SourceStratifiedContactMatrix(M_inter, age_part, prod_part, prod_pop)
