@@ -1,6 +1,6 @@
 # Epidemic Bounds from Partial NGM Information
 Simon Frost
-2026-06-11
+2026-10-22
 
 - [Overview](#overview)
 - [Setup](#setup)
@@ -239,7 +239,7 @@ M = [7.0 2.5 1.0;
      0.5 2.0 4.0]
 cm = ↔(ContactMatrix(M, part, pop))
 
-println("Contact matrix (per-capita rates):")
+println("Contact matrix (mean contacts per participant):")
 display(matrix(cm))
 
 # R₀ bounds
@@ -262,7 +262,7 @@ tfs = total_final_size_bounds(cm; info=:row)
 println("\nTotal final size bounds: $tfs")
 ```
 
-    Contact matrix (per-capita rates):
+    Contact matrix (mean contacts per participant):
 
     Actual R₀ = 11.0617
     Row-sum bounds: [9.263157894736842, 12.431818181818182]
@@ -304,15 +304,18 @@ prod_part = age_part × activity
 prod_pop = [6000.0, 9000.0, 8000.0, 12000.0, 3000.0, 7000.0]
 
 # Build an intermediate source-stratified matrix (source = age × activity, target = age)
-# representing observed participant-side data before full reconstruction
+# representing observed participant-side data before full reconstruction.
+# High-activity participants report twice as many contacts as low-activity ones;
+# the lift rescales each block to cm_age's totals, so only these relative rates matter.
+activity_rate = [2.0, 1.0]                 # high, low
 n_age = n_groups(age_part)
 n_prod = n_groups(prod_part)
 M_inter = zeros(n_age, n_prod)
 for j in 1:n_prod
     age_idx = ((j - 1) ÷ 2) + 1            # age group this source column belongs to
+    act_idx = ((j - 1) % 2) + 1            # activity level of this source column
     for i in 1:n_age
-        M_inter[i, j] = matrix(cm_age)[i, age_idx] *
-            prod_pop[j] / sum(prod_pop[2*(age_idx-1)+1:2*age_idx])
+        M_inter[i, j] = matrix(cm_age)[i, age_idx] * activity_rate[act_idx]
     end
 end
 intermediate = SourceStratifiedContactMatrix(M_inter, age_part, prod_part, prod_pop)
@@ -336,11 +339,11 @@ println("\nAnalytic R₀ bounds (row sums): $b_analytic")
 println("Fiber exploration is tighter: $(round(epi.r0.upper - epi.r0.lower; digits=4)) vs $(round(b_analytic.upper - b_analytic.lower; digits=4))")
 ```
 
-    R₀ range across fiber: 8.3538 – 8.5207
-    Final size range:      0.996 – 0.9961
+    R₀ range across fiber: 8.78 – 9.6675
+    Final size range:      0.997 – 0.997
 
-    Analytic R₀ bounds (row sums): [3.038793103448276, 10.240384615384615]
-    Fiber exploration is tighter: 0.1669 vs 7.2016
+    Analytic R₀ bounds (row sums): [4.51923076923077, 12.678571428571429]
+    Fiber exploration is tighter: 0.8874 vs 8.1593
 
 ## 9. Sensitivity to Transmissibility
 
