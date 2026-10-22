@@ -38,6 +38,7 @@ marginals.
 using ContACT
 using LinearAlgebra
 using Random
+import ContACT: ×   # ContACT and LinearAlgebra both export ×; use ContACT's product
 ```
 
 ## 1. Scalar Final-Size Equation
@@ -184,13 +185,15 @@ All epidemic bounds functions have convenience wrappers for `ContactMatrix`
 inputs. These automatically compute the NGM and handle the transpose convention:
 
 ```{julia}
-# Build a realistic 3-age-group contact matrix (POLYMOD-like)
+# Build a realistic 3-age-group contact matrix (POLYMOD-like).
+# Symmetrise so total contacts are reciprocal — the detailed-balance bound
+# (Theorem 3.2) is only valid when the NGM satisfies detailed balance.
 part = AgePartition([0, 18, 65])
 pop = [11_000.0, 33_000.0, 9_500.0]
 M = [7.0 2.5 1.0;
      2.0 8.0 2.0;
      0.5 2.0 4.0]
-cm = ContactMatrix(M, part, pop)
+cm = ↔(ContactMatrix(M, part, pop))
 
 println("Contact matrix (per-capita rates):")
 display(matrix(cm))
@@ -206,7 +209,7 @@ println("Detailed-balance bounds: $b_db")
 # Final size bounds
 fs = final_size_bounds(cm; info=:col)
 println("\nFinal size bounds (col sums):")
-for (i, lbl) in enumerate(labels(partition(cm)))
+for (i, lbl) in enumerate(group_labels(cm))
     println("  $lbl: [$(round(fs.lower[i]; digits=4)), $(round(fs.upper[i]; digits=4))]")
 end
 
@@ -231,22 +234,33 @@ age_pop = [15_000.0, 20_000.0, 10_000.0]
 M_age = [5.0 2.0 0.5;
          2.0 6.0 1.5;
          0.5 1.5 3.0]
-cm_age = ContactMatrix(M_age, age_part, age_pop)
+cm_age = ↔(ContactMatrix(M_age, age_part, age_pop))
 
 # Refine by activity level (high/low) - the 'true' distribution is unknown
-activity = CategoricalPartition(["high", "low"])
+activity = CategoricalPartition(:activity, ["high", "low"])
 prod_part = age_part × activity
 prod_pop = [6000.0, 9000.0, 8000.0, 12000.0, 3000.0, 7000.0]
 
-# Set up the constrained lift
-proj = PartitionMap(prod_part, age_part)
-spec = ConstrainedGeneralizedLift(proj, prod_pop)
+# Build an intermediate source-stratified matrix (source = age × activity, target = age)
+# representing observed participant-side data before full reconstruction
+n_age = n_groups(age_part)
+n_prod = n_groups(prod_part)
+M_inter = zeros(n_age, n_prod)
+for j in 1:n_prod
+    age_idx = ((j - 1) ÷ 2) + 1            # age group this source column belongs to
+    for i in 1:n_age
+        M_inter[i, j] = matrix(cm_age)[i, age_idx] *
+            prod_pop[j] / sum(prod_pop[2*(age_idx-1)+1:2*age_idx])
+    end
+end
+intermediate = SourceStratifiedContactMatrix(M_inter, age_part, prod_part, prod_pop)
 
-# Compute the base (proportional) lift
-base = ↑(cm_age, spec)
+# Set up the constrained lift and the base (proportional) reconstruction
+spec = ConstrainedGeneralizedLift(intermediate)
+full_cm = cm_age ⊠ spec
 
 # Sample from the q-parameter fiber
-samples = sample_constrained_lifts(base, spec, 100; bounds=(-0.5, 0.5))
+samples = sample_constrained_lifts(cm_age, spec, 100; bounds=(-0.5, 0.5))
 matrices = [s[2] for s in samples]
 
 # Epidemic uncertainty across the fiber
@@ -255,7 +269,7 @@ println("R₀ range across fiber: $(round(epi.r0.lower; digits=4)) – $(round(e
 println("Final size range:      $(round(epi.final_size.lower; digits=4)) – $(round(epi.final_size.upper; digits=4))")
 
 # Compare with analytic bounds (which don't require sampling)
-b_analytic = r0_bounds(base; info=:row)
+b_analytic = r0_bounds(full_cm; info=:row)
 println("\nAnalytic R₀ bounds (row sums): $b_analytic")
 println("Fiber exploration is tighter: $(round(epi.r0.upper - epi.r0.lower; digits=4)) vs $(round(b_analytic.upper - b_analytic.lower; digits=4))")
 ```
