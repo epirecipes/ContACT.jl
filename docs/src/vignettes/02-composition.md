@@ -64,7 +64,7 @@ nothing # hide
 
 ## Additive Composition with ⊕
 
-The total contact matrix is the **monoidal sum** of all settings:
+The total contact matrix is the **entrywise sum** of all settings:
 
 ```@example v02
 # Using the ⊕ operator (type \oplus<TAB> in Julia REPL)

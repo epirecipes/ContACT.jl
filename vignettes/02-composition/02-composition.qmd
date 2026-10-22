@@ -82,7 +82,7 @@ cm_other  = ContactMatrix(M_other, partition, uk_pop)
 
 ## Additive Composition with ⊕
 
-The total contact matrix is the **monoidal sum** of all settings:
+The total contact matrix is the **entrywise sum** of all settings:
 
 ```{julia}
 # Using the ⊕ operator (type \oplus<TAB> in Julia REPL)
