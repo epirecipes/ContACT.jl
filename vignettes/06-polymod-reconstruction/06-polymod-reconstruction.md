@@ -305,14 +305,14 @@ reconstruction using real POLYMOD data:
 
 | Step | Operation | Categorical Interpretation |
 |------|-----------|---------------------------|
-| 1 | Source-stratified matrix | Section of survey functor (partial image) |
+| 1 | Source-stratified matrix | Partial-image construction from richer participant columns |
 | 2 | Base matrix + symmetrise | Reciprocal object in age category |
-| 3 | Constrained lift (`⊠`) | Section of coarsening morphism |
-| 4 | Coarsen back (`↓`) | Verify lift is a section (left inverse) |
-| 5 | q-parameters | Parameterized family of sections |
+| 3 | Constrained lift (`⊠`) | Assumption-driven lift along the coarsening morphism |
+| 4 | Coarsen back (`↓`) | Verify the lift recovers the base matrix |
+| 5 | q-parameters | Parameterized family of such lifts |
 | 6 | Rejection sampling | Uniform exploration of fiber |
 | 7 | MCMC | Targeted exploration with density on fiber |
-| 8 | Per-block q | Heterogeneous sections |
+| 8 | Per-block q | Heterogeneous lifts |
 
 The key insight: reconstruction from partial data is **not unique** -- it defines
 a *fiber* over the coarsening morphism. The q-parameter family and MCMC sampler
@@ -323,8 +323,8 @@ prior beliefs about mixing patterns.
 
 | Operator | Unicode | Description |
 |----------|---------|-------------|
-| `▷` | `\triangleright` | Survey -> matrix functor |
+| `▷` | `\triangleright` | Survey -> matrix construction |
 | `↔` | `\leftrightarrow` | Symmetrise (reciprocity, prefix) |
 | `⊠` | `\boxtimes` | Constrained lift |
-| `↓` | `\downarrow` | Coarsen (left Kan extension) |
+| `↓` | `\downarrow` | Coarsen (population-weighted pushforward) |
 | `×` | `\times` | Product partition |

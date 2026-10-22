@@ -1,35 +1,71 @@
 """
-The functor: ContactSurvey → ContactMatrix.
+Matrix construction: ContactSurvey → ContactMatrix.
 
-This implements the restricted functor from the subcategory of surveys
-(with fixed partition) to the category of contact matrices.
+At a fixed partition a survey is summarised by two sufficient statistics: the
+weighted contact counts `C[i,j]`, from participant group `j` into contactee group
+`i`, and the weighted participant mass `W_j` per group. The matrix is the
+normalisation `M[i,j] = C[i,j]/W_j`.
 
-Categorically: compute_matrix is a functor F: Survey(P) → Contact
-where Survey(P) is the subcategory of surveys equipped with a fixed
-finite partition P.
+Both statistics push forward along a partition map, but the matrix is normalised by
+participant mass while `coarsen` weights by population, so the two only agree under
+the calibration condition documented on `compute_matrix`.
 """
 
 """
     compute_matrix(survey::ContactSurvey, partition::AbstractPartition;
                    population=nothing, weights=nothing)
 
-Compute a contact matrix from survey data with a fixed finite partition.
+Compute a contact matrix from survey data over a fixed finite partition.
 
-This is the central functor of ContACT.jl: it maps individual-level
-contact data to a structured contact matrix.
+Entry `M[i,j]` is the weighted number of contacts reported into group `i` by
+participants in group `j`, divided by the weighted participant mass `W_j` of group
+`j`. A group with no participants gets a zero column.
+
+# Relation to coarsening
+
+Building at a fine partition and coarsening along `f` is guaranteed to give the same
+*matrix* as building directly at the coarse partition whenever, within each coarse
+participant/source fibre `J`, the attached population is proportional to participant
+mass:
+
+    N_j = λ_J · W_j        for all j ∈ f⁻¹(J)
+
+with `λ_J > 0`, required only on fibres carrying participant mass — on the others,
+`N` is unconstrained. The constant cancels in the derivation, but it must be
+nonzero; on ContACT's nonnegative population domain that means strictly positive.
+The condition is per-fibre, so proportionality must hold separately in each one.
+
+This condition is sufficient for every survey and is required for agreement for
+arbitrary contact-count data. A particular survey may agree without it — for example,
+when all fine participant groups in a fibre have the same coarse contact profile —
+but the operations do not guarantee that. A fibre with no participant mass
+contributes zero source columns on both routes, so the matrix values agree there for
+any `N`.
+
+Matrix agreement does not by itself imply agreement of the attached populations. To
+guarantee agreement of the full `ContactMatrix` objects under an external `N`, the
+direct coarse build should also be given the pushed-forward population `f_*N`.
+
+With `population=nothing`, the condition holds automatically because the weighted
+participant mass `W` is itself attached as the population. With an external
+`population`, it becomes a calibration (post-stratification) condition on the survey
+weights. Supplying `weights` alone does not establish it: when weighted sample
+composition differs from the target population within a fibre, the two routes
+generally estimate different quantities and need not agree.
 
 # Arguments
 - `survey`: a `ContactSurvey` with participant and contact data
 - `partition`: the finite partition to use
 
 # Keyword Arguments
-- `population`: population vector per group (for weighting/symmetrisation).
-  If `nothing`, uses the empirical participant distribution.
-- `weights`: column name in participants to use as sampling weights, or `nothing`
+- `population`: population per partition group to attach to the resulting matrix.
+  If `nothing`, uses the weighted participant mass computed from the survey.
+- `weights`: participant column containing sampling weights, or `nothing` for equal
+  participant weights
 
 # Returns
-A `ContactMatrix{Float64, MeanContacts}` giving the mean number of contacts
-reported by participants in each age group with contacts in each other group.
+A `ContactMatrix{Float64, MeanContacts}` giving the mean number of contacts reported
+by participants in each source group with contacts in each target group.
 
 # Example
 ```julia

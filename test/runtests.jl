@@ -517,7 +517,7 @@ end
     @test_throws ArgumentError ContactMatrix(M, p, [1000.0, Inf, 500.0])
 end
 
-@testset "compute_matrix (functor)" begin
+@testset "compute_matrix (▷)" begin
     survey = make_test_survey()
     partition = AgePartition([0, 18, 65])
     cm = compute_matrix(survey, partition)
@@ -541,6 +541,130 @@ end
         AgePartition([0, 18]);
         weights=:bad_weight,
     )
+end
+
+@testset "▷ then ↓ versus ▷ at the coarse partition" begin
+    # compute_matrix divides by weighted participant mass W, coarsen weights by
+    # population N. The two routes are guaranteed to give the same matrix when
+    # N_j = λ_J·W_j with λ_J > 0 within each coarse participant/source fibre J
+    # (src/functor.jl); a particular survey may agree without it.
+    survey = make_test_survey()
+    fine = AgePartition([0, 18, 45, 65])
+    coarse = AgePartition([0, 45])
+    f = PartitionMap(fine, coarse, [1, 1, 2, 2])
+
+    W = population(compute_matrix(survey, fine))   # the empirical participant mass
+    @test W == [3.0, 2.0, 3.0, 2.0]
+    direct = compute_matrix(survey, coarse)
+    @test matrix(direct) ≈ [1.6 1.2; 0.4 0.8]
+
+    # population=nothing attaches W itself, so λ_J = 1 in both fibres
+    via_empirical = compute_matrix(survey, fine) ↓ f
+    @test matrix(via_empirical) ≈ matrix(direct) atol=1e-12 rtol=1e-12
+    @test population(via_empirical) == population(direct)
+
+    # an external population calibrated per fibre, with a different λ in each
+    calibrated = [1000W[1], 1000W[2], 400W[3], 400W[4]]
+    via_calibrated = compute_matrix(survey, fine; population=calibrated) ↓ f
+    @test matrix(via_calibrated) ≈ matrix(direct) atol=1e-12 rtol=1e-12
+    @test population(via_calibrated) ≈ [sum(calibrated[1:2]), sum(calibrated[3:4])]
+
+    # Matrix agreement does not carry the attached population: direct's is the
+    # participant mass. Supplying f_*N to the direct build agrees on the whole object.
+    @test !isapprox(population(via_calibrated), population(direct))
+    direct_pushforward = compute_matrix(survey, coarse;
+        population=[sum(calibrated[1:2]), sum(calibrated[3:4])])
+    @test matrix(via_calibrated) ≈ matrix(direct_pushforward) atol=1e-12 rtol=1e-12
+    @test population(via_calibrated) == population(direct_pushforward)
+
+    # an uncalibrated external population: the two routes estimate different things
+    uncalibrated = [4000.0, 1000.0, 900.0, 1000.0]
+    via_uncalibrated = compute_matrix(survey, fine; population=uncalibrated) ↓ f
+    @test matrix(via_uncalibrated) ≈ [1.8 22/19; 0.2 16/19] atol=1e-12 rtol=1e-12
+    @test maximum(abs.(matrix(via_uncalibrated) .- matrix(direct))) ≈ 0.2 atol=1e-12
+
+    # Only within-fibre ratios enter coarsen, so coarsen(M, k·N) == coarsen(M, N) for
+    # k > 0 — exactly in real arithmetic. That is the "λ_J cancels" half of the
+    # condition, seen from the side where calibration fails.
+    for s in (1.0e-6, 3.7, 1.0e9)
+        scaled = compute_matrix(survey, fine; population=s .* uncalibrated) ↓ f
+        @test matrix(scaled) ≈ matrix(via_uncalibrated) atol=1e-12 rtol=1e-12
+    end
+
+    # The condition is per-fibre: calibrating only the second fibre leaves that coarse
+    # source column exact while the first differs.
+    one_fibre = [4000.0, 1000.0, 400W[3], 400W[4]]
+    via_one_fibre = compute_matrix(survey, fine; population=one_fibre) ↓ f
+    @test matrix(via_one_fibre)[:, 2] == matrix(direct)[:, 2]
+    @test !isapprox(matrix(via_one_fibre)[:, 1], matrix(direct)[:, 1])
+    @test maximum(abs.(matrix(via_one_fibre)[:, 1] .- matrix(direct)[:, 1])) ≈ 0.2 atol=1e-12
+
+    # λ_J = 0 satisfies the proportionality equation verbatim, which is why the
+    # condition carries a separate λ_J > 0 clause: coarsen's zero-population branch
+    # (src/coarsening.jl) zeroes that coarse source column while the direct build's is
+    # nonzero. Without this case the clause is untested.
+    zero_lambda = [0.0, 0.0, 400W[3], 400W[4]]
+    via_zero = compute_matrix(survey, fine; population=zero_lambda) ↓ f
+    @test all(iszero, matrix(via_zero)[:, 1])
+    @test matrix(direct)[:, 1] ≈ [1.6, 0.4] atol=1e-12 rtol=1e-12
+    @test maximum(abs.(matrix(via_zero) .- matrix(direct))) ≈ 1.6 atol=1e-12
+    @test !any(isnan, matrix(via_zero))
+    @test matrix(via_zero)[:, 2] == matrix(direct)[:, 2]   # failure stays in its fibre
+
+    # A fibre carrying no participant mass needs no calibration: nonnegative weights
+    # force every W_j = 0 there, so both routes have a zero source column whatever N
+    # says. Group 5 (90+) has no participants in this survey.
+    fine_e = AgePartition([0, 18, 45, 65, 90])
+    coarse_e = AgePartition([0, 45, 90])
+    g = PartitionMap(fine_e, coarse_e, [1, 1, 2, 2, 3])
+    We = population(compute_matrix(survey, fine_e))
+    @test We == [3.0, 2.0, 3.0, 2.0, 0.0]
+    direct_e = compute_matrix(survey, coarse_e)
+    @test all(iszero, matrix(direct_e)[:, 3])
+    for N5 in (0.0, 999.0, 1.0e9)
+        via_e = compute_matrix(survey, fine_e;
+            population=[1000We[1], 1000We[2], 400We[3], 400We[4], N5]) ↓ g
+        @test matrix(via_e) ≈ matrix(direct_e) atol=1e-12 rtol=1e-12
+        @test all(iszero, matrix(via_e)[:, 3])
+    end
+
+    # Calibration is a condition on the *weighted* participant mass, so it has to be
+    # checked against the weights actually supplied. These weights make the weighted
+    # mass differ from the participant counts, which the cases above cannot detect
+    # because there W is the count.
+    parts = copy(survey.participants)
+    parts.weight = [2.0, 2.0, 2.0, 0.5, 0.5, 3.0, 3.0, 3.0, 1.0, 1.0]
+    wsurvey = ContactSurvey(parts, survey.contacts)
+    Ww = population(compute_matrix(wsurvey, fine; weights=:weight))
+    @test Ww == [6.0, 1.0, 9.0, 2.0]      # ≠ W = [3, 2, 3, 2]
+    direct_w = compute_matrix(wsurvey, coarse; weights=:weight)
+
+    # calibrated to the weighted mass, a different λ in each fibre: agreement
+    N_cal = [2Ww[1], 2Ww[2], 7Ww[3], 7Ww[4]]
+    via_cal = compute_matrix(wsurvey, fine; weights=:weight, population=N_cal) ↓ f
+    @test matrix(via_cal) ≈ matrix(direct_w) atol=1e-12 rtol=1e-12
+    direct_w_pushforward = compute_matrix(wsurvey, coarse; weights=:weight,
+        population=[sum(N_cal[1:2]), sum(N_cal[3:4])])
+    @test matrix(via_cal) ≈ matrix(direct_w_pushforward) atol=1e-12 rtol=1e-12
+    @test population(via_cal) == population(direct_w_pushforward)
+
+    # The misconception the docstring warns about: N calibrated to the participant
+    # *counts* rather than to the weighted mass. No error is raised — coarsen uses the
+    # supplied population proportions even though they disagree with the weights
+    # compute_matrix used, so the fine means are combined with the wrong between-group
+    # proportions. Here that lands exactly on the unweighted matrix because these
+    # weights are constant within each fine group and therefore leave the fine means
+    # unchanged; with weights varying within a group the result would instead be a
+    # hybrid of weighted fine means and count-based between-group proportions.
+    counts = [3.0, 2.0, 3.0, 2.0]
+    @test counts == [3.0, 2.0, 3.0, 2.0]     # raw participant counts ...
+    @test Ww == [6.0, 1.0, 9.0, 2.0]         # ... versus weighted participant mass
+    @test counts != Ww
+    N_miscal = [100counts[1], 100counts[2], 50counts[3], 50counts[4]]
+    via_miscal = compute_matrix(wsurvey, fine; weights=:weight, population=N_miscal) ↓ f
+    @test !isapprox(matrix(via_miscal), matrix(direct_w))
+    @test maximum(abs.(matrix(via_miscal) .- matrix(direct_w))) ≈ 18/70 atol=1e-12
+    @test matrix(via_miscal) ≈ matrix(direct) atol=1e-12 rtol=1e-12
 end
 
 @testset "dropped contacts are excluded, not miscounted" begin
@@ -576,7 +700,7 @@ end
     cm_top = @test_logs compute_matrix(top_survey, partition)   # asserts: no log records at all
     @test matrix(cm_top) ≈ [0.0 0.0 0.0; 0.0 0.0 0.0; 1.0 0.0 0.0]
 
-    # The source-stratified functor mirrors both reachable drop reasons. Distinct
+    # The source-stratified construction mirrors both reachable drop reasons. Distinct
     # target/source partitions keep the roles observable: the target partition is
     # applied to contacts (rows), the source partition to participants (columns).
     coarse = AgePartition([0, 18])
@@ -608,7 +732,7 @@ end
     @test matrix(cm) ≈ [1.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 0.0]
     @test population(cm) == [1.0, 0.0, 0.0]   # the phantom row adds no participant weight
 
-    # the same branch exists in the source-stratified functor
+    # the same branch exists in the source-stratified construction
     ssm = @test_logs(
         (:warn, r"^compute_source_stratified_matrix dropped 1 contact\(s\): 1 with unknown participant id"),
         compute_source_stratified_matrix(survey, partition, partition))
@@ -1821,7 +1945,7 @@ end
         @test matrix(cm ⤊ spec) ≈ matrix(activity_refine(cm, spec))
     end
 
-    @testset "▷ (functor application)" begin
+    @testset "▷ (matrix construction)" begin
         survey = make_test_survey()
         partition = AgePartition([0, 18, 65])
         # Operator should equal function call
@@ -2574,7 +2698,7 @@ end
 # ---------------------------------------------------------------------------
 # These tests use pre-computed R reference matrices (simple day-weighted mean)
 # committed as CSV fixtures. They validate that ContACT.jl's compute_matrix
-# functor produces identical results when given the same data and weights.
+# construction produces identical results when given the same data and weights.
 #
 # Full-data tests require downloading Zenodo data (~13 MB).
 # Run with: CONTACT_RUN_RECONNECT=1 julia --project=. -e 'using Pkg; Pkg.test()'

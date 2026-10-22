@@ -1,13 +1,16 @@
 """
 Stratification: replicating contact structure across spatial/demographic strata.
 
-Categorically, stratification is a pullback in a slice category. Given a local
-contact matrix and a coupling (mixing) matrix between strata, the stratified
-matrix is a block-structured matrix.
+Given a local contact matrix and a coupling (mixing) matrix between strata, the
+stratified matrix is block-structured:
 
     A_strat[(s_to, i), (s_from, j)] = D[s_to, s_from] · A_local[i, j]
 
-This is equivalent to the Kronecker product: A_strat = D ⊗ A_local.
+which is the Kronecker product A_strat = D ⊗ A_local, bilinear in the two arguments.
+
+This builds a matrix over a product index; it does not stratify an epidemic model.
+Model stratification is a separate operation (AlgebraicPetri's `typed_product`); to
+pair this matrix with it, align the indices through a `FinFunction`, not by position.
 """
 
 """

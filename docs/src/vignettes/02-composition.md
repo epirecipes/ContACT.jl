@@ -64,7 +64,7 @@ nothing # hide
 
 ## Additive Composition with ⊕
 
-The total contact matrix is the **monoidal sum** of all settings:
+The total contact matrix is the **entrywise sum** of all settings:
 
 ```@example v02
 # Using the ⊕ operator (type \oplus<TAB> in Julia REPL)
@@ -184,14 +184,14 @@ survey = ContactSurvey(participants, contacts_df)
 
 # ─── The algebraic pipeline ─────────────────────────────────────────────
 # Each line uses a Unicode operator:
-#   ▷  functor application (survey → matrix)
-#   ↓  coarsening (left Kan extension)
+#   ▷  matrix construction (survey → matrix)
+#   ↓  coarsening (population-weighted pushforward)
 #   ⊗  stratification (Kronecker product)
 #   ρ  spectral radius
 
 fine_part = AgePartition([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75])
-cm_fine = survey ▷ fine_part                    # F(survey)
-cm_4grp = cm_fine ↓ AgePartition([0, 15, 45, 65])   # left Kan extension
+cm_fine = survey ▷ fine_part                    # build from the survey
+cm_4grp = cm_fine ↓ AgePartition([0, 15, 45, 65])   # population-weighted pushforward
 cm_sym  = ↔(cm_4grp)                            # reciprocity projection
 cm_3reg = cm_sym ⊗ coupling                     # Kronecker stratification
 

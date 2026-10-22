@@ -26,7 +26,7 @@ education, or age × ethnicity. In ContACT.jl this is not a separate matrix type
 it is a `ContactMatrix` over a `ProductPartition`.
 
 If a survey records both participant and contact-side SES variables, the
-survey-to-matrix functor can estimate the product matrix directly:
+survey-to-matrix construction can estimate the product matrix directly:
 
 ```julia
 G = survey ▷ (age × wealth)
@@ -34,8 +34,10 @@ G = survey ▷ (age × wealth)
 
 When the contact-side SES variable is not observed, the generalized matrix is an
 assumption-driven **lift** from a base partition `P` to a product partition
-`P × Q`. The lift is a section of the projection `P × Q → P`: coarsening back to
-`P` recovers the original matrix.
+`P × Q`, constructed so that coarsening back along the projection `P × Q → P`
+recovers the original matrix. That recovery holds to numerical tolerance on the
+accepted domain rather than as an exact section, since the mixing distribution and
+product-population marginals are validated numerically rather than enforced exactly.
 
 ## Setup
 
@@ -197,7 +199,8 @@ matrix((cm_age ⊠ custom_spec) ↓ age) ≈ matrix(cm_age)
 
 ## Interpretation
 
-The generalized lift is not an inverse to coarsening. It is a chosen section:
+The generalized lift is not an inverse to coarsening. It is one chosen lift among
+many that coarsen back to the same base matrix:
 
 ```math
 P \times Q \xrightarrow{\;\pi_P\;} P

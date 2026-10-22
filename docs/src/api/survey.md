@@ -1,6 +1,6 @@
 # Survey Operations
 
-## Functor: Survey → ContactMatrix
+## Matrix Construction: Survey → ContactMatrix
 
 ```@docs
 compute_matrix

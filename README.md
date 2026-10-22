@@ -5,9 +5,9 @@
 ## Overview
 
 ContACT.jl provides a categorical framework for:
-- Computing contact matrices from individual-level survey data over arbitrary finite partitions (the **functor** from surveys to matrices)
+- Computing contact matrices from individual-level survey data over arbitrary finite partitions (▷)
 - Composing setting-specific matrices (home, work, school) via **additive composition** (⊕)
-- Changing partition resolution via **coarsening** (left Kan extension) and **refinement** (its section, given a population prior)
+- Changing partition resolution via **coarsening** (population-weighted pushforward) and **refinement** (its section, given a population prior)
 - Refining reciprocal matrices by respondent social activity, following Britton-Ball-style high/low or quantile activity strata (⤊)
 - Lifting age matrices to generalized age × SES/contact matrices with explicit mixing assumptions (⊠)
 - Reconstructing generalized matrices from partial participant-side covariates with source-stratified intermediate matrices
@@ -64,36 +64,66 @@ partial = compute_source_stratified_matrix(survey, partition, partition × ses)
 
 ## Operators
 
-| Symbol | LaTeX | Operation | Categorical Meaning |
+| Symbol | LaTeX | Operation | Structure |
 |--------|-------|-----------|-------------------|
-| `⊕` | `\oplus` | Additive composition | Coproduct in setting category |
-| `⊗` | `\otimes` | Stratification | Pullback in slice category |
-| `↓` | `\downarrow` | Coarsening | Left Kan extension |
-| `↑` | `\uparrow` | Refinement with prior | Section of coarsening |
+| `⊕` | `\oplus` | Additive composition | Commutative monoid at fixed partition, population, and semantics |
+| `⊗` | `\otimes` | Stratification | Kronecker product with a coupling matrix |
+| `↓` | `\downarrow` | Coarsening | Population-weighted pushforward |
+| `↑` | `\uparrow` | Population-based refinement | Section of coarsening |
 | `⤊` | `\Uuparrow` | Activity refinement | Hidden-stratum lift |
-| `⊠` | `\boxtimes` | Generalized product lift | Section of product coarsening |
-| `▷` | `\triangleright` | Survey-to-matrix functor | Functor application |
-| `∘` | `\circ` | PartitionMap composition | Morphism composition |
+| `⊠` | `\boxtimes` | Generalized product lift | Assumption-driven product lift |
+| `▷` | `\triangleright` | Survey-to-matrix construction | Normalisation of survey contact counts by participant mass |
+| `∘` | `\circ` | PartitionMap composition | Partition-map composition |
 | `↔` | `\leftrightarrow` | Symmetrisation | Reciprocity projection |
 | `ρ` | `\rho` | Spectral radius | R₀ proxy |
+
+`⊕` is entrywise addition in a fixed partition-, population- and unit-semantics fibre:
+the commutative-monoid laws are proved, but addition and categorical coproduct are
+distinct constructions and no coproduct universal property is claimed.
+
+`⊗` is Kronecker stratification of a contact matrix, not the slice-category pullback
+used to stratify an epidemic model. Model stratification belongs to AlgebraicPetri's
+`typed_product`; constructing a contact matrix over a product partition is a separate
+operation.
+
+`↓` is not the ordinary left Kan extension of the `MeanContacts` matrix. In the
+straightforward discrete, vector-valued interpretation, a left Kan extension along the
+partition map — on both contact axes — first produces the coproduct/direct sum over
+each fibre. Obtaining a scalar contact total then requires the additive fold, after
+which the shipped operation additionally divides by the pushed-forward participant
+population.
+
+At the record level, `migrate_coarsen` simply postcomposes participant- and
+contact-group assignments with the partition map. For each group-labelled family
+`X → G` this is the dependent sum `Σ_f`, equivalently the left Kan extension along the
+discrete map `f`; unlike matrix coarsening it needs neither an additive fold nor
+population normalisation. A universal property for the migration of the whole
+`ContactSurveyACSet` has not been established.
+
+`⊠` coarsens back to the base matrix by design and is regression-tested to, but the
+Julia construction validates its mixing distribution and product population only
+approximately, so the accepted domain is not literally an exact section; the table
+says "assumption-driven" rather than "section of product coarsening" until that is
+closed.
 
 ## Categorical Framework
 
 ### Objects
 A `ContactMatrix` bundles:
-- An n×n real matrix of mean contacts
+- An n×n real matrix, read in whichever representation its unit-semantics tag names
 - An `AbstractPartition` (age, sex, region, or a product such as age × sex)
-- A population vector (required for symmetrisation)
+- A population vector, required at construction and used by every population-weighted
+  operation (symmetrisation, coarsening, refinement, transport, unit conversion)
 - Unit semantics (mean contacts / counts / per-capita rates)
 
 ### Morphisms
-- **Coarsening** (via `PartitionMap`; `AgeMap` is the age-specific alias): surjective partition maps that push forward contact structure
+- **Coarsening** (via `PartitionMap`; `AgeMap` is the age-specific alias): partition maps that push contact structure forward along their fibres. Surjectivity is not required — a coarse group hit by no fine group is empty and carries no contacts
 - **Refinement** (via `RefinementPrior`): splits each coarse group's contacts between
   its fine subgroups in proportion to a population prior. A section of coarsening —
   coarsening the result recovers the original matrix — but not an inverse, since
   coarsening discards the within-group structure the prior then has to supply
 - **Activity refinement** (via `ActivityRefinement`): assumption-driven lift to a product partition such as age × activity
-- **Generalized lifts** (via `GeneralizedLift`): assumption-driven sections from a base partition to a product partition such as age × SES
+- **Generalized lifts** (via `GeneralizedLift`): assumption-driven lifts from a base partition to a product partition such as age × SES, constructed to coarsen back to the base matrix
 - **Constrained partial-data lifts** (via `SourceStratifiedContactMatrix` and `ConstrainedGeneralizedLift`): reconstruct product matrices constrained by participant-side covariates, coarsening, and reciprocity
 - **Symmetrisation**: idempotent endomorphism preserving reciprocity
 - **Setting composition**: commutative monoid structure (additive)
@@ -107,8 +137,47 @@ A `ContactMatrix` bundles:
   al. Unlike population transport it is not functorial in the population and does not
   commute with coarsening — it repairs the matrix rather than carrying it across
 
-### Functor
-`compute_matrix` is a functor from the subcategory of surveys (with fixed partition and weighting) to the category of contact matrices.
+### Survey-to-matrix construction
+`compute_matrix` (`▷`) normalises the survey's sufficient statistics: the weighted
+contact counts `C[i,j]` from participant group `j` into contactee group `i`, and the
+weighted participant mass `W_j` per group, giving `M[i,j] = C[i,j]/W_j`.
+
+Building at a fine partition and then coarsening does **not** always agree with
+building directly at the coarse partition, because the two normalise by different
+quantities: `compute_matrix` divides by participant mass, while `coarsen` weights by
+population. Writing `f` for the partition map, the two routes are guaranteed to give
+the same **matrix** whenever, within each coarse **participant/source** fibre `J`,
+
+    N_j = λ_J · W_j        for all j ∈ f⁻¹(J)
+
+with `λ_J > 0`, required only on fibres carrying participant mass — on the others,
+`N` is unconstrained. The constant cancels in the derivation, but it must be
+nonzero; on ContACT's nonnegative population domain this means strictly positive.
+
+This condition is sufficient for every survey, and is the condition required for
+agreement for arbitrary contact-count data. A particular survey may agree without
+it — for example, when all fine participant groups in a fibre have the same coarse
+contact profile — but the operations themselves do not guarantee it. A fibre with no
+participant mass contributes zero source columns on both routes, so the matrix values
+agree there for any `N`.
+
+When an external fine population `N` is used, agreement of the matrix values does not
+by itself imply agreement of the attached populations. To guarantee agreement of the
+full `ContactMatrix` objects, the direct coarse build should also be supplied with the
+pushed-forward population `f_*N`.
+
+- With `population=nothing`, the condition holds automatically: `compute_matrix`
+  attaches `W` itself as the population, so `λ_J = 1`.
+- With an external target population, it becomes a **calibration
+  (post-stratification) condition** on the survey weights: weighted participant mass
+  must be proportional to the target population within each coarse fibre. The
+  proportionality constant may differ between fibres, but the condition must hold in
+  every fibre carrying participant mass; supplying `weights=` is not by itself
+  sufficient.
+
+When the condition fails, the two routes are generally estimating different quantities
+rather than one of them being incorrect, so they need not agree. This behaviour is
+pinned by the `"▷ then ↓ versus ▷ at the coarse partition"` testset.
 
 ## Formal Proofs (Lean 4)
 
@@ -116,7 +185,7 @@ The `proofs/` directory contains machine-checked proofs of:
 
 | Property | File | Status |
 |----------|------|--------|
-| Contact matrices form a category | `ContactCat.lean` | ✅ |
+| Partition maps between contact-matrix objects compose as a category | `ContactCat.lean` | ✅ |
 | Category morphisms act functorially on contact data (`coarsenAction`) | `Coarsening.lean` | ✅ |
 | Coarsening functoriality (unweighted count model) | `Coarsening.lean` | ✅ |
 | Coarsening preserves total contacts (unweighted count model) | `Coarsening.lean` | ✅ |
@@ -138,7 +207,7 @@ The `proofs/` directory contains machine-checked proofs of:
 | Symmetrisation–stratification commutativity (iff coupling symmetric) | `Stratification.lean` | ✅ |
 | Constrained-lift coarsening recovery, symmetry & structural zeros | `ConstrainedLift.lean` | ✅ |
 | Reprojection reciprocity at the target population (incl. empty groups) | `Reprojection.lean` | ✅ |
-| Reprojection preserves total contacts at the target population (incl. empty groups) | `Reprojection.lean` | ✅ |
+| Reprojection preserves the grand total of contacts at the target population, summed over all pairs (incl. empty groups) | `Reprojection.lean` | ✅ |
 | Reprojection is the identity on matrices already reciprocal at the target | `Reprojection.lean` | ✅ |
 | Reprojection is not functorial in the population (counterexample) | `Reprojection.lean` | ✅ |
 | Population transport identity & composition, for every matrix (positive populations) | `PopulationTransport.lean` | ✅ |
@@ -147,12 +216,12 @@ The `proofs/` directory contains machine-checked proofs of:
 | Population transport is invertible (round trip), for every matrix (positive populations) | `PopulationTransport.lean` | ✅ |
 | Population transport commutes with population-weighted coarsening, for any fibre map (nonnegative populations) | `PopulationTransport.lean` | ✅ |
 | That commutation genuinely needs a nonzero target population (counterexample) | `PopulationTransport.lean` | ✅ |
-| Unit-semantics representations form a groupoid (identity, composition, inverses) | `UnitSemantics.lean` | ✅ |
-| Any operation is natural once conjugated by the representation isomorphisms | `UnitSemantics.lean` | ✅ |
+| Row/column population rescalings form a groupoid — identity, composition, and inverses where the scalings are nonzero — with the three representations among its objects | `UnitSemantics.lean` | ✅ |
+| Conjugating an operation by the representation isomorphisms makes it natural by construction, with no hypothesis on the operation | `UnitSemantics.lean` | ✅ |
 | Symmetrisation is natural with respect to the representation isomorphisms | `UnitSemantics.lean` | ✅ |
 | Symmetrisation that ignores the input tag is **not** natural (counterexample) | `UnitSemantics.lean` | ✅ |
 | Symmetrisation in `ContactCounts` and `PerCapitaRate` is plain averaging | `UnitSemantics.lean` | ✅ |
-| Reciprocity is plain matrix symmetry exactly when the effective population is 1 | `UnitSemantics.lean` | ✅ |
+| Where the effective population is 1 — `ContactCounts` and `PerCapitaRate` — reciprocity is plain matrix symmetry | `UnitSemantics.lean` | ✅ |
 | Reciprocal *proportionate* activity lift: build/coarsen equivariance, for any fibre map (nonnegative populations) | `Coarsening.lean` | ✅ |
 
 The equivariance row above is specific to the reciprocal proportionate lift. ContACT's
@@ -173,7 +242,14 @@ The population-transport theorems are equalities in ℝ. In floating point,
 is unchanged is copied rather than rescaled, since `M·N/N` is not the identity in
 Float64 — while composition, invertibility and total-contact preservation agree to
 roundoff, about one ulp. Its Julia domain is also narrower than the theorems':
-a zero source population is admitted only when that group carries no contacts.
+a zero source population is admitted only when that group's **participant column** is
+zero. Its row may be nonzero, and which axis is guarded matters — the corresponding
+guards elsewhere in the package check different axes.
+
+The `ContactCat.lean` row covers less than its name suggests: its morphism carries a
+map between index sets and a surjectivity proof, so the category laws are about those
+maps rather than about the contact data. The theorems that do relate a coarsened matrix
+to the one it came from are the coarsening rows above.
 
 Build proofs with:
 ```bash
@@ -182,13 +258,10 @@ cd proofs && lake build
 
 ## Installation
 
+ContACT is not yet on the General registry, so install it from the repository:
+
 ```julia
 using Pkg
-Pkg.add("ContACT")
-```
-
-For the development version:
-```julia
 Pkg.add(url="https://github.com/epirecipes/ContACT.jl")
 ```
 
@@ -197,6 +270,7 @@ Pkg.add(url="https://github.com/epirecipes/ContACT.jl")
 - [Catlab.jl](https://github.com/AlgebraicJulia/Catlab.jl) — categorical algebra (FinFunctions for partition maps)
 - [DataFrames.jl](https://github.com/JuliaData/DataFrames.jl) — survey data handling
 - [LinearAlgebra](https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/) — matrix operations
+- [Random](https://docs.julialang.org/en/v1/stdlib/Random/) — sampling and MCMC over constrained lifts
 
 ## Related Packages
 

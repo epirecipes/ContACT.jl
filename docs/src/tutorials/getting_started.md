@@ -51,9 +51,9 @@ survey = ContactSurvey(participants, contacts)
 
 ## Computing a Contact Matrix
 
-The central operation is the **restricted functor** from surveys to contact
-matrices. We fix a partition to make the operation deterministic; age is the
-default interval-valued partition:
+The central operation builds a contact matrix from a survey by normalising
+contact counts by participant mass. We fix a partition to make the operation
+deterministic; age is the default interval-valued partition:
 
 ```@example tutorial
 # Standard 5-year age bands
@@ -66,7 +66,7 @@ uk_pop = [3433.0, 3554.0, 3824.0, 3956.0, 3757.0, 3520.0, 4009.0,
            4405.0, 4548.0, 4187.0, 3883.0, 3589.0, 3117.0, 2765.0,
            2425.0, 3752.0]
 
-# Apply the survey→matrix functor using ▷ (type \triangleright<TAB>)
+# Build the matrix from the survey using ▷ (type \triangleright<TAB>)
 cm = survey ▷ partition
 println("Contact matrix: $(n_groups(cm)) age groups")
 println("ρ(M) ∝ R₀: $(round(ρ(cm); digits=2))")
@@ -83,7 +83,7 @@ nothing # hide
 
 ## Non-age partitions
 
-The same functor works for categorical survey variables such as sex, region,
+The same construction works for categorical survey variables such as sex, region,
 occupation, or products of those variables. The partition carries the semantic
 dimension (`:sex`) and the column names used in the participant and contact
 tables:
@@ -150,9 +150,9 @@ nothing # hide
 
 ## Coarsening
 
-Coarsening is the left Kan extension along a surjective partition map. For
-interval partitions such as age, the coarse limits must be a subset of the fine
-limits:
+Coarsening pushes total contacts forward along the fibres of a partition map and
+divides by the coarse population. For interval partitions such as age, the coarse
+limits must be a subset of the fine limits:
 
 ```@example tutorial
 coarse = AgePartition([0, 15, 45, 65])

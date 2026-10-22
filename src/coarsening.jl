@@ -1,8 +1,23 @@
 """
 Coarsening: pushforward of contact matrices along finite partition maps.
 
-Categorically, given a surjective map f: Fine → Coarse between finite group
-sets, coarsening is the left Kan extension along f. It preserves total contacts.
+Coarsening aggregates fine groups along a partition map f: Fine → Coarse while
+preserving contact totals. In MeanContacts it converts each source column to total
+contacts using the fine-group population, sums those totals over the corresponding
+target and source fibres, and divides by the aggregated source population to recover
+mean contacts at the coarse resolution. The map need not be surjective.
+
+Equivalently, writing C[i,j] = M[i,j]·N_j for total contacts:
+
+    C'[I,J] = Σ_{f(i)=I, f(j)=J} C[i,j]
+    N'[J]   = Σ_{f(j)=J} N_j
+    M'[I,J] = C'[I,J] / N'[J]
+
+The categorical core is therefore the pushforward of populations and total contacts
+along the partition map, and the population-weighted averaging formula is its
+representation in MeanContacts. That differs from an ordinary left Kan extension of
+the MeanContacts matrix itself, which would first form fibrewise coproducts rather
+than the normalised scalar matrix returned here.
 
 The key property (proven in Lean): coarsen(g ∘ f) = coarsen(g) ∘ coarsen(f)
 """
@@ -177,7 +192,7 @@ end
 """
     coarsen(cm::ContactMatrix, f::PartitionMap)
 
-Coarsen a contact matrix along a finite partition map (left Kan extension).
+Coarsen a contact matrix along a finite partition map.
 
 The coarsened matrix preserves total contacts: for each coarse pair (I, J),
 the entry is the population-weighted average of fine entries mapping to (I, J).
