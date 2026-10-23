@@ -1630,6 +1630,96 @@ end
     end
 end
 
+@testset "⊠ coarsens back to the base matrix and population on every accepted input" begin
+    age = AgePartition([0, 15])
+    ses = CategoricalPartition(:ses; levels=["low", "high"])
+    recovered(g) = coarsen(g, PartitionMap(g.partition, age))
+    counts(cm) = matrix(cm) * Diagonal(population(cm))
+    # Compared entry by entry: a whole-array `≈` scales its tolerance by the largest
+    # entry, which is the failure these tests exist to catch.
+    entrywise(a, b) = all(isapprox.(a, b; rtol=1e-12))
+
+    # A small group beside a large one.
+    N = [10.0, 1e9]
+    C = [2.0 3.0; 3.0 4e9]
+    base = ContactMatrix(C ./ transpose(N), age, N)
+
+    @testset "product population is checked group by group" begin
+        # Sums to [15, 1e9]: within 1e-8 of N as a vector, but 50% off in group 1.
+        @test_throws ArgumentError generalize(base, ses, [7.5 7.5; 5e8 5e8])
+        # Within 1e-8 in every group: accepted, and rescaled so coarsening recovers N.
+        g = generalize(base, ses, [5.0 (5.0 + 1e-8); 5e8 5e8])
+        @test entrywise(population(recovered(g)), N)
+        @test entrywise(matrix(recovered(g)), matrix(base))
+        # A product population that already sums exactly is kept bit for bit.
+        @test population(generalize(base, ses, [4.0 6.0; 4e8 6e8])) == [4.0, 6.0, 4e8, 6e8]
+    end
+
+    @testset "empty groups agree exactly" begin
+        N0 = [0.0, 1e9]
+        empty = ContactMatrix([0.0 0.0; 0.0 4.0], age, N0)
+        # Five people in the empty group: within 1e-8 of N0 as a vector.
+        @test_throws ArgumentError generalize(empty, ses, [2.5 2.5; 5e8 5e8])
+        # A populated group whose product population sums to zero.
+        small = ContactMatrix(C ./ transpose([5.0, 1e9]), age, [5.0, 1e9])
+        @test_throws ArgumentError generalize(small, ses, [0.0 0.0; 5e8 5e8])
+        # An empty group's participant column carries no total contacts, so the lift
+        # cannot recover it.
+        @test_throws ArgumentError generalize(
+            ContactMatrix([0.5 0.0; 0.3 0.4], age, [0.0, 100.0]), ses; distribution=[0.5, 0.5])
+        # An empty group with no contacts lifts and stays empty.
+        g = generalize(empty, ses, [0.0 0.0; 5e8 5e8])
+        @test population(recovered(g)) == N0
+        @test entrywise(matrix(recovered(g)), matrix(empty))
+    end
+
+    @testset "reciprocity is checked pair by pair, and the lift is exactly reciprocal" begin
+        # Group 1's pair is 15% off: within 1e-8 of reciprocal as a whole matrix.
+        skewed = ContactMatrix([2.0 3.0; 3.5 4e9] ./ transpose(N), age, N)
+        @test_throws ArgumentError generalize(skewed, ses; distribution=[0.5, 0.5])
+        # 1e-10 off: accepted. The lift splits the symmetrised totals, so it is reciprocal
+        # and coarsens back to ↔ of its input.
+        near = ContactMatrix([2.0 3.0; 3.0 * (1 + 1e-10) 4e9] ./ transpose(N), age, N)
+        g = generalize(near, ses; distribution=[0.3, 0.7])
+        @test entrywise(counts(g), transpose(counts(g)))
+        @test entrywise(matrix(recovered(g)), matrix(↔(near)))
+    end
+
+    @testset "distributions and kernels are rescaled to sum to one" begin
+        near_one = [0.5, 0.5 + 5e-9]
+        @test isapprox(sum(RandomMixing(near_one).distribution), 1.0; atol=1e-15)
+        @test_throws ArgumentError RandomMixing([0.5, 0.6])
+
+        reciprocal = ContactMatrix([50.0 30.0; 30.0 80.0] ./ transpose([100.0, 200.0]),
+                                   age, [100.0, 200.0])
+        for mixing in (RandomMixing(near_one),
+                       BlockMixing([0.25 (0.25 + 1e-9); 0.25 0.25]),
+                       AssortativeDimensionMixing([0.5, 0.5 + 1e-9], [0.6, 0.6]))
+            g = generalize(reciprocal, ses; distribution=near_one, mixing=mixing)
+            @test entrywise(matrix(recovered(g)), matrix(reciprocal))
+            @test entrywise(population(recovered(g)), population(reciprocal))
+            @test entrywise(counts(g), transpose(counts(g)))
+        end
+    end
+
+    @testset "constrained lift: source population checked group by group" begin
+        product = age × ses
+        partial(pop) = SourceStratifiedContactMatrix(
+            [0.1 0.1 1e-9 1e-9; 0.2 0.2 4.0 4.0], age, product, pop)
+        off = partial([7.5, 7.5, 5e8, 5e8])   # sums to [15, 1e9]
+        @test_throws ArgumentError align_source_stratified_matrix(off, base)
+        @test_throws ArgumentError base ⊠ ConstrainedGeneralizedLift(off)
+
+        skewed = ContactMatrix([2.0 3.0; 3.5 4e9] ./ transpose(N), age, N)
+        @test_throws ArgumentError skewed ⊠ ConstrainedGeneralizedLift(partial([5.0, 5.0, 5e8, 5e8]))
+
+        full = base ⊠ ConstrainedGeneralizedLift(partial([5.0, 5.0 + 1e-8, 5e8, 5e8]))
+        @test entrywise(matrix(recovered(full)), matrix(base))
+        @test entrywise(population(recovered(full)), N)
+        @test entrywise(counts(full), transpose(counts(full)))
+    end
+end
+
 @testset "Utilities" begin
     p = AgePartition([0, 18, 65])
     pop = [1000.0, 3000.0, 500.0]

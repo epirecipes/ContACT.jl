@@ -248,17 +248,89 @@ function coarsen_sources(cm::SourceStratifiedContactMatrix, f::PartitionMap)
     )
 end
 
+# Rescale `fine_pop` so that each fibre of `fmap` sums to its base group's population.
+# Each fibre is compared with its own base group, so a small group is held to the same
+# relative tolerance as a large one, and the two must agree exactly on which groups are
+# empty. A fibre that already sums exactly is returned unchanged.
+function _fibre_matched_population(fine_pop::AbstractVector{<:Real},
+                                   fmap::AbstractVector{Int},
+                                   base_pop::AbstractVector{<:Real},
+                                   name::AbstractString)
+    aggregated = zeros(Float64, length(base_pop))
+    for (k, I) in enumerate(fmap)
+        aggregated[I] += fine_pop[k]
+    end
+    for I in eachindex(base_pop)
+        (aggregated[I] == 0) == (base_pop[I] == 0) || throw(ArgumentError(
+            "base group $I is empty in one population but not the other " *
+            "(base population $(base_pop[I]), $name summed over the group $(aggregated[I]))"))
+        isapprox(aggregated[I], base_pop[I]; rtol=1e-8) || throw(ArgumentError(
+            "$name must sum to the base population in every base group; group $I sums to " *
+            "$(aggregated[I]) against a base population of $(base_pop[I])"))
+    end
+
+    matched = Vector{Float64}(fine_pop)
+    for (k, I) in enumerate(fmap)
+        aggregated[I] == base_pop[I] && continue
+        matched[k] *= base_pop[I] / aggregated[I]
+    end
+    matched
+end
+
+# Total contacts `M[i,j]·N_j` of a base matrix that a lift splits into blocks, returned
+# exactly symmetric. Each pair `(i, j)` is checked at its own scale, so a small group's
+# contacts are held to the same relative tolerance as a large group's. A zero-population
+# group must have a zero participant column, since its column carries no total contacts
+# and cannot be recovered by coarsening the lift.
+function _lift_base_counts(cm::ContactMatrix, operation::AbstractString)
+    M = matrix(cm)
+    pop = population(cm)
+    n = n_groups(cm)
+    for j in 1:n
+        pop[j] == 0 || continue
+        all(iszero, @view M[:, j]) || throw(ArgumentError(
+            "$operation cannot use base group $j: zero population with nonzero contacts " *
+            "in its participant column"))
+    end
+
+    C = M * Diagonal(pop)
+    for j in 1:n, i in 1:(j - 1)
+        a, b = C[i, j], C[j, i]
+        abs(a - b) <= 1e-8 * max(abs(a), abs(b)) || throw(ArgumentError(
+            "$operation requires reciprocal total contacts (M[i,j]·N_j == M[j,i]·N_i), " *
+            "but groups $i and $j give $a and $b. If rows may be participants rather " *
+            "than contactees, transpose the matrix; otherwise apply ↔ first"))
+    end
+    (C .+ transpose(C)) ./ 2
+end
+
 """
     align_source_stratified_matrix(partial, base[, f])
 
 Scale a source-stratified intermediate matrix so that coarsening its source
-groups matches a reciprocal base `ContactMatrix` in total-contact space.
+groups matches a reciprocal base `ContactMatrix` in total contacts and in mean
+contacts.
 
 The map `f` must send `partial.source_partition` to `base.partition`. If omitted,
 ContACT attempts to infer it, for example as the projection
-`age × SEP × education → age`. The base matrix must already be reciprocal in
-total-contact space; apply `↔(base)` first when starting from a raw survey
-estimate.
+`age × SEP × education → age`.
+
+# Requirements
+- `base` must be reciprocal in total contacts, `M[i,j]·N_j ≈ M[j,i]·N_i` to a
+  relative tolerance of `1e-8` for every pair. Apply `↔(base)` first when
+  starting from a raw survey estimate. A zero-population base group must have a
+  zero participant column.
+- The source population of `partial` must sum, over the source groups in each
+  base group, to that group's base population to a relative tolerance of `1e-8`,
+  and must sum to exactly zero for an empty base group.
+
+# Returns
+A `SourceStratifiedContactMatrix` whose total contacts, summed over the source
+groups in each base group, equal the symmetrised base total contacts
+`(C + Cᵀ)/2`, where `C[i,j] = M[i,j]·N_j`. A base total of at most `1e-8` for
+which `partial` observes no contacts is left at zero; a larger one throws. The
+source population is `partial`'s, rescaled within each base group to sum to the
+base population.
 """
 function align_source_stratified_matrix(
     partial::SourceStratifiedContactMatrix,
@@ -282,17 +354,8 @@ function align_source_stratified_matrix(
     source_pop = population(partial)
     base_pop = population(base)
 
-    source_base_pop = zeros(Float64, n_base)
-    for source in 1:n_source_groups(partial)
-        source_base_pop[fmap[source]] += source_pop[source]
-    end
-    isapprox(source_base_pop, base_pop; rtol=1e-8, atol=1e-8) || throw(ArgumentError(
-        "source populations must aggregate to the base ContactMatrix population"))
-
-    base_counts = matrix(base) * Diagonal(base_pop)
-    isapprox(base_counts, transpose(base_counts); rtol=1e-8, atol=1e-8) ||
-        throw(ArgumentError(
-            "source-stratified alignment requires reciprocal base total contacts; apply ↔(base) first"))
+    aligned_pop = _fibre_matched_population(source_pop, fmap, base_pop, "source population")
+    base_counts = _lift_base_counts(base, "source-stratified alignment")
 
     counts = source_total_contacts(partial)
     current = zeros(Float64, n_target, n_base)
@@ -318,12 +381,12 @@ function align_source_stratified_matrix(
         end
     end
 
-    aligned_matrix = _source_mean_contacts_from_counts(aligned_counts, source_pop)
+    aligned_matrix = _source_mean_contacts_from_counts(aligned_counts, aligned_pop)
     SourceStratifiedContactMatrix(
         aligned_matrix,
         partial.target_partition,
         partial.source_partition,
-        source_pop,
+        aligned_pop,
         MeanContacts(),
     )
 end
