@@ -2,8 +2,8 @@
 
 Contact surveys record the **setting** where contacts occur: home, work, school,
 transport, leisure. The total contact matrix decomposes as a sum of setting-specific
-matrices. This is not merely addition — it's a **commutative monoid** structure
-in the category of contact matrices with formal guarantees:
+matrices. This is not merely addition — it's a **commutative monoid** on matrices
+that share a partition, population and unit semantics, with formal guarantees:
 
 - **Associativity**: ``(A \oplus B) \oplus C = A \oplus (B \oplus C)``
 - **Commutativity**: ``A \oplus B = B \oplus A``

@@ -339,7 +339,8 @@ end
     ContactMatrix{T<:Real, S<:UnitSemantics}
 
 A contact matrix bundled with its finite partition, population vector, and
-unit semantics. This is the object type in the category **Contact**.
+unit semantics. In total contacts `M[i,j]·N_j`, it determines a contact structure,
+an object of the category formalised in `proofs/ContACTProofs/ContactCat.lean`.
 
 The matrix entry `M[i,j]` represents interactions from group `j`
 (column = "contactor") to group `i` (row = "contacted"), with
