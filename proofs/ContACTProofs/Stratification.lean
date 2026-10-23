@@ -3,7 +3,8 @@ import Mathlib.Data.Real.Basic
 import Mathlib.Data.Fintype.BigOperators
 import Mathlib.LinearAlgebra.Matrix.Kronecker
 import Mathlib.Logic.Equiv.Fin.Basic
-import ContACTProofs.ContactCat
+import Mathlib.CategoryTheory.Category.Basic
+import Mathlib.LinearAlgebra.Matrix.NonsingularInverse
 
 /-!
 *Source: `Stratification.lean`*

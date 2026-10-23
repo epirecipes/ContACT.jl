@@ -2,7 +2,8 @@ import Mathlib.Data.Matrix.Basic
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.Fintype.BigOperators
 import Mathlib.Algebra.BigOperators.Field
-import ContACTProofs.ContactCat
+import Mathlib.CategoryTheory.Category.Basic
+import Mathlib.LinearAlgebra.Matrix.NonsingularInverse
 import ContACTProofs.Symmetrisation
 
 /-!

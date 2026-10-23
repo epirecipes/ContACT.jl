@@ -172,18 +172,22 @@ cm_activity = ↔(cm) ⤊ spec
 ⤊(cm::ContactMatrix, spec::ActivityRefinement) = activity_refine(cm, spec)
 
 """
-    cm ⊠ spec::Union{GeneralizedLift,ConstrainedGeneralizedLift}
+    cm ⊠ spec::Union{GeneralizedLift,ConstrainedGeneralizedLift,ParameterizedConstrainedLift}
 
 Lift a contact matrix to a generalized product partition. Type
 `\\boxtimes<TAB>`.
 
-The boxed product arrow denotes an assumption-driven lift from `P` to `P × Q`,
-constructed so that coarsening along the projection `P × Q → P` recovers the
-original matrix.
+The boxed product arrow denotes an assumption-driven lift from `P` to `P × Q`. A
+`GeneralizedLift` splits each block of base total contacts by a mixing kernel; the
+constrained lifts split it to match a source-stratified intermediate matrix.
 
-The mixing distribution and product-population marginals are currently validated
-numerically rather than enforced exactly, so this recovery holds to numerical
-tolerance on the full accepted Julia domain rather than as an exact section.
+Coarsening the result along the projection `P × Q → P` returns the symmetrised base
+matrix, which is `cm` itself when `cm` is exactly reciprocal, together with `cm`'s
+population. This holds to roundoff in floating point. The one exception is in the
+constrained lifts: a base total of at most `1e-8` contacts that the intermediate
+matrix never observes is left at zero (see [`align_source_stratified_matrix`](@ref)).
+See [`generalize`](@ref) and [`constrained_generalize`](@ref) for the inputs each lift
+accepts.
 
 # Example
 ```julia

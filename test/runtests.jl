@@ -1257,6 +1257,71 @@ end
           matrix(symmetrise(transport_population(cm, Np))) atol=1e-10
 end
 
+@testset "coarsening commutes with symmetrisation (↓ ∘ ↔ = ↔ ∘ ↓)" begin
+    fine = AgePartition([0, 10, 20, 30])
+    coarse2 = AgePartition([0, 18])
+    coarse3 = AgePartition([0, 18, 65])
+    M4 = [0.0 1.0 0.5 0.2; 2.0 0.0 0.3 0.1; 0.4 0.6 0.0 0.8; 0.1 0.2 0.9 0.0]
+    cm4 = ContactMatrix(M4, fine, [100.0, 200.0, 150.0, 50.0])   # not reciprocal
+
+    # Group 1 is empty. `symmetrise` accepts this because no populated participant group
+    # reports contacts with it (its row is zero off its own column); its column may be
+    # nonzero. This is the `hcons` of `weightedCoarsen_symmetriseSafe` (ContactCat.lean).
+    M4_empty = [0.7 0.0 0.0 0.0; 2.0 0.0 0.3 0.1; 0.4 0.6 0.0 0.8; 0.1 0.2 0.9 0.0]
+    cm4_empty = ContactMatrix(M4_empty, fine, [0.0, 200.0, 150.0, 50.0])
+
+    # Adjacent, interleaved, and non-surjective (coarse group 2 is hit by nothing, so it
+    # has zero population), as the theorem assumes nothing about the map.
+    maps = (PartitionMap(fine, coarse2, [1, 1, 2, 2]),
+            PartitionMap(fine, coarse2, [1, 2, 1, 2]),
+            PartitionMap(fine, coarse3, [1, 1, 3, 3]),
+            PartitionMap(fine, coarse3, [3, 1, 3, 1]))
+
+    for cm in (cm4, cm4_empty), f in maps
+        sym_then_coarsen = coarsen(symmetrise(cm), f)
+        coarsen_then_sym = symmetrise(coarsen(cm, f))
+        @test matrix(sym_then_coarsen) ≈ matrix(coarsen_then_sym) atol=1e-12
+        @test population(sym_then_coarsen) == population(coarsen_then_sym)
+        @test sym_then_coarsen.semantics isa MeanContacts
+    end
+
+    # The Lean theorem is stated in MeanContacts; the other representations follow by
+    # transport, which this checks on positive populations, where conversion is defined.
+    for s in (ContactCounts(), PerCapitaRate()), f in maps[1:2]
+        cm = reinterpret_units(cm4, s)
+        sym_then_coarsen = coarsen(symmetrise(cm), f)
+        coarsen_then_sym = symmetrise(coarsen(cm, f))
+        @test matrix(sym_then_coarsen) ≈ matrix(coarsen_then_sym) atol=1e-10
+        @test sym_then_coarsen.semantics isa typeof(s)
+    end
+
+    # Symmetrising after coarsening accepts strictly more inputs
+    # (`weightedCoarsen_hcons_strict`): here the empty group 1 reports contacts with the
+    # populated group 2, so `symmetrise` rejects the fine matrix, while merging the two
+    # leaves one populated group that it accepts.
+    two = AgePartition([0, 18])
+    one = AgePartition([0])
+    witness = ContactMatrix([0.0 1.0; 0.0 0.0], two, [0.0, 1.0])
+    merge = PartitionMap(two, one, [1, 1])
+    @test_throws ArgumentError symmetrise(witness)
+    @test matrix(symmetrise(coarsen(witness, merge))) == fill(1.0, 1, 1)
+end
+
+@testset "coarsening along the identity is the normal-form projection" begin
+    p = AgePartition([0, 18])
+    id_map = PartitionMap(p, p, [1, 2])
+
+    # Exact, not approximate: each weight is N_j / N_j, which is exactly 1.0 in floating
+    # point, so a matrix with no empty groups comes back bit for bit.
+    M = [2.0 0.5; 1.0 1.5]
+    @test matrix(coarsen(ContactMatrix(M, p, [100.0, 200.0]), id_map)) == M
+
+    # An empty participant group's column carries no total contacts, so coarsening returns
+    # it as zero (`weightedCoarsen_id`), even along the identity.
+    with_empty = ContactMatrix([0.5 0.0; 8.0 0.4], p, [0.0, 100.0])
+    @test matrix(coarsen(with_empty, id_map)) == [0.0 0.0; 0.0 0.4]
+end
+
 @testset "transport and reprojection: additivity over ⊕" begin
     p = AgePartition([0, 18])
     N = [100.0, 200.0]
