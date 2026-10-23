@@ -109,11 +109,17 @@ discrete map `f`; unlike matrix coarsening it needs neither an additive fold nor
 population normalisation. A universal property for the migration of the whole
 `ContactSurveyACSet` has not been established.
 
-`⊠` coarsens back to the base matrix by design and is regression-tested to, but the
-Julia construction validates its mixing distribution and product population only
-approximately, so the accepted domain is not literally an exact section; the table
-says "assumption-driven" rather than "section of product coarsening" until that is
-closed.
+`⊠` is built to coarsen back to its base matrix and population:
+- **Product populations** must sum to the base population in every base group, to a relative
+  tolerance of `1e-8` and exactly for an empty group. They are then rescaled to sum exactly.
+- **Mixing distributions and kernels** are rescaled to sum to one.
+- **The base matrix** must be reciprocal pair by pair, and the lift splits its symmetrised
+  total contacts.
+
+The recovery is pinned by the `"⊠ coarsens back to the base matrix and population on every
+accepted input"` testset. The table says "assumption-driven" rather than "section of product
+coarsening" because the Julia construction is not yet formally linked to the Lean
+block-assembly theorem (`coarsen_block_assembly`).
 
 ## Categorical Framework
 

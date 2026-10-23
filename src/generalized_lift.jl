@@ -2,9 +2,11 @@
 Generalized contact-matrix lifts.
 
 These operations construct Manna-style generalized contact matrices by lifting a
-matrix over a base partition `P` to a product partition `P × Q`. The lift is a
-section of the canonical projection `P × Q → P`: coarsening the result back to
-`P` recovers the input matrix exactly.
+matrix over a base partition `P` to a product partition `P × Q`. Each base
+total-contact block is split across `Q × Q` by a mixing kernel that sums to one,
+and the product population sums to the base population within each base group,
+so coarsening the result along the projection `P × Q → P` recovers the base
+matrix and population.
 """
 
 """
@@ -14,7 +16,9 @@ Abstract supertype for blockwise mixing assumptions used by `generalize`.
 
 Rows of a block kernel index the target group in the added partition, and
 columns index the source group. Each block kernel must be non-negative and sum
-to one, so it splits one base total-contact block across `Q × Q`.
+to one, so it splits one base total-contact block across `Q × Q`. A kernel whose
+sum is within `1e-8` of one is rescaled to sum to one, and a kernel required to
+be symmetric is replaced by its exact symmetric part `(K + Kᵀ)/2`.
 """
 abstract type GeneralizedMixingKernel end
 
@@ -23,15 +27,16 @@ abstract type GeneralizedMixingKernel end
 
 Product/random mixing over the added partition. If `distribution` is omitted,
 the marginal distribution is inferred from the product population supplied to
-`GeneralizedLift`.
+`GeneralizedLift`. A supplied `distribution` must be non-negative and sum to one
+within `1e-8`; it is rescaled to sum to one.
 """
 struct RandomMixing <: GeneralizedMixingKernel
     distribution::Union{Nothing,Vector{Float64}}
-end
 
-RandomMixing() = RandomMixing(nothing)
-RandomMixing(distribution::AbstractVector{<:Real}) =
-    RandomMixing(_validated_simplex(distribution, "random mixing distribution"))
+    RandomMixing() = new(nothing)
+    RandomMixing(distribution::AbstractVector{<:Real}) =
+        new(_validated_simplex(distribution, "random mixing distribution"))
+end
 
 """
     BlockMixing(diagonal, offdiagonal=diagonal)
@@ -64,8 +69,8 @@ BlockMixing(block::AbstractMatrix{<:Real}) = BlockMixing(block, block)
 Parameterized Manna-style mixing over a three-level added dimension.
 
 `activity` is the share of contacts assigned to each added group and must sum to
-one. `assortativity[k]` is the fraction of group `k`'s activity kept within
-group `k`. For three groups, `offdiag_split = [d₁, d₂, d₃]` reproduces the
+one within `1e-8`; it is rescaled to sum to one. `assortativity[k]` is the
+fraction of group `k`'s activity kept within group `k`. For three groups, `offdiag_split = [d₁, d₂, d₃]` reproduces the
 off-diagonal construction used by Manna et al.; if omitted, the same symmetric
 assortative block is used for all base blocks.
 """
@@ -106,8 +111,15 @@ end
 Specification for lifting a contact matrix over `P` to `P × partition`.
 
 Use `distribution` when the added dimension is independent of the base
-partition. Use `population` when a full joint population over `P × partition` is
-available; matrix-shaped populations are interpreted as `(base, added)`.
+partition. It must sum to one within `1e-8` and is rescaled to sum to one.
+
+Use `population` when a full joint population over `P × partition` is
+available; matrix-shaped populations are interpreted as `(base, added)`. When
+the lift is applied, the joint population must sum, within each base group, to
+that group's population in the base matrix to a relative tolerance of `1e-8`,
+and to exactly zero for an empty base group. It is then rescaled within each
+base group to sum to the base population; a group that already sums exactly is
+left unchanged.
 """
 struct GeneralizedLift{Q<:AbstractPartition,K<:GeneralizedMixingKernel}
     partition::Q
@@ -147,7 +159,8 @@ end
     product_population(base_population, added_distribution)
 
 Create a row-major product-population vector for `P × Q` from a base population
-and an independent distribution over `Q`.
+and an independent distribution over `Q`. The distribution must sum to one within
+`1e-8` and is rescaled to sum to one.
 """
 function product_population(base_population::AbstractVector{<:Real},
                             added_distribution::AbstractVector{<:Real})
@@ -162,12 +175,25 @@ end
     generalize(cm, partition, population; mixing=RandomMixing())
 
 Lift `cm` from partition `P` to `P × partition` using a blockwise mixing
-assumption. The result coarsens exactly back to `cm` along the product
-projection.
+assumption.
 
-`cm` must be reciprocal in total-contact space (`M[i,j]·N_j == M[j,i]·N_i`);
-this is what makes the lifted product matrix reciprocal as well. Apply `↔(cm)`
-first when starting from a raw survey estimate.
+# Requirements
+- `cm` is in `MeanContacts`.
+- `cm` is reciprocal in total contacts, `M[i,j]·N_j ≈ M[j,i]·N_i` to a relative
+  tolerance of `1e-8` for every pair. Apply `↔(cm)` first when starting from a
+  raw survey estimate.
+- A zero-population group of `cm` has a zero participant column.
+- A joint product population sums to `cm`'s population within each base group,
+  as described under [`GeneralizedLift`](@ref).
+
+# Returns
+A `MeanContacts` `ContactMatrix` over `P × partition`. Each base block of total
+contacts, taken from the exactly symmetric `(C + Cᵀ)/2` with
+`C[i,j] = M[i,j]·N_j`, is split across the added groups by the mixing kernel, so
+the result is reciprocal. Coarsening it along the projection to `P` returns the
+matrix of `↔(cm)`, which is `cm`'s own matrix when `cm` is exactly reciprocal,
+and `cm`'s population. Both hold exactly in real arithmetic and to roundoff in
+floating point.
 """
 function generalize(cm::ContactMatrix, spec::GeneralizedLift)
     cm.semantics isa MeanContacts || throw(ArgumentError(
@@ -184,9 +210,7 @@ function generalize(cm::ContactMatrix, spec::GeneralizedLift)
     diagonal_block, offdiagonal_block =
         _mixing_blocks(spec.mixing, n_base, n_added, refined_pop)
 
-    base_counts = _total_contacts(cm)
-    isapprox(base_counts, transpose(base_counts); rtol=1e-8, atol=1e-8) || throw(ArgumentError(
-        "generalized lift requires reciprocal total contacts (M[i,j]·N_j == M[j,i]·N_i); apply ↔(cm) first"))
+    base_counts = _lift_base_counts(cm, "generalized lift")
     refined_counts = zeros(Float64, n_base * n_added, n_base * n_added)
 
     for target_base in 1:n_base
@@ -254,7 +278,7 @@ function _validated_simplex(values::AbstractVector{<:Real}, name::AbstractString
     total > 0 || throw(ArgumentError("$name must have positive total"))
     isapprox(total, 1.0; rtol=1e-8, atol=1e-10) ||
         throw(ArgumentError("$name must sum to 1, got $total"))
-    v
+    v ./ total
 end
 
 function _resolved_lift_population(cm::ContactMatrix, spec::GeneralizedLift,
@@ -268,26 +292,13 @@ function _resolved_lift_population(cm::ContactMatrix, spec::GeneralizedLift,
     length(refined_pop) == n_base * n_added || throw(DimensionMismatch(
         "product population length $(length(refined_pop)) does not match $n_base × $n_added groups"))
 
-    base_marginal = zeros(Float64, n_base)
+    base_of = zeros(Int, n_base * n_added)
     for base in 1:n_base
         for added in 1:n_added
-            base_marginal[base] += refined_pop[_cartesian_index((base, added), (n_base, n_added))]
+            base_of[_cartesian_index((base, added), (n_base, n_added))] = base
         end
     end
-    isapprox(base_marginal, population(cm); rtol=1e-8, atol=1e-8) ||
-        throw(ArgumentError("product population must marginalize to the ContactMatrix population"))
-
-    refined_pop
-end
-
-function _total_contacts(cm::ContactMatrix)
-    M = matrix(cm)
-    pop = population(cm)
-    counts = zeros(Float64, n_groups(cm), n_groups(cm))
-    for source in 1:n_groups(cm)
-        counts[:, source] .= M[:, source] .* pop[source]
-    end
-    counts
+    _fibre_matched_population(refined_pop, base_of, population(cm), "product population")
 end
 
 function _mean_contacts_from_total_counts(counts::AbstractMatrix{<:Real},
@@ -322,8 +333,8 @@ function _mixing_blocks(mixing::RandomMixing, n_base::Int, n_added::Int,
         mixing.distribution
     end
 
-    block = dist * transpose(dist)
-    _validate_block_matrix(block, n_added, "random mixing block"; symmetric=true)
+    block = _validate_block_matrix(dist * transpose(dist), n_added, "random mixing block";
+                                   symmetric=true)
     block, block
 end
 
@@ -371,10 +382,12 @@ function _validate_standalone_block(block::AbstractMatrix{<:Real}, name::Abstrac
     total = sum(M)
     isapprox(total, 1.0; rtol=1e-8, atol=1e-10) ||
         throw(ArgumentError("$name must sum to 1, got $total"))
-    if symmetric && !isapprox(M, transpose(M); rtol=1e-8, atol=1e-10)
-        throw(ArgumentError("$name must be symmetric"))
+    if symmetric
+        isapprox(M, transpose(M); rtol=1e-8, atol=1e-10) ||
+            throw(ArgumentError("$name must be symmetric"))
+        M = (M .+ transpose(M)) ./ 2
     end
-    M
+    M ./ sum(M)
 end
 
 function _assortative_diagonal_block(activity::Vector{Float64}, r::Vector{Float64})
