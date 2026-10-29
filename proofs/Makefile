@@ -7,8 +7,8 @@ PANDOC_FLAGS = --standalone --toc --mathjax \
     --highlight-style=tango
 
 MD_FILES = \
-    ContactCat.md Coarsening.md Symmetrisation.md \
-    Composition.md Stratification.md
+    Coarsening.md Symmetrisation.md \
+    Composition.md Stratification.md ContactCat.md
 
 all: build mdgen html
 

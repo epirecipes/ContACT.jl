@@ -3,7 +3,7 @@ import Mathlib.Data.Matrix.Basic
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.Fintype.BigOperators
 import Mathlib.Algebra.BigOperators.Group.Finset.Basic
-import ContACTProofs.ContactCat
+import Mathlib.LinearAlgebra.Matrix.NonsingularInverse
 
 /-!
 *Source: `Coarsening.lean`*
@@ -26,8 +26,7 @@ basic sum manipulations.
 | 3 | Coarsening is functorial | ✅ |
 | 4 | Population-weighted coarsening (`weightedCoarsen`, matching the shipped `coarsen`) preserves total contacts | ✅ |
 | 5 | Population-weighted coarsening is functorial | ✅ |
-| 6 | `ContactCat` morphisms act on contact data via coarsening, functorially | ✅ |
-| 7 | Activity-vector build/coarsen equivariance: the reciprocal proportionate-mixing lift `a_i·N_i·a_j/D` commutes with coarsening for any fibre map (`weightedCoarsen_proportionate`, and `_nonneg` with no coarse-population condition) | ✅ |
+| 6 | Activity-vector build/coarsen equivariance: the reciprocal proportionate-mixing lift `a_i·N_i·a_j/D` commutes with coarsening for any fibre map (`weightedCoarsen_proportionate`, and `_nonneg` with no coarse-population condition) | ✅ |
 
 -/
 
@@ -223,35 +222,6 @@ theorem weightedCoarsen_functorial {l m n : ℕ}
   rw [hpt, ← coarsen_functorial]
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- The coarsening action of category morphisms (links `ContactCat` to coarsening)
--- ═══════════════════════════════════════════════════════════════════════════
-
-/-- A contact-matrix morphism acts on the (count-space) contact matrix of its
-    domain by coarsening along the underlying age-group map. This gives the
-    morphisms of `ContactCat` a genuine action on contact-matrix data, beyond the
-    bare `Fin`-map. -/
-noncomputable def ContactMatHom.coarsenAction {A B : ContactMatObj}
-    (φ : ContactMatHom A B) (C : Matrix (Fin A.n) (Fin A.n) ℝ) :
-    Matrix (Fin B.n) (Fin B.n) ℝ :=
-  coarsenTotal C φ.map
-
-/-- The identity morphism acts as the identity on contact data. -/
-theorem ContactMatHom.coarsenAction_id {A : ContactMatObj}
-    (C : Matrix (Fin A.n) (Fin A.n) ℝ) :
-    (ContactMatHom.id A).coarsenAction C = C :=
-  coarsen_id C
-
-/-- The action respects composition: coarsening along `g ∘ f` equals coarsening
-    along `f` then `g`. Together with `coarsenAction_id` this makes the action a
-    functor on **Contact**, so "contact matrices form a category" carries
-    contact-structure content rather than just `Fin`-map composition. -/
-theorem ContactMatHom.coarsenAction_comp {A B C : ContactMatObj}
-    (g : ContactMatHom B C) (f : ContactMatHom A B)
-    (M : Matrix (Fin A.n) (Fin A.n) ℝ) :
-    (g.comp f).coarsenAction M = g.coarsenAction (f.coarsenAction M) := by
-  simp only [ContactMatHom.coarsenAction, ContactMatHom.comp]
-  exact coarsen_functorial M f.map g.map
--- ═══════════════════════════════════════════════════════════════════════════
 -- Build/coarsen equivariance for activity-vector lifts
 -- ═══════════════════════════════════════════════════════════════════════════
 
@@ -419,7 +389,7 @@ theorem weightedCoarsen_proportionate_nonneg {m n : ℕ}
     `weightedCoarsen_proportionate_nonneg` immediately above, which is the version
     to cite for anything about ContACT's own domain.
 
-    Distinct from `coarsenAction_comp`, which is functoriality of coarsening
+    Distinct from `coarsen_functorial`, which is functoriality of coarsening
     alone and holds for *any* matrix. This theorem relates two different
     operations — `build` and `coarsen` — and therefore depends on the specific
     lift used. It fails for the naive `a_i*a_j/D` form, which is not valid

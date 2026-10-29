@@ -116,10 +116,11 @@ population normalisation. A universal property for the migration of the whole
 - **The base matrix** must be reciprocal pair by pair, and the lift splits its symmetrised
   total contacts.
 
-The recovery is pinned by the `"⊠ coarsens back to the base matrix and population on every
-accepted input"` testset. The table says "assumption-driven" rather than "section of product
-coarsening" because the Julia construction is not yet formally linked to the Lean
-block-assembly theorem (`coarsen_block_assembly`).
+Recovery is regression-tested for all three lift types. For `GeneralizedLift` it is also
+proved in Lean: `weightedCoarsen_generalize` (`ContactCat.lean`) shows that coarsening the
+lift returns the symmetrised base matrix, which is the base itself when the base is exactly
+reciprocal. No theorem covers the constrained lifts, `ConstrainedGeneralizedLift` and
+`ParameterizedConstrainedLift`.
 
 ## Categorical Framework
 
@@ -200,8 +201,14 @@ The `proofs/` directory contains machine-checked proofs of:
 
 | Property | File | Status |
 |----------|------|--------|
-| Partition maps between contact-matrix objects compose as a category | `ContactCat.lean` | ✅ |
-| Category morphisms act functorially on contact data (`coarsenAction`) | `Coarsening.lean` | ✅ |
+| Contact structures (populations with total contacts) form the category of elements of the total-contact pushforward functor, built with Mathlib's construction; its morphisms are exactly the partition maps that push them forward, with no surjectivity, positivity or sign condition | `ContactCat.lean` | ✅ |
+| Symmetrisation of total contacts is a natural transformation of the pushforward functor, and induces a functor on contact structures that leaves every map unchanged | `ContactCat.lean` | ✅ |
+| Shipped `coarsen` computes the target of the morphism along a map (nonnegative populations; empty groups and non-surjective maps included) | `ContactCat.lean` | ✅ |
+| Coarsening along the identity is exact on matrices whose empty groups have zero participant columns, and zeroes those columns otherwise (counterexample) | `ContactCat.lean` | ✅ |
+| Symmetrisation commutes with coarsening, for any map and including empty groups, wherever `symmetrise` accepts the input; symmetrising after coarsening accepts strictly more inputs | `ContactCat.lean` | ✅ |
+| Coarsening is additive for `⊕` at a fixed population | `ContactCat.lean` | ✅ |
+| Refinement constructs a finer structure with a morphism back to the input matrix at the prior's aggregated population, which is the input itself when the prior aggregates exactly | `ContactCat.lean` | ✅ |
+| Block lifts with kernels summing to one, the construction `generalize` uses (`⊠` with a `GeneralizedLift`), have a morphism back to their symmetrised base; in `MeanContacts`, coarsening one returns the symmetrised base | `ContactCat.lean` | ✅ |
 | Coarsening functoriality (unweighted count model) | `Coarsening.lean` | ✅ |
 | Coarsening preserves total contacts (unweighted count model) | `Coarsening.lean` | ✅ |
 | **Population-weighted** coarsening functoriality (matches `coarsen`) | `Coarsening.lean` | ✅ |
@@ -261,10 +268,12 @@ a zero source population is admitted only when that group's **participant column
 zero. Its row may be nonzero, and which axis is guarded matters — the corresponding
 guards elsewhere in the package check different axes.
 
-The `ContactCat.lean` row covers less than its name suggests: its morphism carries a
-map between index sets and a surjectivity proof, so the category laws are about those
-maps rather than about the contact data. The theorems that do relate a coarsened matrix
-to the one it came from are the coarsening rows above.
+The `ContactCat.lean` rows are stated in total contacts, where a contact structure is a
+set of groups, their populations, and the total contacts `M[i,j]·N_j` between them. A
+mean-contacts matrix represents its structure faithfully when every participant group
+with no population has a zero column. This holds whenever all populations are positive,
+and for every output of `coarsen`. On other matrices, coarsening along the identity
+zeroes those columns.
 
 Build proofs with:
 ```bash
