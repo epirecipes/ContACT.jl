@@ -201,7 +201,8 @@ The `proofs/` directory contains machine-checked proofs of:
 
 | Property | File | Status |
 |----------|------|--------|
-| Contact structures (populations with total contacts) and the partition maps that push them forward form a category, with no surjectivity, positivity or sign condition | `ContactCat.lean` | ✅ |
+| Contact structures (populations with total contacts) form the category of elements of the total-contact pushforward functor, built with Mathlib's construction; its morphisms are exactly the partition maps that push them forward, with no surjectivity, positivity or sign condition | `ContactCat.lean` | ✅ |
+| Symmetrisation of total contacts is a natural transformation of the pushforward functor, and induces a functor on contact structures that leaves every map unchanged | `ContactCat.lean` | ✅ |
 | Shipped `coarsen` computes the target of the morphism along a map (nonnegative populations; empty groups and non-surjective maps included) | `ContactCat.lean` | ✅ |
 | Coarsening along the identity is exact on matrices whose empty groups have zero participant columns, and zeroes those columns otherwise (counterexample) | `ContactCat.lean` | ✅ |
 | Symmetrisation commutes with coarsening, for any map and including empty groups, wherever `symmetrise` accepts the input; symmetrising after coarsening accepts strictly more inputs | `ContactCat.lean` | ✅ |

@@ -1,5 +1,4 @@
-import Mathlib.CategoryTheory.Category.Basic
-import Mathlib.CategoryTheory.Functor.Basic
+import Mathlib.CategoryTheory.Elements
 import Mathlib.LinearAlgebra.Matrix.NonsingularInverse
 import Mathlib.Tactic.FieldSimp
 import Mathlib.Algebra.BigOperators.Field
@@ -15,19 +14,26 @@ import ContACTProofs.ConstrainedLift
 
 A **contact structure** is a triple `(X, N, C)`: a finite set of groups `X = Fin n`,
 their populations `N`, and the total contacts `C[i,j] = M[i,j]·N_j` between contactee
-group `i` (row) and participant group `j` (column). A partition map `f : X → Y` is a
-**morphism** `(X, N, C) → (Y, N', C')` exactly when `N'` and `C'` are the pushforwards
-of `N` and `C` along `f`:
+group `i` (row) and participant group `j` (column).
+
+The index category `FinIdx` has the finite sets `Fin n` as objects and every map between
+them as a morphism, mirroring Catlab's `FinSet(n)` and `FinFunction`, which the Julia
+package uses for partitions and partition maps. The **total-contact pushforward
+functor** `pushforward : FinIdx ⥤ Type` sends `Fin n` to its contact data `(N, C)`, and
+a map `f` to the pair of pushforwards
 
     N'[J]   = Σ_{f(j)=J} N_j
     C'[I,J] = Σ_{f(i)=I, f(j)=J} C[i,j]
 
-These form a category. Nothing is assumed about the map or the data: the map need not
-be surjective, and populations and contacts may be any real numbers. The category laws
-are the functoriality of the two pushforwards (`coarsen_id`, `coarsen_functorial`,
-`coarsenPop_id`, `coarsenPop_comp`). A morphism is determined by its map, and every
-structure has exactly one morphism out of it along each map, landing on its pushforward
-(`ContactHom.cod_eq_push`).
+Its functor laws are `coarsenPop_id`, `coarsen_id`, `coarsenPop_comp` and
+`coarsen_functorial`. Contact structures form its **category of elements**, Mathlib's
+`Functor.Elements`, with Mathlib's category instance. A morphism
+`(X, N, C) ⟶ (Y, N', C')` is a map `f : X → Y` along which `N'` and `C'` are the
+pushforwards of `N` and `C` (`ContactObj.homEquiv`). Nothing is assumed about the map or
+the data: the map need not be surjective, and populations and contacts may be any real
+numbers. A morphism is determined by its map, and every structure has exactly one
+morphism out of it along each map, landing on its pushforward
+(`ContactObj.cod_eq_push`).
 
 The shipped operations are stated against this category as follows.
 
@@ -39,8 +45,10 @@ The shipped operations are stated against this category as follows.
   (`weightedCoarsen_id`), and is the identity exactly there. Normal form holds whenever
   every population is positive, and for every output of `coarsen`.
 - **`↔` (`symmetrise`).** In total contacts, symmetrisation is `(C + Cᵀ)/2` at a fixed
-  population. It is an endofunctor that leaves every map unchanged (`symFunctor`), so it
-  commutes with pushforward (`ContactObj.push_sym`). In `MeanContacts` this gives
+  population. It is a natural transformation of the pushforward functor (`symNat`), so
+  Mathlib's construction induces a functor on contact structures (`symFunctor`). That
+  functor leaves every map unchanged (`symFunctor_comp_pi`), so it commutes with
+  pushforward (`ContactObj.push_sym`). In `MeanContacts` this gives
   `↓ ∘ ↔ = ↔ ∘ ↓`, empty groups included, wherever `symmetrise` accepts the input
   (`weightedCoarsen_symmetriseSafe`).
 - **`⊕` (`compose_matrices`).** At a fixed population, total contacts form a commutative
@@ -62,11 +70,11 @@ a morphism along `id` forces the population to stay the same.
 
 | # | Result | Status |
 |---|--------|--------|
-| 1 | Contact structures and pushforward morphisms form a category, with no condition on the map or the data | ✅ |
+| 1 | Contact structures are the category of elements of the total-contact pushforward functor (Mathlib's `Functor.Elements`); its morphisms are exactly the maps that carry populations and total contacts forward, with no condition on the map or the data | ✅ |
 | 2 | A morphism is determined by its map, and lands on the pushforward of its source | ✅ |
 | 3 | Shipped `weightedCoarsen` computes the target of the morphism along a map (nonnegative populations; empty groups and non-surjective maps included) | ✅ |
 | 4 | In `MeanContacts`, coarsening along `id` is the projection onto normal form; it is not the identity off normal form (counterexample) | ✅ |
-| 5 | Symmetrisation is an endofunctor that leaves every map unchanged, commutes with pushforward, and is idempotent on objects | ✅ |
+| 5 | Symmetrisation is a natural transformation of the pushforward functor; the functor it induces on contact structures leaves every map unchanged, commutes with pushforward, and is idempotent on objects | ✅ |
 | 6 | `↓ ∘ ↔ = ↔ ∘ ↓` for the shipped operations, including empty groups, wherever `symmetrise` accepts the input; symmetrising after coarsening is defined on strictly more inputs | ✅ |
 | 7 | Pushforward is an additive monoid homomorphism; weighted coarsening is additive with no hypothesis | ✅ |
 | 8 | Refinement constructs a finer structure with a morphism back to the input matrix at the prior's aggregated population | ✅ |
@@ -79,8 +87,24 @@ a morphism along `id` forces the population to stay the same.
 open CategoryTheory
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- The category
+-- The index category, the pushforward functor and its category of elements
 -- ═══════════════════════════════════════════════════════════════════════════
+
+/-- The index category: the finite sets of groups `Fin n`, with every map between them
+    as a morphism. This mirrors Catlab's `FinSet(n)` and `FinFunction`. -/
+structure FinIdx where
+  n : ℕ
+
+instance : SmallCategory FinIdx where
+  Hom A B := Fin A.n → Fin B.n
+  id _ := id
+  comp f g := g ∘ f
+
+@[simp] theorem FinIdx.comp_apply {A B C : FinIdx} (f : A ⟶ B) (g : B ⟶ C) (i : Fin A.n) :
+    (f ≫ g) i = g (f i) := rfl
+@[simp] theorem FinIdx.id_apply (A : FinIdx) (i : Fin A.n) : (𝟙 A : A ⟶ A) i = i := rfl
+@[ext] theorem FinIdx.hom_ext {A B : FinIdx} {f g : A ⟶ B} (h : ∀ i, f i = g i) : f = g :=
+  funext h
 
 /-- Pushing populations forward along `id` leaves them unchanged. -/
 theorem coarsenPop_id {n : ℕ} (N : Fin n → ℝ) : coarsenPop N id = N := by
@@ -89,60 +113,99 @@ theorem coarsenPop_id {n : ℕ} (N : Fin n → ℝ) : coarsenPop N id = N := by
   rw [show Finset.univ.filter (fun j => j = J) = {J} from by ext x; simp]
   simp
 
-/-- A contact structure: groups `Fin n`, populations `pop`, and total contacts
-    `counts` (row = contactee, column = participant). No sign or positivity
-    condition is imposed. -/
-structure ContactObj where
-  n : ℕ
-  pop : Fin n → ℝ
-  counts : Matrix (Fin n) (Fin n) ℝ
+/-- **The total-contact pushforward functor.** It sends `Fin n` to its contact data, a
+    pair of populations and total contacts (row = contactee, column = participant), and a
+    map to the pair of pushforwards. No sign or positivity condition is imposed on the
+    data. -/
+noncomputable def pushforward : FinIdx ⥤ Type where
+  obj A := (Fin A.n → ℝ) × Matrix (Fin A.n) (Fin A.n) ℝ
+  map f := TypeCat.ofHom fun x => (coarsenPop x.1 f, coarsenTotal x.2 f)
+  map_id A := by
+    refine ConcreteCategory.hom_ext _ _ fun x => ?_
+    show (coarsenPop x.1 id, coarsenTotal x.2 id) = x
+    exact Prod.ext (coarsenPop_id x.1) (coarsen_id x.2)
+  map_comp {A B C} f g := by
+    refine ConcreteCategory.hom_ext _ _ fun x => ?_
+    show (coarsenPop x.1 (g ∘ f), coarsenTotal x.2 (g ∘ f)) =
+      (coarsenPop (coarsenPop x.1 f) g, coarsenTotal (coarsenTotal x.2 f) g)
+    exact Prod.ext (funext fun K => (coarsenPop_comp x.1 f g K).symm)
+      (coarsen_functorial x.2 f g)
 
-/-- A morphism of contact structures: a partition map whose target data is the
-    pushforward of its source data. -/
-structure ContactHom (A B : ContactObj) where
-  map : Fin A.n → Fin B.n
-  pop_eq : coarsenPop A.pop map = B.pop
-  counts_eq : coarsenTotal A.counts map = B.counts
+/-- **Contact structures**: the category of elements of `pushforward`, with Mathlib's
+    category instance. An object is a set of groups `Fin n` together with populations and
+    total contacts over it. -/
+abbrev ContactObj : Type := pushforward.Elements
+
+/-- The contact structure with groups `Fin n`, populations `pop` and total contacts
+    `counts`. -/
+abbrev ContactObj.mk (n : ℕ) (pop : Fin n → ℝ) (counts : Matrix (Fin n) (Fin n) ℝ) : ContactObj :=
+  ⟨⟨n⟩, (pop, counts)⟩
+
+/-- The number of groups. -/
+abbrev ContactObj.n (A : ContactObj) : ℕ := A.1.n
+
+/-- The populations. -/
+abbrev ContactObj.pop (A : ContactObj) : Fin A.n → ℝ := Prod.fst (α := Fin A.n → ℝ) A.2
+
+/-- The total contacts. -/
+abbrev ContactObj.counts (A : ContactObj) : Matrix (Fin A.n) (Fin A.n) ℝ :=
+  Prod.snd (β := Matrix (Fin A.n) (Fin A.n) ℝ) A.2
+
+/-- A morphism from a map and the two pushforward equations. -/
+noncomputable def ContactObj.homMk {A B : ContactObj} (f : Fin A.n → Fin B.n)
+    (hp : coarsenPop A.pop f = B.pop) (hc : coarsenTotal A.counts f = B.counts) : A ⟶ B :=
+  CategoryOfElements.homMk A B f (Prod.ext hp hc)
+
+/-- The populations of the target are the pushforward of the source's. -/
+theorem ContactObj.pop_eq {A B : ContactObj} (φ : A ⟶ B) : coarsenPop A.pop φ.val = B.pop :=
+  congrArg Prod.fst φ.property
+
+/-- The total contacts of the target are the pushforward of the source's. -/
+theorem ContactObj.counts_eq {A B : ContactObj} (φ : A ⟶ B) : coarsenTotal A.counts φ.val = B.counts :=
+  congrArg Prod.snd φ.property
+
+/-- **The morphisms are exactly the pushforward maps**: a morphism `A ⟶ B` is the same
+    thing as a map along which `B`'s populations and total contacts are the pushforwards
+    of `A`'s. -/
+noncomputable def ContactObj.homEquiv (A B : ContactObj) :
+    (A ⟶ B) ≃ {f : Fin A.n → Fin B.n //
+      coarsenPop A.pop f = B.pop ∧ coarsenTotal A.counts f = B.counts} where
+  toFun φ := ⟨φ.val, ContactObj.pop_eq φ, ContactObj.counts_eq φ⟩
+  invFun f := ContactObj.homMk f.1 f.2.1 f.2.2
+  left_inv _ := CategoryOfElements.ext _ _ _ rfl
+  right_inv _ := rfl
 
 /-- A morphism is determined by its map. -/
-@[ext] theorem ContactHom.ext {A B : ContactObj} {φ ψ : ContactHom A B}
-    (h : φ.map = ψ.map) : φ = ψ := by
-  cases φ; cases ψ; cases h; rfl
+theorem ContactObj.hom_ext {A B : ContactObj} {φ ψ : A ⟶ B} (h : φ.val = ψ.val) : φ = ψ :=
+  CategoryOfElements.ext _ _ _ h
 
-instance : Category ContactObj where
-  Hom := ContactHom
-  id A := ⟨id, coarsenPop_id A.pop, coarsen_id A.counts⟩
-  comp φ ψ :=
-    ⟨ψ.map ∘ φ.map,
-     by funext K; rw [← coarsenPop_comp, φ.pop_eq, ψ.pop_eq],
-     by rw [coarsen_functorial, φ.counts_eq, ψ.counts_eq]⟩
-  id_comp _ := ContactHom.ext rfl
-  comp_id _ := ContactHom.ext rfl
-  assoc _ _ _ := ContactHom.ext rfl
+theorem ContactObj.id_val (A : ContactObj) : (𝟙 A : A ⟶ A).val = id := rfl
 
-@[simp] theorem ContactHom.id_map (A : ContactObj) : (𝟙 A : A ⟶ A).map = id := rfl
-
-@[simp] theorem ContactHom.comp_map {A B C : ContactObj} (φ : A ⟶ B) (ψ : B ⟶ C) :
-    (φ ≫ ψ).map = ψ.map ∘ φ.map := rfl
+theorem ContactObj.comp_val {A B C : ContactObj} (φ : A ⟶ B) (ψ : B ⟶ C) :
+    (φ ≫ ψ).val = ψ.val ∘ φ.val := rfl
 
 /-- The pushforward of a contact structure along a map. -/
-noncomputable def ContactObj.push (A : ContactObj) {m : ℕ} (f : Fin A.n → Fin m) :
-    ContactObj :=
-  ⟨m, coarsenPop A.pop f, coarsenTotal A.counts f⟩
+noncomputable def ContactObj.push (A : ContactObj) {m : ℕ} (f : Fin A.n → Fin m) : ContactObj :=
+  ContactObj.mk m (coarsenPop A.pop f) (coarsenTotal A.counts f)
 
 /-- The morphism along `f` from a contact structure to its pushforward. -/
-noncomputable def ContactObj.pushHom (A : ContactObj) {m : ℕ} (f : Fin A.n → Fin m) :
-    A ⟶ A.push f :=
-  ⟨f, rfl, rfl⟩
+noncomputable def ContactObj.pushHom (A : ContactObj) {m : ℕ} (f : Fin A.n → Fin m) : A ⟶ A.push f :=
+  ContactObj.homMk f rfl rfl
 
 /-- Every morphism lands on the pushforward of its source along its map, so there is
     exactly one morphism out of a structure along each map. -/
-theorem ContactHom.cod_eq_push {A B : ContactObj} (φ : A ⟶ B) : B = A.push φ.map := by
-  obtain ⟨n, pop, counts⟩ := B
-  obtain ⟨map, hp, hc⟩ := φ
-  show ContactObj.mk n pop counts =
-    ContactObj.mk n (coarsenPop A.pop map) (coarsenTotal A.counts map)
-  rw [hp, show coarsenTotal A.counts map = counts from hc]
+theorem ContactObj.cod_eq_push {A B : ContactObj} (φ : A ⟶ B) : B = A.push φ.val := by
+  have hp := ContactObj.pop_eq φ
+  have hc := ContactObj.counts_eq φ
+  obtain ⟨⟨n⟩, pop, counts⟩ := B
+  show (ContactObj.mk n pop counts : ContactObj) =
+    ContactObj.mk n (coarsenPop A.pop φ.val) (coarsenTotal A.counts φ.val)
+  rw [hp, hc]
+
+
+/-- The category instance on `ContactObj` is Mathlib's `categoryOfElements`. -/
+example : (inferInstance : Category ContactObj) = categoryOfElements pushforward := by
+  with_reducible rfl
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- The MeanContacts representation and the shipped `coarsen`
@@ -162,7 +225,7 @@ noncomputable def ofCounts {n : ℕ} (C : Matrix (Fin n) (Fin n) ℝ) (N : Fin n
 /-- The contact structure of a mean-contacts matrix `M` with populations `N`. -/
 noncomputable def ofMean (n : ℕ) (M : Matrix (Fin n) (Fin n) ℝ) (N : Fin n → ℝ) :
     ContactObj :=
-  ⟨n, N, toCounts M N⟩
+  ContactObj.mk n N (toCounts M N)
 
 /-- `weightedCoarsen` is, by definition, the mean-contacts form of the pushforward. -/
 theorem weightedCoarsen_eq_ofCounts {m n : ℕ} (M : Matrix (Fin m) (Fin m) ℝ)
@@ -176,9 +239,9 @@ theorem weightedCoarsen_eq_ofCounts {m n : ℕ} (M : Matrix (Fin m) (Fin m) ℝ)
 noncomputable def coarsenHom {m n : ℕ} (M : Matrix (Fin m) (Fin m) ℝ) (N : Fin m → ℝ)
     (f : Fin m → Fin n) (hN : ∀ j, 0 ≤ N j) :
     ofMean m M N ⟶ ofMean n (weightedCoarsen M N f) (coarsenPop N f) :=
-  ⟨f, rfl, by
+  ContactObj.homMk f rfl (by
     funext I J
-    exact (weightedCoarsen_mul_pop M N f hN I J).symm⟩
+    exact (weightedCoarsen_mul_pop M N f hN I J).symm)
 
 /-- **The shipped `coarsen` computes the pushforward**: on nonnegative populations, the
     structure of the coarsened matrix is the pushforward of the structure of the fine
@@ -186,7 +249,7 @@ noncomputable def coarsenHom {m n : ℕ} (M : Matrix (Fin m) (Fin m) ℝ) (N : F
 theorem ofMean_weightedCoarsen {m n : ℕ} (M : Matrix (Fin m) (Fin m) ℝ) (N : Fin m → ℝ)
     (f : Fin m → Fin n) (hN : ∀ j, 0 ≤ N j) :
     ofMean n (weightedCoarsen M N f) (coarsenPop N f) = (ofMean m M N).push f :=
-  ContactHom.cod_eq_push (coarsenHom M N f hN)
+  ContactObj.cod_eq_push (coarsenHom M N f hN)
 
 /-- Converting to total contacts and back is the projection onto normal form: the
     column of an empty participant group becomes zero. -/
@@ -255,39 +318,50 @@ theorem coarsenTotal_symCounts {m n : ℕ} (C : Matrix (Fin m) (Fin m) ℝ)
   congr 2
   exact Finset.sum_comm
 
+/-- **Symmetrisation as a natural transformation** of the pushforward functor: at every
+    set of groups it keeps the populations and replaces total contacts by `(C + Cᵀ)/2`.
+    Naturality is `coarsenTotal_symCounts`. -/
+noncomputable def symNat : pushforward ⟶ pushforward where
+  app A := TypeCat.ofHom fun x => (x.1, symCounts x.2)
+  naturality A B f := by
+    refine ConcreteCategory.hom_ext _ _ fun x => ?_
+    show (coarsenPop x.1 f, symCounts (coarsenTotal x.2 f)) =
+      (coarsenPop x.1 f, coarsenTotal (symCounts x.2) f)
+    exact Prod.ext rfl (coarsenTotal_symCounts x.2 f).symm
+
+/-- **Symmetrisation on contact structures**: the functor Mathlib's construction induces
+    from `symNat` (`CategoryOfElements.map`). -/
+noncomputable def symFunctor : ContactObj ⥤ ContactObj := CategoryOfElements.map symNat
+
+/-- It leaves every map unchanged: followed by the forgetful functor to `FinIdx`, it is
+    the forgetful functor (Mathlib's `CategoryOfElements.map_π`). -/
+theorem symFunctor_comp_pi :
+    symFunctor ⋙ CategoryOfElements.π pushforward = CategoryOfElements.π pushforward :=
+  CategoryOfElements.map_π symNat
+
+@[simp] theorem symFunctor_map_val {A B : ContactObj} (φ : A ⟶ B) :
+    (symFunctor.map φ).val = φ.val := rfl
+
 /-- The symmetrisation of a contact structure, at the same population. -/
-noncomputable def ContactObj.sym (A : ContactObj) : ContactObj :=
-  ⟨A.n, A.pop, symCounts A.counts⟩
+noncomputable abbrev ContactObj.sym (A : ContactObj) : ContactObj := symFunctor.obj A
 
-/-- A morphism of contact structures is also a morphism of their symmetrisations. -/
-noncomputable def ContactHom.sym {A B : ContactObj} (φ : A ⟶ B) : A.sym ⟶ B.sym :=
-  ⟨φ.map, φ.pop_eq, by
-    show coarsenTotal (symCounts A.counts) φ.map = symCounts B.counts
-    rw [coarsenTotal_symCounts, φ.counts_eq]⟩
-
-/-- **Symmetrisation is an endofunctor** of contact structures. -/
-noncomputable def symFunctor : ContactObj ⥤ ContactObj where
-  obj := ContactObj.sym
-  map := ContactHom.sym
-  map_id _ := ContactHom.ext rfl
-  map_comp _ _ := ContactHom.ext rfl
-
-/-- …which leaves every map unchanged. -/
-@[simp] theorem symFunctor_map_map {A B : ContactObj} (φ : A ⟶ B) :
-    (symFunctor.map φ).map = φ.map := rfl
+@[simp] theorem ContactObj.sym_n (A : ContactObj) : A.sym.n = A.n := rfl
+@[simp] theorem ContactObj.sym_pop (A : ContactObj) : A.sym.pop = A.pop := rfl
+@[simp] theorem ContactObj.sym_counts (A : ContactObj) :
+    A.sym.counts = symCounts A.counts := rfl
 
 /-- Symmetrisation commutes with pushforward. -/
 theorem ContactObj.push_sym (A : ContactObj) {m : ℕ} (f : Fin A.n → Fin m) :
     (A.push f).sym = A.sym.push f :=
-  ContactHom.cod_eq_push (ContactHom.sym (A.pushHom f))
+  ContactObj.cod_eq_push (symFunctor.map (A.pushHom f))
 
 /-- Symmetrisation is idempotent on objects. -/
 theorem ContactObj.sym_sym (A : ContactObj) : A.sym.sym = A.sym := by
-  obtain ⟨n, pop, counts⟩ := A
-  show ContactObj.mk n pop (symCounts (symCounts counts)) =
+  obtain ⟨⟨n⟩, pop, counts⟩ := A
+  show (ContactObj.mk n pop (symCounts (symCounts counts)) : ContactObj) =
     ContactObj.mk n pop (symCounts counts)
-  congr 1
-  funext i j; simp only [symCounts]; ring
+  rw [show symCounts (symCounts counts) = symCounts counts from by
+    funext i j; simp only [symCounts]; ring]
 
 /-- **`↓ ∘ ↔ = ↔ ∘ ↓` for the shipped operations.** Coarsening commutes with
     symmetrisation in `MeanContacts`, for any map and including empty groups.
@@ -422,7 +496,7 @@ noncomputable def refineHom {m n : ℕ} (Mc : Matrix (Fin n) (Fin n) ℝ) (N : F
     (f : Fin m → Fin n) (hN : ∀ j, 0 ≤ N j)
     (hrow : ∀ I J, coarsenPop N f I = 0 → Mc I J = 0) :
     ofMean m (refineMatrix Mc N f) N ⟶ ofMean n Mc (coarsenPop N f) :=
-  ⟨f, rfl, by
+  ContactObj.homMk f rfl (by
     funext I J
     have h := weightedCoarsen_mul_pop (refineMatrix Mc N f) N f hN I J
     -- Replace `Mc` by its normal form at the aggregated population. Refinement does not
@@ -451,7 +525,7 @@ noncomputable def refineHom {m n : ℕ} (Mc : Matrix (Fin n) (Fin n) ℝ) (N : F
     simp only [Mc']
     split_ifs with hJ
     · rw [hJ, mul_zero, mul_zero]
-    · rfl⟩
+    · rfl)
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- `⊠`: block lifts construct a structure with a morphism back
@@ -515,8 +589,8 @@ noncomputable def blockLiftHom {m n : ℕ} (C : Matrix (Fin n) (Fin n) ℝ)
     (κ : Fin n → Fin n → Fin m → Fin m → ℝ) (f : Fin m → Fin n) (Nlift : Fin m → ℝ)
     (hκ : ∀ I J, C I J ≠ 0 → ∑ i ∈ Finset.univ.filter (fun i => f i = I),
       ∑ j ∈ Finset.univ.filter (fun j => f j = J), κ I J i j = 1) :
-    (⟨m, Nlift, blockLift C κ f⟩ : ContactObj) ⟶ ⟨n, coarsenPop Nlift f, C⟩ :=
-  ⟨f, rfl, coarsenTotal_blockLift C κ f hκ⟩
+    ContactObj.mk m Nlift (blockLift C κ f) ⟶ ContactObj.mk n (coarsenPop Nlift f) C :=
+  ContactObj.homMk f rfl (coarsenTotal_blockLift C κ f hκ)
 
 /-- **`generalize` in `MeanContacts`** (`⊠` with a `GeneralizedLift`). Lift the
     symmetrised total contacts of a base
